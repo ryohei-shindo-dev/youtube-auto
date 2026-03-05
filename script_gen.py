@@ -49,9 +49,9 @@ CHANNEL_CONCEPT = (
 
 # 固定フレーズ
 OPENING_PHRASES = [
-    "今日もガチホしてますか？",
-    "まだ市場に残ってますか？",
-    "今日も積み立て続けてますか？",
+    "ガチホしてますか？",
+    "まだ残ってますか？",
+    "続けてますか？",
 ]
 OPENING_PHRASE = OPENING_PHRASES[0]  # デフォルト（通常動画用）
 CLOSING_PHRASES_LIST = [
