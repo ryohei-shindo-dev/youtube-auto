@@ -8,7 +8,11 @@
       "Bash(ls:*)",
       "Bash(/Users/shindoryohei/youtube-auto/.venv/bin/python:*)",
       "Bash(/Users/shindoryohei/youtube-auto/venv/bin/python:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(open:*)",
+      "Bash(venv/bin/python:*)",
+      "Bash(crontab:*)",
+      "Bash(printf:*)"
     ]
   }
 }

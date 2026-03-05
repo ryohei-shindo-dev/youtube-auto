@@ -30,7 +30,10 @@ from googleapiclient.discovery import build
 _DIR = pathlib.Path(__file__).parent
 CREDENTIALS_FILE = str(_DIR / "credentials.json")
 TOKEN_FILE = str(_DIR / "token.json")
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/youtube",
+]
 
 SHEET_NAME = "投稿管理"
 
@@ -41,12 +44,22 @@ STATUS_PUBLISHED = "公開済み"
 _service_cache = {}
 
 
+def _get_cached_service(name: str, version: str):
+    """Google API サービスをキャッシュ付きで取得する。"""
+    if name not in _service_cache:
+        creds = _get_credentials()
+        _service_cache[name] = build(name, version, credentials=creds)
+    return _service_cache[name]
+
+
 def get_service():
     """Google Sheets API サービスを取得する。"""
-    if "sheets" not in _service_cache:
-        creds = _get_credentials()
-        _service_cache["sheets"] = build("sheets", "v4", credentials=creds)
-    return _service_cache["sheets"]
+    return _get_cached_service("sheets", "v4")
+
+
+def get_youtube_service():
+    """YouTube Data API v3 サービスを取得する。"""
+    return _get_cached_service("youtube", "v3")
 
 
 def get_next_topic(
