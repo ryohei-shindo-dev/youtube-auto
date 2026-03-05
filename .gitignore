@@ -4,6 +4,7 @@ credentials.json
 token.json
 tiktok_token.json
 instagram_token.json
+x_token.json
 
 # Python仮想環境
 venv/

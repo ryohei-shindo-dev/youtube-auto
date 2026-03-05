@@ -32,7 +32,7 @@ DONE_DIR = SCRIPT_DIR / "done"
 SCHEDULE_FILE = SCRIPT_DIR / "posting_schedule.json"
 LOG_DIR = SCRIPT_DIR / "logs"
 
-ALL_PLATFORMS = ["youtube", "tiktok", "instagram"]
+ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
 
 # Shorts タイトル用サフィックス（ランダムで選択）
 _TITLE_SUFFIXES = [
@@ -160,6 +160,7 @@ def _ensure_platforms(entry: dict):
             },
             "tiktok": {"published": False, "url": None, "error": None},
             "instagram": {"published": False, "url": None, "error": None},
+            "x": {"published": False, "url": None, "error": None},
         }
 
 
@@ -184,7 +185,7 @@ def publish_entry(
     1本の動画を各プラットフォームに投稿する。
 
     Returns:
-        {"youtube": True/False, "tiktok": True/False, "instagram": True/False}
+        {"youtube": True/False, "tiktok": True/False, "instagram": True/False, "x": True/False}
     """
     if platforms is None:
         platforms = list(ALL_PLATFORMS)
@@ -231,6 +232,15 @@ def publish_entry(
             print(f"    TikTok:  {tt_title}")
         if "instagram" in platforms:
             print(f"    Instagram: {ig_caption[:50]}...")
+        if "x" in platforms:
+            social_path = folder / "social_captions.json"
+            try:
+                with open(social_path, encoding="utf-8") as f:
+                    social_data = json.load(f)
+                x_preview = social_data.get("x", {}).get("shorts_post", "")[:50]
+                print(f"    X: {x_preview}...")
+            except FileNotFoundError:
+                print(f"    X: {yt_title[:50]}...")
         return {p: True for p in platforms}
 
     results = {}
@@ -315,6 +325,38 @@ def publish_entry(
         except Exception as e:
             results["instagram"] = False
             print(f"  [Instagram] エラー: {e}")
+
+    # --- X（旧Twitter） ---
+    if "x" in platforms:
+        try:
+            print("\n  [X] 投稿中...")
+            import x_upload
+
+            # social_captions.json からXポストテキストを読み込み
+            social_path = folder / "social_captions.json"
+            try:
+                with open(social_path, encoding="utf-8") as f:
+                    social_data = json.load(f)
+                x_text = social_data.get("x", {}).get("shorts_post", "")
+                # YouTube URLがあればShorts誘導リンクを追加
+                yt_url = urls.get("youtube", "")
+                if yt_url:
+                    x_text = x_text.replace("今日のShorts👇", f"今日のShorts👇\n{yt_url}")
+            except FileNotFoundError:
+                x_text = f"{yt_title}\n\n#長期投資 #ガチホ"
+
+            tweet_id = x_upload.post_tweet(x_text)
+            if tweet_id:
+                tweet_url = f"https://x.com/i/status/{tweet_id}"
+                results["x"] = True
+                urls["x"] = tweet_url
+                print(f"  [X] 投稿完了: {tweet_url}")
+            else:
+                results["x"] = False
+                print("  [X] 投稿失敗")
+        except Exception as e:
+            results["x"] = False
+            print(f"  [X] エラー: {e}")
 
     # --- 結果サマリー ---
     print(f"\n  {'='*40}")
