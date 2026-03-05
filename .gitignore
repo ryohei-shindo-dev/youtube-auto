@@ -1,0 +1,19 @@
+# 秘密情報・認証
+.env
+credentials.json
+token.json
+
+# Python仮想環境
+venv/
+
+# 生成済みファイル
+done/
+pending/
+debug/
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
