@@ -150,19 +150,15 @@ def find_entry_by_day(schedule: list, day: int) -> dict:
 
 def _build_x_text_from_transcript(meta: dict) -> str:
     """transcript.json からXポスト用テキストを生成する（social_captions.json がない場合の代替）。"""
+    from social_gen import _strip_connector, X_HASHTAGS
+
     scenes = {s.get("role", ""): s.get("text", "") for s in meta.get("scenes", [])}
     hook = scenes.get("hook", "").rstrip("。")
-    data = scenes.get("data", "")
-    resolve = scenes.get("resolve", "")
+    data = _strip_connector(scenes.get("data", ""))
+    resolve = _strip_connector(scenes.get("resolve", ""))
 
-    # 接続詞を除去
-    for prefix in ["でも、", "だから、", "そう、", "でも ", "だから ", "そう "]:
-        if data.startswith(prefix):
-            data = data[len(prefix):]
-        if resolve.startswith(prefix):
-            resolve = resolve[len(prefix):]
-
-    lines = [hook, "", "でも", data, "", resolve, "", "#長期投資 #ガチホ"]
+    hashtag_str = " ".join(f"#{t}" for t in X_HASHTAGS)
+    lines = [hook, "", "でも", data, "", resolve, "", hashtag_str]
     return "\n".join(lines)
 
 
