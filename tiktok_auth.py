@@ -36,7 +36,7 @@ AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
 # 必要なスコープ
-SCOPES = "user.info.basic,video.publish,video.upload"
+SCOPES = "user.info.basic,video.upload"
 
 
 def _exchange_code_for_token(client_key: str, client_secret: str, code: str, code_verifier: str) -> dict:

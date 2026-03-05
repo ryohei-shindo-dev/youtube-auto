@@ -148,6 +148,24 @@ def find_entry_by_day(schedule: list, day: int) -> dict:
     return None
 
 
+def _build_x_text_from_transcript(meta: dict) -> str:
+    """transcript.json からXポスト用テキストを生成する（social_captions.json がない場合の代替）。"""
+    scenes = {s.get("role", ""): s.get("text", "") for s in meta.get("scenes", [])}
+    hook = scenes.get("hook", "").rstrip("。")
+    data = scenes.get("data", "")
+    resolve = scenes.get("resolve", "")
+
+    # 接続詞を除去
+    for prefix in ["でも、", "だから、", "そう、", "でも ", "だから ", "そう "]:
+        if data.startswith(prefix):
+            data = data[len(prefix):]
+        if resolve.startswith(prefix):
+            resolve = resolve[len(prefix):]
+
+    lines = [hook, "", "でも", data, "", resolve, "", "#長期投資 #ガチホ"]
+    return "\n".join(lines)
+
+
 def _ensure_platforms(entry: dict):
     """エントリにplatformsフィールドがなければ追加する（後方互換）。"""
     if "platforms" not in entry:
@@ -238,9 +256,9 @@ def publish_entry(
                 with open(social_path, encoding="utf-8") as f:
                     social_data = json.load(f)
                 x_preview = social_data.get("x", {}).get("shorts_post", "")[:50]
-                print(f"    X: {x_preview}...")
             except FileNotFoundError:
-                print(f"    X: {yt_title[:50]}...")
+                x_preview = _build_x_text_from_transcript(meta)[:50]
+            print(f"    X: {x_preview}...")
         return {p: True for p in platforms}
 
     results = {}
@@ -334,16 +352,24 @@ def publish_entry(
 
             # social_captions.json からXポストテキストを読み込み
             social_path = folder / "social_captions.json"
+            x_text = ""
             try:
                 with open(social_path, encoding="utf-8") as f:
                     social_data = json.load(f)
                 x_text = social_data.get("x", {}).get("shorts_post", "")
-                # YouTube URLがあればShorts誘導リンクを追加
-                yt_url = urls.get("youtube", "")
-                if yt_url:
-                    x_text = x_text.replace("今日のShorts👇", f"今日のShorts👇\n{yt_url}")
             except FileNotFoundError:
-                x_text = f"{yt_title}\n\n#長期投資 #ガチホ"
+                pass
+
+            # social_captions.json がない or 空の場合、transcript.json から生成
+            if not x_text:
+                x_text = _build_x_text_from_transcript(meta)
+
+            # YouTube URLがあればShorts誘導リンクを追加
+            yt_url = urls.get("youtube", "")
+            if yt_url and "今日のShorts👇" in x_text:
+                x_text = x_text.replace("今日のShorts👇", f"今日のShorts👇\n{yt_url}")
+            elif yt_url:
+                x_text += f"\n\n今日のShorts👇\n{yt_url}"
 
             tweet_id = x_upload.post_tweet(x_text)
             if tweet_id:

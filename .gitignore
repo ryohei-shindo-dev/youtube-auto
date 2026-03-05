@@ -3,6 +3,8 @@
 credentials.json
 token.json
 tiktok_token.json
+_tiktok_cert.pem
+_tiktok_key.pem
 instagram_token.json
 x_token.json
 
