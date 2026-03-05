@@ -1,0 +1,20 @@
+/Users/shindoryohei/youtube-auto/venv/lib/python3.9/site-packages/google/auth/__init__.py:54: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+/Users/shindoryohei/youtube-auto/venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+/Users/shindoryohei/youtube-auto/venv/lib/python3.9/site-packages/google/oauth2/__init__.py:40: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+/Users/shindoryohei/youtube-auto/venv/lib/python3.9/site-packages/google/api_core/_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.6). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.api_core.
+  warnings.warn(message, FutureWarning)
+
+============================================================
+  分析データ収集: 2026/03/05 22:00
+============================================================
+
+  動画数: 2本
+  合計再生: 715
+  合計いいね: 3
+  長期投資で一番つらい時期、それは今かもしれない         再生:   507  いいね:  0.4%  コメント:0
+  売りたい人へ｜長期投資の真実 #Shorts          再生:   208  いいね:  0.5%  コメント:0
+  analytics_log.json 更新完了（2026-03-05: 2本）
+  CHANNEL_STRATEGY.md 分析ログ更新完了

@@ -41,6 +41,35 @@ X_HOOK_PATTERNS = [
     "{hook}を見るたび思う。",
 ]
 
+# X用 共感ポストテンプレート20個（ChatGPT 2026-03設計）
+# Shorts台本に依存しない独立ポスト。1日2ポストの「共感ポスト」枠で使用。
+# 100〜180文字、改行多め、1行5〜12文字
+X_STANDALONE_POSTS = [
+    "含み損。\n\n長期投資で\n一番つらい時期\n\nでも\n\n20年続けた人\n元本割れゼロ\n\n時間が最大の武器\n\n#長期投資",
+    "積立3年目。\n\n一番しんどい時期。\n\n理由はシンプル\n\nまだ\n増えてないから",
+    "暴落。\n\nここで売った人\n\n9割が\n回復を逃した",
+    "長期投資\n\n成功条件\n\n才能\n知識\nセンス\n\n全部いらない\n\n必要なのは\n\nやめないこと",
+    "売りたい。\n\nその瞬間\n\n長期投資は\n終わる",
+    "含み損。\n\nつらいのは\n\nお金が減ることじゃない\n\n自分の判断を\n疑い始めること",
+    "積立投資\n\n最初の5年\n\nほとんど増えない\n\nでも\n\nここを越えると\n景色が変わる",
+    "長期投資\n\n一番危ない瞬間\n\n暴落じゃない\n\n「増えてない期間」",
+    "長期投資で\n一番もったいない行動\n\n暴落で売ること",
+    "含み損。\n\n実は\n\n長期投資では\n\n普通",
+    "積立投資\n\n成功した人\n\n共通点\n\nただ\n続けた",
+    "投資で一番難しいこと\n\n買うことでも\n売ることでもない\n\n持ち続けること",
+    "長期投資\n\n途中でやめる人\n\nかなり多い\n\n理由\n\n増えない期間",
+    "投資で\n一番つらい瞬間\n\n含み損じゃない\n\n自分を疑う瞬間",
+    "長期投資\n\n途中の数字\n\nあまり意味ない",
+    "投資の複利\n\n最大の敵\n\n焦り",
+    "長期投資\n\n暴落\n\n実は\n\n途中イベント",
+    "積立投資\n\n一番のコツ\n\n続ける仕組み",
+    "投資\n\n勝つ人\n\n市場に残った人",
+    "長期投資\n\n一番大事なこと\n\n退場しないこと",
+]
+
+# Shorts誘導テンプレート（Shorts連動型ポストの末尾に付ける）
+X_SHORTS_CTA = "\n\n今日のShorts👇"
+
 
 def generate_social_captions(script_data: dict, output_dir: pathlib.Path) -> dict:
     """TikTok・インスタ用のキャプション＋ハッシュタグを生成する。
@@ -79,8 +108,13 @@ def generate_social_captions(script_data: dict, output_dir: pathlib.Path) -> dic
     insta_hashtag_str = " ".join(f"#{t}" for t in instagram_tags)
     insta_full = "\n".join(insta_lines) + "\n" + insta_hashtag_str
 
-    # X（旧Twitter）ポスト（改行多め、短文、1ポスト完結）
-    x_post = _build_x_post(hook, data, resolve)
+    # X（旧Twitter）ポスト3種類
+    # ① Shorts連動型: 台本ベース + Shorts誘導リンク
+    x_shorts_post = _build_x_post(hook, data, resolve) + X_SHORTS_CTA
+    # ② 共感型: 台本ベース（誘導なし）
+    x_empathy_post = _build_x_post(hook, data, resolve)
+    # ③ 独立共感型: テンプレートプールからランダム選択
+    x_standalone_post = random.choice(X_STANDALONE_POSTS)
 
     result = {
         "tiktok": {
@@ -92,7 +126,9 @@ def generate_social_captions(script_data: dict, output_dir: pathlib.Path) -> dic
             "hashtags": instagram_tags,
         },
         "x": {
-            "post": x_post,
+            "shorts_post": x_shorts_post,
+            "empathy_post": x_empathy_post,
+            "standalone_post": x_standalone_post,
             "hashtags": X_HASHTAGS,
         },
     }
@@ -104,6 +140,11 @@ def generate_social_captions(script_data: dict, output_dir: pathlib.Path) -> dic
     print(f"  SNSキャプション生成完了: {output_path}")
 
     return result
+
+
+def get_standalone_x_post() -> str:
+    """独立共感ポストをランダムに1つ返す（19:30の共感ポスト枠用）。"""
+    return random.choice(X_STANDALONE_POSTS)
 
 
 def _build_x_post(hook: str, data: str, resolve: str) -> str:
