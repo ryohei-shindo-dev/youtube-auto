@@ -5,24 +5,20 @@ TikTok Content Posting API の初回OAuth認証を行うヘルパースクリプ
 使い方:
     python tiktok_auth.py
 
-前提条件:
-    1. TikTok Developer (https://developers.tiktok.com/) でアプリを作成済み
-    2. Content Posting API をアプリに追加済み
-    3. リダイレクトURIに http://localhost:8585/callback を設定済み
-    4. .env に TIKTOK_CLIENT_KEY と TIKTOK_CLIENT_SECRET を設定済み
-
 処理の流れ:
     1. ブラウザが開く → TikTokでログイン → アプリを許可
-    2. ローカルサーバーが認可コードを受信
-    3. 認可コードをアクセストークンに交換
-    4. tiktok_token.json に保存
+    2. リダイレクト先のページに認可コードが表示される
+    3. コードをコピーしてターミナルに貼り付け
+    4. 認可コードをアクセストークンに交換
+    5. tiktok_token.json に保存
 """
 
-import http.server
+import base64
+import hashlib
 import json
 import os
 import pathlib
-import threading
+import secrets
 import urllib.parse
 import webbrowser
 
@@ -33,8 +29,7 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 load_dotenv(SCRIPT_DIR / ".env")
 
 TOKEN_FILE = SCRIPT_DIR / "tiktok_token.json"
-REDIRECT_URI = "http://localhost:8585/callback"
-REDIRECT_PORT = 8585
+REDIRECT_URI = "https://ryohei-shindo-dev.github.io/youtube-auto/callback"
 
 # TikTok OAuth エンドポイント
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
@@ -44,37 +39,7 @@ TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 SCOPES = "user.info.basic,video.publish,video.upload"
 
 
-class _CallbackHandler(http.server.BaseHTTPRequestHandler):
-    """OAuth認可コードを受信するローカルHTTPサーバー。"""
-
-    auth_code = None
-
-    def do_GET(self):
-        parsed = urllib.parse.urlparse(self.path)
-        params = urllib.parse.parse_qs(parsed.query)
-
-        if "code" in params:
-            _CallbackHandler.auth_code = params["code"][0]
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(
-                "<html><body><h2>認証成功！このタブを閉じてください。</h2></body></html>".encode()
-            )
-        else:
-            error = params.get("error", ["不明なエラー"])[0]
-            self.send_response(400)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(
-                f"<html><body><h2>認証エラー: {error}</h2></body></html>".encode()
-            )
-
-    def log_message(self, format, *args):
-        pass  # ログを抑制
-
-
-def _exchange_code_for_token(client_key: str, client_secret: str, code: str) -> dict:
+def _exchange_code_for_token(client_key: str, client_secret: str, code: str, code_verifier: str) -> dict:
     """認可コードをアクセストークンに交換する。"""
     resp = requests.post(
         TOKEN_URL,
@@ -85,6 +50,7 @@ def _exchange_code_for_token(client_key: str, client_secret: str, code: str) -> 
             "code": code,
             "grant_type": "authorization_code",
             "redirect_uri": REDIRECT_URI,
+            "code_verifier": code_verifier,
         },
         timeout=30,
     )
@@ -100,11 +66,13 @@ def main():
         print("\n[エラー] .env に以下を設定してください:")
         print("  TIKTOK_CLIENT_KEY=あなたのClient Key")
         print("  TIKTOK_CLIENT_SECRET=あなたのClient Secret")
-        print("\n取得方法:")
-        print("  1. https://developers.tiktok.com/ にログイン")
-        print("  2. 「Manage apps」→ アプリを選択")
-        print("  3. 「App credentials」からキーをコピー")
         return
+
+    # PKCE: code_verifier と code_challenge を生成
+    code_verifier = secrets.token_urlsafe(64)[:128]
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b"=").decode()
 
     # 認証URLを構築
     params = {
@@ -112,6 +80,8 @@ def main():
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
         "scope": SCOPES,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
     }
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
 
@@ -119,28 +89,23 @@ def main():
     print("  TikTok OAuth 認証")
     print(f"{'='*60}")
     print("\n  ブラウザが開きます。TikTokにログインしてアプリを許可してください。")
-    print(f"  （自動で開かない場合はこのURLにアクセス）:\n  {auth_url}\n")
-
-    # ローカルサーバーを起動してコールバックを待つ
-    server = http.server.HTTPServer(("localhost", REDIRECT_PORT), _CallbackHandler)
-    server_thread = threading.Thread(target=server.handle_request)
-    server_thread.start()
+    print("  許可後、認可コードが表示されるページにリダイレクトされます。")
+    print("  そのコードをコピーして、ここに貼り付けてください。\n")
 
     # ブラウザを開く
     webbrowser.open(auth_url)
 
-    # コールバックを待つ
-    server_thread.join(timeout=120)
-    server.server_close()
+    # ユーザーにコードを入力してもらう
+    auth_code = input("  認可コードを貼り付けてEnter: ").strip()
 
-    if not _CallbackHandler.auth_code:
-        print("  [エラー] 認可コードを受信できませんでした。")
+    if not auth_code:
+        print("  [エラー] 認可コードが入力されませんでした。")
         return
 
-    print("  認可コードを受信しました。トークンを取得中...")
+    print("  トークンを取得中...")
 
     # トークン交換
-    token_data = _exchange_code_for_token(client_key, client_secret, _CallbackHandler.auth_code)
+    token_data = _exchange_code_for_token(client_key, client_secret, auth_code, code_verifier)
 
     if "access_token" not in token_data:
         print(f"  [エラー] トークン取得に失敗: {json.dumps(token_data, ensure_ascii=False)}")

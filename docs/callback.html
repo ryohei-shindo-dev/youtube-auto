@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="utf-8"><title>TikTok認証コールバック</title></head>
+<body>
+<h1>TikTok認証</h1>
+<div id="result"></div>
+<script>
+const params = new URLSearchParams(window.location.search);
+const code = params.get('code');
+const error = params.get('error');
+const el = document.getElementById('result');
+if (code) {
+  el.innerHTML = '<h2 style="color:green">認証成功！</h2>' +
+    '<p>以下のコードをコピーしてターミナルに貼り付けてください：</p>' +
+    '<textarea id="code" rows="3" cols="80" readonly style="font-size:18px">' + code + '</textarea>' +
+    '<br><button onclick="navigator.clipboard.writeText(document.getElementById(\'code\').value);this.textContent=\'コピーしました！\'">コードをコピー</button>';
+} else if (error) {
+  el.innerHTML = '<h2 style="color:red">エラー: ' + error + '</h2>';
+} else {
+  el.innerHTML = '<p>パラメータがありません。</p>';
+}
+</script>
+</body>
+</html>
