@@ -297,40 +297,75 @@ _TOPIC_TO_CATEGORY = {
 }
 
 
-def _select_conclusion(data_text: str) -> str:
-    """dataの内容に最も合う結論フレーズを選択する。"""
-    crash_words = ["暴落", "下落", "回復", "リーマン", "コロナ", "恐慌", "恐怖指数", "ショック"]
-    exit_words = ["売った", "やめた", "逃した", "離れ", "退場", "解約", "損"]
-    time_words = ["倍", "複利", "積立", "50歳", "30年", "20年", "10年", "月", "年7%", "100円"]
-    psych_words = ["SNS", "口座", "忘れ", "見る", "プロ", "感情", "パニック"]
+# データ分類用キーワード（結論選択・接続詞判定で共用）
+_CRASH_WORDS = ["暴落", "下落", "回復", "リーマン", "コロナ", "恐慌", "恐怖指数", "ショック"]
+_EXIT_WORDS = ["売った", "やめた", "逃した", "離れ", "退場", "解約", "損", "負ける", "崩壊", "減"]
+_TIME_WORDS = ["倍", "複利", "積立", "50歳", "30年", "20年", "10年", "月", "年7%", "100円"]
+_PSYCH_WORDS = ["SNS", "口座", "忘れ", "見る", "プロ", "感情", "パニック"]
+_POSITIVE_WORDS = ["ゼロ", "勝率", "2倍", "成長", "利益", "6000万", "500万", "完全回復", "最高値"]
+_SURPRISE_WORDS = ["バフェット", "99%", "50歳", "プロ", "忘れ"]
 
-    # カテゴリごとに2〜3個の互換結論からランダム選択（ローテーション確保）
-    if any(w in data_text for w in crash_words):
-        return random.choice([
+# hookチェック用キーワード
+_STRONG_HOOKS = ["含み損", "暴落", "売りたい", "退場", "不安", "怖い",
+                 "つらい", "眠れない", "後悔", "焦る", "損した", "溶けた"]
+_WEAK_HOOKS = ["増えない", "差がない", "もったいない", "知らない", "違う"]
+_TOPIC_PAIN_MAP = {"配当": "損してる。", "複利": "焦る。", "年利": "不安。",
+                   "積立": "つらい。", "100円": "不安。", "差": "後悔。",
+                   "200年": "不安。", "非課税": "焦る。", "再投資": "損してる。"}
+
+# 誇張表現の修正マップ
+_EXAGGERATION_FIXES = {
+    "200年間、株式が債券に勝ち続けた": "長期では株式が債券を上回る傾向",
+    "株式200年、負けなし": "長期では株式が債券を上回る傾向",
+    "200年間負けなし": "長期では株式が成長し続けた",
+    "株式が債券に勝ち続けた": "株式が債券を上回る傾向",
+}
+
+
+def _select_conclusion_and_connector(data_text: str) -> tuple:
+    """dataの内容に最も合う結論フレーズと接続詞を選択する。"""
+    is_crash = any(w in data_text for w in _CRASH_WORDS)
+    is_exit = any(w in data_text for w in _EXIT_WORDS)
+    is_negative = is_crash or is_exit
+    is_surprise = any(w in data_text for w in _SURPRISE_WORDS) and not is_negative
+
+    # 結論フレーズ選択
+    if is_crash:
+        conclusion = random.choice([
             "暴落は、長期投資家の味方です。",
             "市場に残る人だけが勝ちます。",
         ])
-    elif any(w in data_text for w in exit_words):
-        return random.choice([
+    elif is_exit:
+        conclusion = random.choice([
             "市場に残る人だけが勝ちます。",
             "退場しない人だけが勝つ。",
         ])
-    elif any(w in data_text for w in time_words):
-        return random.choice([
+    elif any(w in data_text for w in _TIME_WORDS):
+        conclusion = random.choice([
             "時間が、最大の武器です。",
             "やっぱり、長期投資しかないですね。",
             "退場しない人だけが勝つ。",
         ])
-    elif any(w in data_text for w in psych_words):
-        return random.choice([
+    elif any(w in data_text for w in _PSYCH_WORDS):
+        conclusion = random.choice([
             "退場しない人だけが勝つ。",
             "市場に残る人だけが勝ちます。",
         ])
     else:
-        return random.choice([
+        conclusion = random.choice([
             "やっぱり、長期投資しかないですね。",
             "時間が、最大の武器です。",
         ])
+
+    # 接続詞選択（同じ分類結果を再利用）
+    if is_negative:
+        connector = "でも、"
+    elif is_surprise:
+        connector = "そう、"
+    else:
+        connector = "だから、"
+
+    return conclusion, connector
 
 
 def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
@@ -438,23 +473,18 @@ def _generate_script(
         # 文字数制限チェック
         # 固定フレーズを保護しながら AI生成部分を切り詰める
         strict_limits = {"hook": 8, "data": 22}
+        # data_text をループ前に1回だけ取得（resolve等で使用）
+        data_text = next((s.get("text", "") for s in scenes if s.get("role") == "data"), "")
         for s in scenes:
             role = s.get("role", "")
             text = s.get("text", "")
 
             if role == "hook":
                 # hookの痛みワードチェック: 弱いhookを検出して警告
-                strong_hooks = ["含み損", "暴落", "売りたい", "退場", "不安", "怖い",
-                                "つらい", "眠れない", "後悔", "焦る", "損した", "溶けた"]
-                weak_hooks = ["増えない", "差がない", "もったいない", "知らない", "違う"]
                 hook_text = text.rstrip("。？！ ")
-                if any(w in hook_text for w in weak_hooks) and not any(w in hook_text for w in strong_hooks):
-                    # トピックから痛みワードを探して置き換え
-                    topic_pain = {"配当": "損してる。", "複利": "焦る。", "年利": "不安。",
-                                  "積立": "つらい。", "100円": "不安。", "差": "後悔。",
-                                  "200年": "不安。", "非課税": "焦る。", "再投資": "損してる。"}
+                if any(w in hook_text for w in _WEAK_HOOKS) and not any(w in hook_text for w in _STRONG_HOOKS):
                     replaced = False
-                    for kw, replacement in topic_pain.items():
+                    for kw, replacement in _TOPIC_PAIN_MAP.items():
                         if kw in topic:
                             print(f"  [修正] hookが弱い「{hook_text}」→「{replacement}」に変更")
                             s["text"] = replacement
@@ -467,19 +497,14 @@ def _generate_script(
 
             if role == "data":
                 # 誇張表現を正確な表現に自動置換
-                exaggeration_fixes = {
-                    "200年間、株式が債券に勝ち続けた": "長期では株式が債券を上回る傾向",
-                    "株式200年、負けなし": "長期では株式が債券を上回る傾向",
-                    "200年間負けなし": "長期では株式が成長し続けた",
-                    "株式が債券に勝ち続けた": "株式が債券を上回る傾向",
-                }
-                for bad, good in exaggeration_fixes.items():
+                for bad, good in _EXAGGERATION_FIXES.items():
                     if bad in text:
                         old_text = text
                         text = text.replace(bad, good)
                         s["text"] = text
                         s["slide_text"] = good[:14]
                         print(f"  [修正] data誇張表現を修正:「{old_text.rstrip('。')}」→「{text.rstrip('。')}」")
+                        data_text = text  # resolve用に更新
                         break
 
             if role == "data" and len(text) > 22:
@@ -503,6 +528,7 @@ def _generate_script(
                 s["text"] = best
                 s["slide_text"] = best.rstrip("。")[:14]
                 text = best
+                data_text = best  # resolve用に更新
 
             elif role in strict_limits:
                 limit = strict_limits[role]
@@ -529,36 +555,13 @@ def _generate_script(
                     s["text"] = (ai_part + "。" + opening) if ai_part else opening
 
             elif role == "resolve":
-                # dataの内容を取得
-                data_text = ""
-                for ds in scenes:
-                    if ds.get("role") == "data":
-                        data_text = ds.get("text", "")
-                        break
-
-                # dataの内容に最も合う結論フレーズを自動選択
-                best_conclusion = _select_conclusion(data_text)
+                # dataの内容に最も合う結論フレーズと接続詞を一括選択
+                best_conclusion, connector = _select_conclusion_and_connector(data_text)
                 if best_conclusion != conclusion:
                     print(f"  [修正] 結論フレーズを変更: 「{conclusion}」→「{best_conclusion}」")
                     conclusion = best_conclusion
 
-                # 接続詞をdata内容から判定
-                negative_words = ["売った", "やめた", "逃した", "負ける", "損", "崩壊", "下落", "暴落", "離れ", "減"]
-                positive_words = ["ゼロ", "勝率", "2倍", "成長", "利益", "6000万", "500万", "完全回復", "最高値"]
-                surprise_words = ["バフェット", "99%", "50歳", "プロ", "忘れ"]
-                data_is_negative = any(w in data_text for w in negative_words)
-                data_is_positive = any(w in data_text for w in positive_words) and not data_is_negative
-                data_is_surprise = any(w in data_text for w in surprise_words) and not data_is_negative
-
-                if data_is_negative:
-                    connector = "でも、"
-                elif data_is_surprise:
-                    connector = "そう、"
-                else:
-                    connector = "だから、"
-
                 s["text"] = connector + conclusion
-                # slide_textも更新
                 short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
                 s["slide_text"] = short_conclusion
 
