@@ -211,7 +211,7 @@ def _burn_subtitle(
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
         x = (img.width - text_w) // 2
-        y = img.height - text_h - 180
+        y = img.height - text_h - 420
 
         # 黒縁（ストローク）+ 白文字
         draw.multiline_text(

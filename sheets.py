@@ -36,6 +36,7 @@ SCOPES = [
 ]
 
 SHEET_NAME = "投稿管理"
+NOTE_SHEET_NAME = "note管理"
 
 STATUS_PENDING = "未生成"
 STATUS_GENERATED = "生成済み"
@@ -218,6 +219,171 @@ def populate_from_topics_json(spreadsheet_id: str):
     ).execute()
 
     print(f"  {len(rows) - 1}件のトピックをシートに投入しました。")
+
+
+# ── note管理シート ──
+# 列構成:
+#   A: No.  B: テーマ  C: トピック  D: 元Shorts  E: ステータス
+#   F: タイトル  G: 生成日  H: 公開日  I: note URL  J: 備考
+
+NOTE_HEADER = [
+    "No.", "テーマ", "トピック", "元Shorts", "ステータス",
+    "タイトル", "生成日", "公開日", "note URL", "備考",
+]
+
+
+def get_next_note_topic(spreadsheet_id: str, theme: str = None) -> Optional[dict]:
+    """note管理シートから次の「未生成」トピックを取得する。"""
+    service = get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{NOTE_SHEET_NAME}!A:E",
+    ).execute()
+
+    rows = result.get("values", [])
+    if len(rows) <= 1:
+        return None
+
+    for i, row in enumerate(rows[1:], start=2):
+        if len(row) < 5 or row[4] != STATUS_PENDING:
+            continue
+        row_theme = row[1] if len(row) > 1 else ""
+        if theme and row_theme != theme:
+            continue
+        return {
+            "row": i,
+            "theme": row_theme,
+            "topic": row[2] if len(row) > 2 else "",
+            "source_shorts": row[3] if len(row) > 3 else "",
+        }
+
+    return None
+
+
+def update_note_generated(spreadsheet_id: str, row: int, title: str):
+    """note記事生成完了後にシートを更新する。"""
+    service = get_service()
+    today = datetime.now().strftime("%Y/%m/%d")
+
+    data = [
+        {"range": f"{NOTE_SHEET_NAME}!E{row}", "values": [[STATUS_GENERATED]]},
+        {"range": f"{NOTE_SHEET_NAME}!F{row}", "values": [[title]]},
+        {"range": f"{NOTE_SHEET_NAME}!G{row}", "values": [[today]]},
+    ]
+
+    service.spreadsheets().values().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"valueInputOption": "RAW", "data": data},
+    ).execute()
+
+    print(f"  note管理シート更新完了（行{row}: {STATUS_GENERATED}）")
+
+
+def update_note_published(spreadsheet_id: str, row: int, note_url: str):
+    """note記事公開後にシートを更新する。"""
+    service = get_service()
+    today = datetime.now().strftime("%Y/%m/%d")
+
+    data = [
+        {"range": f"{NOTE_SHEET_NAME}!E{row}", "values": [[STATUS_PUBLISHED]]},
+        {"range": f"{NOTE_SHEET_NAME}!H{row}", "values": [[today]]},
+        {"range": f"{NOTE_SHEET_NAME}!I{row}", "values": [[note_url]]},
+    ]
+
+    service.spreadsheets().values().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"valueInputOption": "RAW", "data": data},
+    ).execute()
+
+    print(f"  note管理シート更新完了（行{row}: {STATUS_PUBLISHED}）")
+
+
+def populate_note_topics(spreadsheet_id: str):
+    """note管理シートにテーマを初期投入する。"""
+    service = get_service()
+
+    # 既存データ確認
+    try:
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=f"{NOTE_SHEET_NAME}!A:A",
+        ).execute()
+        existing = result.get("values", [])
+        if len(existing) > 1:
+            print(f"  既に{len(existing) - 1}件のデータがあります。追加投入をスキップします。")
+            return
+    except Exception:
+        # シートが存在しない場合は新規作成
+        _create_note_sheet(spreadsheet_id)
+
+    # テーマデータ
+    topics = [
+        # ChatGPTレビュー推奨5テーマ
+        {"theme": "あるある", "topic": "含み損で眠れない夜にやることは、売買じゃなく確認回数を減らす",
+         "source": "含み損系Shorts"},
+        {"theme": "あるある", "topic": "積立3年目がしんどい理由：数字より期待のズレがしんどい",
+         "source": "積立3年目系Shorts"},
+        {"theme": "歴史データ", "topic": "暴落のニュースで口座を開きたくなる時、思い出したい1つの数字",
+         "source": "暴落系Shorts"},
+        {"theme": "心理", "topic": "SNSの爆益を見て焦る夜：比較をやめるための見方",
+         "source": "SNS焦り系Shorts"},
+        {"theme": "心理", "topic": "利確したくなる気持ちと、複利が止まる感覚を同時に扱う",
+         "source": "利確/複利系Shorts"},
+        # 派生テーマ（痛み×安心の型）
+        {"theme": "あるある", "topic": "毎日口座を見てしまう人へ：確認頻度と不安の関係",
+         "source": "口座確認系Shorts"},
+        {"theme": "あるある", "topic": "積立をやめたくなる瞬間と、やめた人が後悔する理由",
+         "source": "積立やめる系Shorts"},
+        {"theme": "歴史データ", "topic": "暴落後1年のリターンが示す、売らなかった人の結果",
+         "source": "暴落後リターン系Shorts"},
+        {"theme": "歴史データ", "topic": "20年投資を続けた場合の元本割れ確率がゼロに近い理由",
+         "source": "長期投資データ系Shorts"},
+        {"theme": "心理", "topic": "投資を始めて最初の暴落で何を感じるか：初心者の心理と対処",
+         "source": "初暴落系Shorts"},
+        {"theme": "メリット", "topic": "ドルコスト平均法が心を守る仕組み：安く買える時期の意味",
+         "source": "ドルコスト系Shorts"},
+        {"theme": "メリット", "topic": "配当再投資と複利の静かな力：10年後に気づくこと",
+         "source": "複利/配当系Shorts"},
+        {"theme": "ガチホモチベ", "topic": "長期投資で退場しない人の共通点：特別なことはしていない",
+         "source": "退場しない系Shorts"},
+        {"theme": "ガチホモチベ", "topic": "投資を続けるコツは、投資のことを考えすぎないこと",
+         "source": "ガチホ系Shorts"},
+        {"theme": "格言", "topic": "バフェットが言った「退潮時」の意味を、含み損の夜に読む",
+         "source": "格言/バフェット系Shorts"},
+    ]
+
+    rows = [NOTE_HEADER]
+    for no, t in enumerate(topics, start=1):
+        rows.append([
+            no, t["theme"], t["topic"], t["source"], STATUS_PENDING,
+            "", "", "", "", "",
+        ])
+
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{NOTE_SHEET_NAME}!A1",
+        valueInputOption="RAW",
+        body={"values": rows},
+    ).execute()
+
+    print(f"  note管理シートに{len(topics)}件のテーマを投入しました。")
+
+
+def _create_note_sheet(spreadsheet_id: str):
+    """note管理シートタブを新規作成する。"""
+    service = get_service()
+    body = {
+        "requests": [{
+            "addSheet": {
+                "properties": {"title": NOTE_SHEET_NAME},
+            },
+        }],
+    }
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body=body,
+    ).execute()
+    print(f"  「{NOTE_SHEET_NAME}」シートを作成しました。")
 
 
 def _get_credentials():

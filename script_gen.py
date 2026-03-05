@@ -368,6 +368,21 @@ def _select_conclusion_and_connector(data_text: str) -> tuple:
     return conclusion, connector
 
 
+def extract_scene_texts(script_data: dict, *roles: str) -> dict:
+    """台本データから指定ロールのslide_textを辞書で返すヘルパー。
+
+    使用例:
+        texts = extract_scene_texts(script_data, "hook", "resolve")
+        hook_text = texts.get("hook", "")
+    """
+    result = {r: "" for r in roles}
+    for scene in script_data.get("scenes", []):
+        role = scene.get("role", "")
+        if role in result:
+            result[role] = scene.get("slide_text", "")
+    return result
+
+
 def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
     """Shorts用台本（5シーン、16〜18秒）を生成する。"""
     theme_desc = SHORTS_THEMES.get(theme, SHORTS_THEMES["ガチホモチベ"])

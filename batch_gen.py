@@ -26,6 +26,8 @@ import slide_gen
 import video_gen
 import thumbnail_gen
 import subtitle_gen
+import note_gen
+import social_gen
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 PENDING_DIR = SCRIPT_DIR / "pending"
@@ -74,11 +76,21 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
         raise RuntimeError("動画合成に失敗")
 
     # Step 5: サムネイル + 字幕
-    print("  [5/5] サムネイル・字幕生成...")
+    print("  [5/7] サムネイル・字幕生成...")
+    scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
     thumbnail_gen.generate_thumbnail(
         script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
+        hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
     )
     subtitle_gen.generate_subtitle_files(script_data, scenes, PENDING_DIR)
+
+    # Step 6: note記事生成
+    print("  [6/7] note記事生成...")
+    note_gen.generate_note_article(script_data, PENDING_DIR)
+
+    # Step 7: SNSキャプション生成
+    print("  [7/7] SNSキャプション生成...")
+    social_gen.generate_social_captions(script_data, PENDING_DIR)
 
     return script_data
 

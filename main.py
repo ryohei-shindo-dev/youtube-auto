@@ -33,6 +33,8 @@ import slide_gen
 import video_gen
 import thumbnail_gen
 import subtitle_gen
+import note_gen
+import social_gen
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 PENDING_DIR = SCRIPT_DIR / "pending"
@@ -100,7 +102,7 @@ def main():
         topic = "S&P500の過去100年の平均リターンは年利約10%"
 
     # ── Step 1: 台本生成 ──
-    print("\n[Step 1/7] 台本生成")
+    print("\n[Step 1/9] 台本生成")
     if is_long:
         script_data = script_gen.generate_long_script(topic)
     else:
@@ -114,7 +116,7 @@ def main():
     print(f"  タイトル: {script_data['title']}")
 
     # ── Step 2: 音声生成 ──
-    print("\n[Step 2/7] 音声生成")
+    print("\n[Step 2/9] 音声生成")
     scenes = voice_gen.generate_voice_for_scenes(scenes, PENDING_DIR)
     success_audio = sum(1 for s in scenes if s.get("audio_path"))
     if success_audio == 0:
@@ -122,36 +124,46 @@ def main():
         sys.exit(1)
 
     # ── Step 3: スライド画像生成 ──
-    print("\n[Step 3/7] スライド画像生成")
+    print("\n[Step 3/9] スライド画像生成")
     slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme)
     for i, scene in enumerate(scenes):
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
     # ── Step 4: 動画合成 ──
-    print("\n[Step 4/7] 動画合成")
+    print("\n[Step 4/9] 動画合成")
     video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4")
     if not video_path:
         print("\n[失敗] 動画合成に失敗しました。終了します。")
         sys.exit(1)
 
     # ── Step 5: サムネイル生成 ──
-    print("\n[Step 5/7] サムネイル生成")
+    print("\n[Step 5/9] サムネイル生成")
+    scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
     thumb_path = thumbnail_gen.generate_thumbnail(
         script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
+        hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
     )
 
     # ── Step 6: 字幕・文字起こし生成 ──
-    print("\n[Step 6/7] 字幕・文字起こし生成")
+    print("\n[Step 6/9] 字幕・文字起こし生成")
     sub_files = subtitle_gen.generate_subtitle_files(script_data, scenes, PENDING_DIR)
 
-    # ── Step 7: シート更新 ──
+    # ── Step 7: note記事生成 ──
+    print("\n[Step 7/9] note記事生成")
+    note_path = note_gen.generate_note_article(script_data, PENDING_DIR)
+
+    # ── Step 8: SNSキャプション生成 ──
+    print("\n[Step 8/9] SNSキャプション生成（TikTok・Instagram）")
+    social_data = social_gen.generate_social_captions(script_data, PENDING_DIR)
+
+    # ── Step 9: シート更新 ──
     if sheet_row and sheet_id:
-        print("\n[Step 7/7] シート更新")
+        print("\n[Step 9/9] シート更新")
         import sheets
         sheets.update_generated(sheet_id, sheet_row, script_data["title"], script_data.get("tags", []))
     else:
-        print("\n[Step 7/7] シート更新（スキップ）")
+        print("\n[Step 9/9] シート更新（スキップ）")
 
     # ── 結果サマリー ──
     print("\n" + "=" * 50)
@@ -163,6 +175,9 @@ def main():
     if thumb_path:
         print(f"  サムネイル:   {thumb_path}")
     print(f"  字幕(SRT):    {sub_files.get('srt_path', 'なし')}")
+    if note_path:
+        print(f"  note記事:     {note_path}")
+    print(f"  SNSキャプション: {PENDING_DIR / 'social_captions.json'}")
     print(f"  タグ:         {', '.join(script_data.get('tags', []))}")
 
     if args.dry_run:
