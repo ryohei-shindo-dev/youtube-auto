@@ -137,6 +137,8 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    悪い: 「2倍。」「200年。」「1800万円。」← 数字は痛みにならない。スクロールされる。
    悪い: 「積立3年目、しんどい。」← 2語。長い。
    悪い: 「含み損、つらいですよね。」← 説明的。
+   悪い: 「増えない。」「差がない。」← 痛みが弱い。感情が動かない。
+   hookは必ず「恐怖・後悔・焦り」のどれかを刺せ。
 
 2. empathy（2〜3秒）: 「あなた」+共感1文 + 「{opening}」
    良い: 「あなただけじゃない。{opening}」
@@ -175,30 +177,40 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    - 「プロの7割がインデックスに負ける。」
    【制度・歴史】
    - 「NISA非課税効果、20年で約200万。」
-   - 「200年間、株式が債券に勝ち続けた。」
+   - 「長期では株式が債券を上回る傾向。」
    - 「世界のGDP、50年で10倍。」
    - 「バフェットの資産99%は50歳以降。」
    - 「恐怖指数が高い時に買った人が勝つ。」
 
    悪い: 「長期投資のリターンは10年以降に加速します。」← 教科書。
    悪い: トピックが配当なのに「売った人の9割」← 無関係。
+   ★重要: 誇張・断定は避けろ。「200年間負けなし」のような表現は誤解を招く。
+   正確で控えめな表現を使え（例: 「長期では株式が成長し続けた」）。
    最大20文字。
 
-4. resolve（4秒）: dataの文脈に合った接続詞 + 「{conclusion}」で締める。
-   ★最重要: 接続詞の選択はdata→resolveの因果関係で決まる。必ずチェックしろ。
+4. resolve（4秒）: dataの文脈に合った接続詞 + 結論フレーズで締める。
+   ★最重要: dataとresolveは「読んだ人がうなずける因果関係」が必要。
 
-   判定方法: dataを読んだ後、resolveを読んで「文章として自然か？」を確認せよ。
+   結論フレーズ（以下の5つから、dataに最も合うものを1つ選べ）:
+   A: 「やっぱり、長期投資しかないですね。」← メリット・成長系データに合う
+   B: 「市場に残る人だけが勝ちます。」← 退場・売却・離脱系データに合う
+   C: 「暴落は、長期投資家の味方です。」← 暴落・下落・回復系データに合う
+   D: 「時間が、最大の武器です。」← 複利・積立・長期保有系データに合う
+   E: 「退場しない人だけが勝つ。」← 損失・失敗・心理系データに合う
+
+   接続詞の選択:
    ■ dataが失敗・損失の話 →「でも、」（逆接: 失敗→でも希望がある）
      例: 「売った人の9割が回復を逃した。でも、市場に残る人だけが勝ちます。」✓
    ■ dataが成功・実績の話 →「だから、」（順接: 実績→だから続けよう）
-     例: 「20年続けた人、元本割れゼロ。だから、退場しない人だけが勝つ。」✓
+     例: 「20年続けた人、元本割れゼロ。だから、時間が最大の武器です。」✓
    ■ dataが意外な事実 →「そう、」（肯定: 事実→そうなんです）
      例: 「バフェットの資産99%は50歳以降。そう、時間が最大の武器です。」✓
 
+   ★チェック: dataを読んだ直後にresolveを読み、「だから何？」と思ったらNG。書き直せ。
    悪い組み合わせ（絶対禁止）:
-   ✗ 「元本割れゼロ。でも、〜」← ポジティブなのに逆接。意味不明。
+   ✗ 「年7%で2倍。だから、暴落は味方。」← 複利と暴落は無関係。
    ✗ 「配当再投資で2倍。だから、暴落は味方。」← 配当と暴落は無関係。
-   ✗ 「月3万で6000万。でも、退場しない人だけが勝つ。」← 因果なし。
+   ✗ 「月3万で6000万。でも、退場しない人だけが勝つ。」← ポジティブに逆接は不自然。
 
 5. closing（2秒）: 固定。textは「{closing}」のみ。
 
@@ -261,12 +273,72 @@ LONG_TEMPLATE = """
 """
 
 
+# データプール（テーマキーワード → 定型文リスト）
+# Claudeが22文字超のdataを生成した場合、ここからフォールバック選択する
+DATA_POOL = {
+    "暴落": ["暴落後1年のリターン、平均+25%。", "売った人の9割が回復を逃した。", "暴落は平均18ヶ月ごとに来る。",
+             "リーマンから5年で完全回復。", "コロナ後、1年半で最高値更新。"],
+    "長期": ["20年続けた人、元本割れゼロ。", "10年持てば勝率95%以上。", "ベスト10日を逃すとリターン半減。",
+             "最悪のタイミングで買っても利益。", "保有3年でやめた人、翌年逃す。"],
+    "複利": ["月3万の積立、30年後に6000万。", "月1万でも20年で500万。", "毎日100円で30年後130万超。",
+             "年7%なら10年で2倍になる。", "配当再投資でリターン約2倍。"],
+    "心理": ["SNSは勝った人しか叫ばない。", "口座を見る回数が多い人ほど損。", "途中でやめた人、リターン1/3。",
+             "忘れてた人が一番儲かる。", "プロの7割がインデックスに負ける。"],
+    "歴史": ["NISA非課税効果、20年で約200万。", "長期では株式が債券を上回る傾向。", "世界のGDP、50年で10倍。",
+             "バフェットの資産99%は50歳以降。", "恐怖指数が高い時に買った人が勝つ。"],
+}
+
+# トピックキーワード → データプールカテゴリのマッピング
+_TOPIC_TO_CATEGORY = {
+    "暴落": "暴落", "下落": "暴落", "リーマン": "暴落", "コロナ": "暴落", "恐慌": "暴落", "回復": "暴落",
+    "複利": "複利", "積立": "複利", "配当": "複利", "年利": "複利", "100円": "複利", "月": "複利",
+    "SNS": "心理", "焦": "心理", "口座": "心理", "感情": "心理", "パニック": "心理",
+    "NISA": "歴史", "GDP": "歴史", "バフェット": "歴史", "200年": "歴史", "歴史": "歴史",
+}
+
+
+def _select_conclusion(data_text: str) -> str:
+    """dataの内容に最も合う結論フレーズを選択する。"""
+    crash_words = ["暴落", "下落", "回復", "リーマン", "コロナ", "恐慌", "恐怖指数", "ショック"]
+    exit_words = ["売った", "やめた", "逃した", "離れ", "退場", "解約", "損"]
+    time_words = ["倍", "複利", "積立", "50歳", "30年", "20年", "10年", "月", "年7%", "100円"]
+    psych_words = ["SNS", "口座", "忘れ", "見る", "プロ", "感情", "パニック"]
+
+    # カテゴリごとに2〜3個の互換結論からランダム選択（ローテーション確保）
+    if any(w in data_text for w in crash_words):
+        return random.choice([
+            "暴落は、長期投資家の味方です。",
+            "市場に残る人だけが勝ちます。",
+        ])
+    elif any(w in data_text for w in exit_words):
+        return random.choice([
+            "市場に残る人だけが勝ちます。",
+            "退場しない人だけが勝つ。",
+        ])
+    elif any(w in data_text for w in time_words):
+        return random.choice([
+            "時間が、最大の武器です。",
+            "やっぱり、長期投資しかないですね。",
+            "退場しない人だけが勝つ。",
+        ])
+    elif any(w in data_text for w in psych_words):
+        return random.choice([
+            "退場しない人だけが勝つ。",
+            "市場に残る人だけが勝ちます。",
+        ])
+    else:
+        return random.choice([
+            "やっぱり、長期投資しかないですね。",
+            "時間が、最大の武器です。",
+        ])
+
+
 def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
     """Shorts用台本（5シーン、16〜18秒）を生成する。"""
     theme_desc = SHORTS_THEMES.get(theme, SHORTS_THEMES["ガチホモチベ"])
-    # フレーズをランダム選択
+    # フレーズをランダム選択（結論はdata生成後にポスプロで再選択）
     opening = random.choice(OPENING_PHRASES)
-    conclusion = random.choice(CONCLUSION_PHRASES)
+    conclusion = random.choice(CONCLUSION_PHRASES)  # 初期値（ポスプロで上書き）
     closing_idx = random.randrange(len(CLOSING_PHRASES_LIST))
     closing = CLOSING_PHRASES_LIST[closing_idx]
     closing_slide = CLOSING_SLIDE_TEXTS[closing_idx]
@@ -357,12 +429,8 @@ def _generate_script(
                 # 通常動画用: openingのslide_textを固定
                 s["slide_text"] = OPENING_PHRASE
             elif role == "resolve":
-                if conclusion not in s.get("text", ""):
-                    s["text"] = s.get("text", "").rstrip("。") + "。" + conclusion
-                # slide_textを結論フレーズの要約に統一（ナレーションとの不一致を防ぐ）
-                # 結論フレーズから「。」を除去して短縮版をslide_textに
-                short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
-                s["slide_text"] = short_conclusion
+                # resolveの整形は文字数制限ループ内で実施（data内容を見て結論を選択）
+                pass
             elif role == "closing":
                 s["slide_text"] = closing_slide
                 s["text"] = closing
@@ -374,7 +442,69 @@ def _generate_script(
             role = s.get("role", "")
             text = s.get("text", "")
 
-            if role in strict_limits:
+            if role == "hook":
+                # hookの痛みワードチェック: 弱いhookを検出して警告
+                strong_hooks = ["含み損", "暴落", "売りたい", "退場", "不安", "怖い",
+                                "つらい", "眠れない", "後悔", "焦る", "損した", "溶けた"]
+                weak_hooks = ["増えない", "差がない", "もったいない", "知らない", "違う"]
+                hook_text = text.rstrip("。？！ ")
+                if any(w in hook_text for w in weak_hooks) and not any(w in hook_text for w in strong_hooks):
+                    # トピックから痛みワードを探して置き換え
+                    topic_pain = {"配当": "損してる。", "複利": "焦る。", "年利": "不安。",
+                                  "積立": "つらい。", "100円": "不安。", "差": "後悔。",
+                                  "200年": "不安。", "非課税": "焦る。", "再投資": "損してる。"}
+                    replaced = False
+                    for kw, replacement in topic_pain.items():
+                        if kw in topic:
+                            print(f"  [修正] hookが弱い「{hook_text}」→「{replacement}」に変更")
+                            s["text"] = replacement
+                            s["slide_text"] = replacement
+                            text = replacement
+                            replaced = True
+                            break
+                    if not replaced:
+                        print(f"  [警告] hookが弱い可能性:「{hook_text}」")
+
+            if role == "data":
+                # 誇張表現を正確な表現に自動置換
+                exaggeration_fixes = {
+                    "200年間、株式が債券に勝ち続けた": "長期では株式が債券を上回る傾向",
+                    "株式200年、負けなし": "長期では株式が債券を上回る傾向",
+                    "200年間負けなし": "長期では株式が成長し続けた",
+                    "株式が債券に勝ち続けた": "株式が債券を上回る傾向",
+                }
+                for bad, good in exaggeration_fixes.items():
+                    if bad in text:
+                        old_text = text
+                        text = text.replace(bad, good)
+                        s["text"] = text
+                        s["slide_text"] = good[:14]
+                        print(f"  [修正] data誇張表現を修正:「{old_text.rstrip('。')}」→「{text.rstrip('。')}」")
+                        break
+
+            if role == "data" and len(text) > 22:
+                # dataが22文字超 → データプールからフォールバック選択
+                # まずトピックからカテゴリを特定
+                category = "長期"  # デフォルト
+                for kw, cat in _TOPIC_TO_CATEGORY.items():
+                    if kw in topic:
+                        category = cat
+                        break
+                pool = DATA_POOL.get(category, DATA_POOL["長期"])
+                # Claudeの生成文とキーワードが重なるものを優先選択
+                best = pool[0]
+                best_score = 0
+                for candidate in pool:
+                    score = sum(1 for w in candidate if w in text)
+                    if score > best_score:
+                        best_score = score
+                        best = candidate
+                print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
+                s["text"] = best
+                s["slide_text"] = best.rstrip("。")[:14]
+                text = best
+
+            elif role in strict_limits:
                 limit = strict_limits[role]
                 if len(text) > limit:
                     print(f"  [警告] {role}が{len(text)}文字（制限{limit}文字）→ 切り詰めます")
@@ -399,36 +529,38 @@ def _generate_script(
                     s["text"] = (ai_part + "。" + opening) if ai_part else opening
 
             elif role == "resolve":
-                # 接続詞（でも/だから/そう）+ 結論フレーズに整形
-                if conclusion in text:
-                    ai_part = text.replace(conclusion, "").strip().rstrip("。、 ")
-                    # 接続詞を抽出（でも、だから、そう のいずれか）
+                # dataの内容を取得
+                data_text = ""
+                for ds in scenes:
+                    if ds.get("role") == "data":
+                        data_text = ds.get("text", "")
+                        break
+
+                # dataの内容に最も合う結論フレーズを自動選択
+                best_conclusion = _select_conclusion(data_text)
+                if best_conclusion != conclusion:
+                    print(f"  [修正] 結論フレーズを変更: 「{conclusion}」→「{best_conclusion}」")
+                    conclusion = best_conclusion
+
+                # 接続詞をdata内容から判定
+                negative_words = ["売った", "やめた", "逃した", "負ける", "損", "崩壊", "下落", "暴落", "離れ", "減"]
+                positive_words = ["ゼロ", "勝率", "2倍", "成長", "利益", "6000万", "500万", "完全回復", "最高値"]
+                surprise_words = ["バフェット", "99%", "50歳", "プロ", "忘れ"]
+                data_is_negative = any(w in data_text for w in negative_words)
+                data_is_positive = any(w in data_text for w in positive_words) and not data_is_negative
+                data_is_surprise = any(w in data_text for w in surprise_words) and not data_is_negative
+
+                if data_is_negative:
+                    connector = "でも、"
+                elif data_is_surprise:
+                    connector = "そう、"
+                else:
                     connector = "だから、"
-                    for c in ["でも、", "だから、", "そう、"]:
-                        if c in ai_part:
-                            connector = c
-                            break
 
-                    # dataの内容と接続詞の整合性チェック
-                    data_text = ""
-                    for ds in scenes:
-                        if ds.get("role") == "data":
-                            data_text = ds.get("text", "")
-                            break
-                    # ネガティブ判定を優先（「回復を逃した」等の複合表現対策）
-                    negative_words = ["売った", "やめた", "逃した", "負ける", "損", "崩壊", "下落", "暴落", "離れ", "減"]
-                    positive_words = ["ゼロ", "勝率", "2倍", "成長", "利益", "6000万", "500万", "完全回復", "最高値"]
-                    data_is_negative = any(w in data_text for w in negative_words)
-                    data_is_positive = any(w in data_text for w in positive_words) and not data_is_negative
-
-                    if data_is_positive and connector == "でも、":
-                        connector = "だから、"
-                        print(f"  [修正] dataがポジティブなので接続詞を「でも」→「だから」に変更")
-                    elif data_is_negative and connector != "でも、":
-                        connector = "でも、"
-                        print(f"  [修正] dataがネガティブなので接続詞を「でも」に変更")
-
-                    s["text"] = connector + conclusion
+                s["text"] = connector + conclusion
+                # slide_textも更新
+                short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
+                s["slide_text"] = short_conclusion
 
         # バリデーション
         title = data.get("title", "").strip()
