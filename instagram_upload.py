@@ -1,6 +1,6 @@
 """
 instagram_upload.py
-Instagram Graph API で Reels をアップロードするモジュール。
+Instagram Platform API で Reels をアップロードするモジュール。
 
 使い方:
     import instagram_upload
@@ -33,8 +33,8 @@ load_dotenv(SCRIPT_DIR / ".env")
 
 TOKEN_FILE = SCRIPT_DIR / "instagram_token.json"
 
-# Facebook Graph API
-GRAPH_API_BASE = "https://graph.facebook.com/v21.0"
+# Instagram Graph API
+GRAPH_API_BASE = "https://graph.instagram.com/v22.0"
 
 # ポーリング設定
 POLL_INTERVAL = 5  # 秒
@@ -68,127 +68,81 @@ def upload_video(
         return None
 
     access_token = token_data["access_token"]
-    account_id = token_data.get("instagram_business_account_id", "")
+    user_id = token_data.get("instagram_user_id", "")
 
-    if not account_id:
-        account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
-    if not account_id:
-        print("  [エラー] Instagram Business Account ID が設定されていません。")
+    if not user_id:
+        print("  [エラー] Instagram User ID が設定されていません。")
         return None
 
-    # Step 1: 動画をGoogle Driveにアップロードして公開URLを取得
+    # Step 1: 動画を一時ファイルホスティングにアップロードして公開URLを取得
     print("  Instagram: 動画を一時的に公開URL化中...")
-    video_url = _upload_to_drive(video_file, access_token)
+    video_url = _upload_to_temp_hosting(video_file)
     if not video_url:
         print("  [エラー] 動画の公開URL化に失敗しました。")
-        print("  代替方法: 動画を手動でWeb公開し、URLを指定してください。")
         return None
 
-    try:
-        # Step 2: メディアコンテナを作成
-        print("  Instagram: Reelsコンテナ作成中...")
-        container_id = _create_media_container(
-            access_token, account_id, video_url, caption
-        )
-        if not container_id:
-            return None
-
-        # Step 3: 処理完了を待つ
-        print("  Instagram: 動画処理中（最大5分）...")
-        if not _wait_for_processing(access_token, container_id):
-            return None
-
-        # Step 4: 公開
-        print("  Instagram: 公開中...")
-        media_id = _publish_media(access_token, account_id, container_id)
-        if not media_id:
-            return None
-
-        # Step 5: パーマリンクを取得
-        permalink = _get_permalink(access_token, media_id)
-        if permalink:
-            print(f"  Instagram投稿完了: {permalink}")
-        else:
-            print(f"  Instagram投稿完了: media_id={media_id}")
-
-        return permalink or media_id
-
-    finally:
-        # Google Drive から一時ファイルを削除
-        if video_url and "_drive_file_id" in dir():
-            _delete_from_drive(_drive_file_id)
-
-
-def _upload_to_drive(video_file: pathlib.Path, access_token: str) -> str:
-    """
-    Google Drive に動画をアップロードし、公開共有リンクを返す。
-
-    Google認証は sheets.py の既存の仕組みを利用する。
-    """
-    try:
-        import sheets
-        from googleapiclient.http import MediaFileUpload
-
-        # Google Drive サービスを取得
-        creds = sheets._get_credentials()
-        from googleapiclient.discovery import build
-        drive_service = build("drive", "v3", credentials=creds)
-
-        # アップロード
-        file_metadata = {
-            "name": f"ig_temp_{video_file.name}",
-            "mimeType": "video/mp4",
-        }
-        media = MediaFileUpload(str(video_file), mimetype="video/mp4", resumable=True)
-        uploaded = drive_service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id,webContentLink",
-        ).execute()
-
-        file_id = uploaded["id"]
-
-        # 公開共有に設定
-        drive_service.permissions().create(
-            fileId=file_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-
-        # 直接ダウンロードURLを取得
-        # webContentLink は Google Drive のダウンロードリンク
-        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-
-        # グローバル変数で保持（finally でクリーンアップ用）
-        global _drive_file_id
-        _drive_file_id = file_id
-
-        print(f"  Google Drive にアップロード完了: {file_id}")
-        return download_url
-
-    except Exception as e:
-        print(f"  [エラー] Google Drive アップロード失敗: {e}")
+    # Step 2: メディアコンテナを作成
+    print("  Instagram: Reelsコンテナ作成中...")
+    container_id = _create_media_container(
+        access_token, user_id, video_url, caption
+    )
+    if not container_id:
         return None
 
+    # Step 3: 処理完了を待つ
+    print("  Instagram: 動画処理中（最大5分）...")
+    if not _wait_for_processing(access_token, container_id):
+        return None
 
-def _delete_from_drive(file_id: str):
-    """Google Drive から一時ファイルを削除する。"""
+    # Step 4: 公開
+    print("  Instagram: 公開中...")
+    media_id = _publish_media(access_token, user_id, container_id)
+    if not media_id:
+        return None
+
+    # Step 5: パーマリンクを取得
+    permalink = _get_permalink(access_token, media_id)
+    if permalink:
+        print(f"  Instagram投稿完了: {permalink}")
+    else:
+        print(f"  Instagram投稿完了: media_id={media_id}")
+
+    return permalink or media_id
+
+
+def _upload_to_temp_hosting(video_file: pathlib.Path) -> str:
+    """
+    一時ファイルホスティング（litterbox.catbox.moe）に動画をアップロードし、
+    直接ダウンロード可能なURLを返す。ファイルは72時間後に自動削除される。
+    """
     try:
-        import sheets
-        from googleapiclient.discovery import build
-        creds = sheets._get_credentials()
-        drive_service = build("drive", "v3", credentials=creds)
-        drive_service.files().delete(fileId=file_id).execute()
-        print(f"  Google Drive 一時ファイル削除完了")
+        with open(video_file, "rb") as f:
+            resp = requests.post(
+                "https://litterbox.catbox.moe/resources/internals/api.php",
+                data={"reqtype": "fileupload", "time": "72h"},
+                files={"fileToUpload": (video_file.name, f, "video/mp4")},
+                timeout=120,
+            )
+
+        if resp.status_code == 200 and resp.text.strip().startswith("https://"):
+            url = resp.text.strip()
+            print(f"  一時ホスティングにアップロード完了: {url}")
+            return url
+
+        print(f"  [エラー] 一時ホスティングアップロード失敗: {resp.status_code} {resp.text[:100]}")
+        return None
+
     except Exception as e:
-        print(f"  [警告] Google Drive 一時ファイル削除失敗: {e}")
+        print(f"  [エラー] 一時ホスティングアップロード失敗: {e}")
+        return None
 
 
 def _create_media_container(
-    access_token: str, account_id: str, video_url: str, caption: str
+    access_token: str, user_id: str, video_url: str, caption: str
 ) -> str:
     """Instagram Reels のメディアコンテナを作成する。"""
     resp = requests.post(
-        f"{GRAPH_API_BASE}/{account_id}/media",
+        f"{GRAPH_API_BASE}/{user_id}/media",
         data={
             "media_type": "REELS",
             "video_url": video_url,
@@ -210,7 +164,7 @@ def _create_media_container(
     container_id = data.get("id")
     if not container_id:
         _save_debug("instagram_container_error.json", json.dumps(data, ensure_ascii=False))
-        print(f"  [エラー] コンテナIDが取得できませんでした")
+        print("  [エラー] コンテナIDが取得できませんでした")
         return None
 
     return container_id
@@ -226,7 +180,7 @@ def _wait_for_processing(access_token: str, container_id: str) -> bool:
         resp = requests.get(
             f"{GRAPH_API_BASE}/{container_id}",
             params={
-                "fields": "status_code",
+                "fields": "status_code,status",
                 "access_token": access_token,
             },
             timeout=30,
@@ -235,14 +189,16 @@ def _wait_for_processing(access_token: str, container_id: str) -> bool:
         if resp.status_code != 200:
             continue
 
-        status = resp.json().get("status_code", "")
+        data = resp.json()
+        status = data.get("status_code", "")
 
         if status == "FINISHED":
             print(f"  Instagram: 動画処理完了（{elapsed}秒）")
             return True
         elif status == "ERROR":
             _save_debug("instagram_processing_error.json", resp.text)
-            print(f"  [エラー] Instagram動画処理に失敗しました")
+            error_detail = data.get("status", "詳細なし")
+            print(f"  [エラー] Instagram動画処理に失敗しました: {error_detail}")
             return False
         # IN_PROGRESS の場合は継続
 
@@ -250,10 +206,10 @@ def _wait_for_processing(access_token: str, container_id: str) -> bool:
     return False
 
 
-def _publish_media(access_token: str, account_id: str, container_id: str) -> str:
+def _publish_media(access_token: str, user_id: str, container_id: str) -> str:
     """メディアコンテナを公開する。"""
     resp = requests.post(
-        f"{GRAPH_API_BASE}/{account_id}/media_publish",
+        f"{GRAPH_API_BASE}/{user_id}/media_publish",
         data={
             "creation_id": container_id,
             "access_token": access_token,
@@ -329,7 +285,7 @@ def _get_valid_token() -> dict:
 def _refresh_token(current_token: str) -> str:
     """長期トークンを更新する（新しい60日間）。"""
     resp = requests.get(
-        f"{GRAPH_API_BASE}/oauth/access_token",
+        f"{GRAPH_API_BASE}/refresh_access_token",
         params={
             "grant_type": "ig_refresh_token",
             "access_token": current_token,
