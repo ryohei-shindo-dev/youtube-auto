@@ -38,6 +38,9 @@ TikTok Developer Portal（https://developers.tiktok.com/）で審査ステータ
 - 2026-03-08: Meta の Instagram 投稿失敗 (`API access blocked`) を調査。`instagram_business_content_publish` の App Review に加え、Meta Business の `Access verification` / `ビジネス認証` が未完了であることを確認。
 - 2026-03-08: Meta 審査用の整合性を取るため、`docs/index.html`、`docs/privacy.html`、`docs/terms.html` に運営主体 `合同会社漸進`、`代表社員 進藤亮平`、登記住所、問い合わせ先を追記。TikTok 審査中のサービス名 `gachiho-motive` 自体は維持。
 - 2026-03-08: Meta 側では個人名義ではなく法人名義 `合同会社漸進` で進める方針に切り替え。使用予定書類は `2024-07-29` 取得の履歴事項全部証明書。
+- 2026-03-08: Meta の `Access verification status` から `合同会社漸進` を法人候補として選択できる状態まで到達。候補名は `ZENSHIN, LIMITED LIABILITY COMPANY`、住所は `横浜市西区平沼1-40-9 パークハイツ横浜304` で一致。
+- 2026-03-08: `本人確認` ルートで `Ryohei Shindo` の候補を選択し、運転免許証を提出。Meta 上は `本人確認が進行中です` / `通常48時間以内` の状態。
+- 2026-03-08: 現時点のブロッカーは Meta 側の本人確認審査待ち。承認後に `instagram_business_content_publish` のアクセス状態を再確認し、必要なら `instagram_auth.py` を再実行して day 5 / day 6 の Instagram 再投稿を行う。
 
 ---
 
