@@ -3,7 +3,7 @@ auto_publish.py
 投稿スケジュールに従って YouTube Shorts / TikTok / Instagram Reels を自動投稿するスクリプト。
 
 使い方:
-    python auto_publish.py                                    # 今日の分を全プラットフォームに投稿
+    python auto_publish.py                                    # 今日の分を既定プラットフォームに投稿
     python auto_publish.py --dry-run                          # 投稿せずに確認だけ
     python auto_publish.py --force 2                          # day 2 を強制投稿
     python auto_publish.py --private                          # 非公開で投稿（テスト用）
@@ -11,8 +11,8 @@ auto_publish.py
     python auto_publish.py --retry-failed                     # 失敗したプラットフォームだけ再投稿
 
 cron設定例（毎朝7:00 / 毎晩19:00に自動投稿）:
-    0 7 * * * cd /Users/shindoryohei/youtube-auto && venv/bin/python auto_publish.py >> logs/auto_publish.log 2>&1
-    0 19 * * * cd /Users/shindoryohei/youtube-auto && venv/bin/python auto_publish.py >> logs/auto_publish.log 2>&1
+    0 7 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x
+    0 19 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x
 """
 
 import argparse
@@ -22,6 +22,7 @@ import pathlib
 import random
 import sys
 from datetime import datetime
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -33,6 +34,7 @@ SCHEDULE_FILE = SCRIPT_DIR / "posting_schedule.json"
 LOG_DIR = SCRIPT_DIR / "logs"
 
 ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
+DEFAULT_PLATFORMS = ["youtube", "instagram", "x"]
 
 # Shorts タイトル用サフィックス（ランダムで選択）
 _TITLE_SUFFIXES = [
@@ -178,11 +180,12 @@ def _ensure_platforms(entry: dict):
         }
 
 
-def _get_retry_platforms(entry: dict) -> list:
+def _get_retry_platforms(entry: dict, allowed_platforms: Optional[list] = None) -> list:
     """失敗したプラットフォームのリストを返す。"""
     _ensure_platforms(entry)
+    target_platforms = allowed_platforms or list(ALL_PLATFORMS)
     failed = []
-    for p in ALL_PLATFORMS:
+    for p in target_platforms:
         pdata = entry["platforms"].get(p, {})
         if not pdata.get("published", False):
             failed.append(p)
@@ -479,7 +482,7 @@ def main():
     parser.add_argument("--private", action="store_true", help="非公開で投稿（テスト用）")
     parser.add_argument("--platforms", nargs="+", default=None,
                         choices=ALL_PLATFORMS,
-                        help="投稿先プラットフォーム（デフォルト: 全て）")
+                        help="投稿先プラットフォーム（デフォルト: youtube instagram x）")
     parser.add_argument("--retry-failed", action="store_true",
                         help="失敗したプラットフォームだけ再投稿")
     args = parser.parse_args()
@@ -510,7 +513,8 @@ def main():
 
     # プラットフォームを決定
     if args.retry_failed:
-        platforms = _get_retry_platforms(entry)
+        retry_candidates = args.platforms or list(DEFAULT_PLATFORMS)
+        platforms = _get_retry_platforms(entry, retry_candidates)
         if not platforms:
             print(f"  [情報] day {entry['day']} は全プラットフォーム投稿済みです。")
             sys.exit(0)
@@ -518,7 +522,7 @@ def main():
     elif args.platforms:
         platforms = args.platforms
     else:
-        platforms = list(ALL_PLATFORMS)
+        platforms = list(DEFAULT_PLATFORMS)
 
     # 投稿実行
     results = publish_entry(entry, privacy=privacy, dry_run=args.dry_run, platforms=platforms)
@@ -545,6 +549,11 @@ def main():
         print(f"\n  次回: day {next_entry['day']} ({next_entry['date']}) — {next_entry['note']}")
     else:
         print("\n  全投稿が完了しました！")
+
+    failed_platforms = [p for p, ok in results.items() if not ok]
+    if failed_platforms and not args.dry_run:
+        print(f"\n  [エラー] 失敗プラットフォーム: {', '.join(failed_platforms)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
