@@ -37,6 +37,14 @@ SCOPES = [
 ]
 
 SHEET_NAME = "投稿管理"
+
+# プラットフォーム別のURL列マッピング（投稿管理シート）
+PLATFORM_COLUMNS = {
+    "youtube": "J",
+    "instagram": "P",
+    "x": "Q",
+    "tiktok": "R",
+}
 NOTE_SHEET_NAME = "note管理"
 
 STATUS_PENDING = "未生成"
@@ -144,17 +152,20 @@ def update_generated(
 def update_published(
     spreadsheet_id: str,
     row: int,
-    youtube_url: str,
+    urls: dict = None,
 ):
-    """公開後にシートを更新する。"""
+    """公開後にシートを更新する。各プラットフォームのURLを書き込む。"""
     service = get_service()
     today = datetime.now().strftime("%Y/%m/%d")
 
     data = [
         {"range": f"{SHEET_NAME}!F{row}", "values": [[STATUS_PUBLISHED]]},
         {"range": f"{SHEET_NAME}!I{row}", "values": [[today]]},
-        {"range": f"{SHEET_NAME}!J{row}", "values": [[youtube_url]]},
     ]
+    for platform, column in PLATFORM_COLUMNS.items():
+        url = (urls or {}).get(platform)
+        if url:
+            data.append({"range": f"{SHEET_NAME}!{column}{row}", "values": [[url]]})
 
     service.spreadsheets().values().batchUpdate(
         spreadsheetId=spreadsheet_id,
@@ -191,7 +202,9 @@ def populate_from_topics_json(spreadsheet_id: str):
 
     # ヘッダー + データ行を作成
     rows = [["No.", "種別", "トピック", "検索キーワード", "狙い", "ステータス",
-             "タイトル", "生成日", "公開日", "YouTube URL", "再生数", "備考"]]
+             "タイトル", "生成日", "公開日", "YouTube URL", "再生数", "備考",
+             "hook力", "感情曲線", "文脈",
+             "Instagram URL", "X URL", "TikTok URL"]]
 
     no = 1
     # Shorts（テーマ別）

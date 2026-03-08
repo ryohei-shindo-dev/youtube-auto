@@ -282,9 +282,6 @@ def publish_entry(
                 results["youtube"] = True
                 print(f"  [YouTube] 投稿完了: {youtube_url}")
 
-                # スプレッドシート更新
-                _update_sheet(yt_title, youtube_url)
-
                 # 固定コメント + いいね
                 try:
                     import sheets
@@ -409,11 +406,15 @@ def publish_entry(
                 "error": "投稿に失敗しました",
             }
 
+    # スプレッドシート更新（全プラットフォームのURLをまとめて書き込む）
+    if any(results.values()):
+        _update_sheet(yt_title, urls)
+
     return results
 
 
-def _update_sheet(title: str, youtube_url: str):
-    """スプレッドシートを更新する。"""
+def _update_sheet(title: str, urls: dict):
+    """スプレッドシートを更新する。全プラットフォームのURLを書き込む。"""
     sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
     if not sheet_id:
         return
@@ -431,7 +432,7 @@ def _update_sheet(title: str, youtube_url: str):
                 sheet_row = i
                 break
         if sheet_row:
-            sheets.update_published(sheet_id, sheet_row, youtube_url)
+            sheets.update_published(sheet_id, sheet_row, urls=urls)
         else:
             print(f"  [警告] シートでタイトル「{title}」が見つかりませんでした")
     except Exception as e:
