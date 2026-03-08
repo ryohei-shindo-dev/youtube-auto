@@ -34,9 +34,10 @@ THUMB_HEIGHT = 720
 BGM_VOLUME = 0.06
 SECTION_PAUSE = 0.9
 
-FONT_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W9.ttc"
-FONT_BOLD = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+FONT_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+FONT_BOLD = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 FONT_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
+FONT_MINCHO = "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc"
 
 TITLE = "含み損で眠れない夜に、何をしないのが一番いいのか"
 DESCRIPTION = (
@@ -58,14 +59,13 @@ ROLE_AUDIO = {
 
 ROLE_BG = {
     "hook": "long_night_thinking.png",
-    "overview": "long_night_thinking.png",
+    "overview": "long_door_light.png",
     "why_painful": "long_night_thinking.png",
     "data": "long_waiting_person.png",
     "interpret": "long_waiting_person.png",
     "action": "long_lamp_room.png",
     "closing": "long_dawn_road.png",
 }
-# 扉の光 (long_door_light.png) は resolve / closing の代替候補として保持
 
 # ロールごとのズーム方向（内面系=in / 余韻系=out）
 ROLE_ZOOM_DIR: dict[str, str] = {
@@ -99,7 +99,7 @@ STORYBOARD = [
     {"role": "interpret", "title": "同じではない", "body": "", "share": 0.6, "layout": "full"},
     {"role": "interpret", "title": "途中で決めない", "body": "今日の価格は途中\n途中の数字で全部を決めない", "share": 1.4, "layout": "corner"},
     {"role": "action", "title": "今夜やること", "body": "口座を開かない\n設定を変えない", "share": 1.0, "layout": "corner"},
-    {"role": "action", "title": "何もしない", "body": "動かなかったことが正解になる", "share": 1.0, "layout": "number"},
+    {"role": "action", "title": "何もしない", "body": "動かなかったことが正解になる", "share": 1.0, "layout": "number", "bg": "long_dawn_road.png"},
     {"role": "closing", "title": "今日はそれで十分", "body": "途中の数字で全部を決めない", "share": 1.0, "layout": "corner"},
 ]
 
@@ -175,7 +175,8 @@ def _resolve_storyboard() -> list[dict]:
 
 
 def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path: pathlib.Path):
-    bg_path = ASSETS_DIR / ROLE_BG[card["role"]]
+    bg_file = card.get("bg") or ROLE_BG[card["role"]]
+    bg_path = ASSETS_DIR / bg_file
     background = _prepare_background(bg_path)
     overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -197,25 +198,43 @@ def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path
 
 
 def _render_thumbnail(output_path: pathlib.Path):
-    canvas = Image.new("RGB", (THUMB_WIDTH, THUMB_HEIGHT), (10, 10, 10))
+    # 背景画像を読み込み、暗め加工
+    bg_path = ASSETS_DIR / "long_night_thinking.png"
+    if bg_path.exists():
+        bg = Image.open(bg_path).convert("RGB")
+        bg = bg.resize((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
+        from PIL import ImageEnhance
+        bg = ImageEnhance.Brightness(bg).enhance(0.45)
+        canvas = bg
+    else:
+        canvas = Image.new("RGB", (THUMB_WIDTH, THUMB_HEIGHT), (10, 10, 10))
     draw = ImageDraw.Draw(canvas)
 
-    pain_font = _load_font(FONT_HEAVY, 130)
-    body_font = _load_font(FONT_BOLD, 62)
-    small_font = _load_font(FONT_REGULAR, 24)
+    # サムネ用フォント（本編より少し強め）
+    thumb_font_w8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
+    thumb_font_w6 = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
+    pain_font = _load_font(thumb_font_w8, 130)
+    body_font = _load_font(thumb_font_w6, 62)
 
     line1 = "含み損の夜"
-    line2 = "動かない方がいい"
+    line2 = "今日は動かない"
 
-    _draw_centered(draw, line1, pain_font, (255, 215, 0), 170)
-    _draw_centered(draw, line2, body_font, (255, 255, 255), 360)
-    draw.text((THUMB_WIDTH - 190, THUMB_HEIGHT - 55), "ガチホのモチベ", font=small_font, fill=(120, 120, 120))
+    # 左寄せ配置
+    text_x = 80
+    draw.text(
+        (text_x, 240), line1, font=pain_font,
+        fill=(240, 200, 60), stroke_width=6, stroke_fill=(0, 0, 0),
+    )
+    draw.text(
+        (text_x, 410), line2, font=body_font,
+        fill=(255, 255, 255), stroke_width=4, stroke_fill=(0, 0, 0),
+    )
 
     canvas.save(output_path, "PNG", optimize=True)
 
 
 def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 78)
+    title_font = _load_font(FONT_HEAVY, 72)
     body_font = _load_font(FONT_BOLD, 42)
     text_x = 160
     text_y = 200
@@ -233,7 +252,7 @@ def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 72)
+    title_font = _load_font(FONT_HEAVY, 66)
     body_font = _load_font(FONT_BOLD, 38)
 
     draw.text(
@@ -249,7 +268,7 @@ def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 170)
+    title_font = _load_font(FONT_HEAVY, 148)
     body_font = _load_font(FONT_BOLD, 44)
     accent = _accent_color(card["role"])
 
@@ -270,7 +289,7 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 118)
+    title_font = _load_font(FONT_MINCHO, 108)
     bbox = draw.multiline_textbbox((0, 0), card["title"], font=title_font, spacing=20)
     width = bbox[2] - bbox[0]
     height = bbox[3] - bbox[1]
@@ -289,7 +308,7 @@ def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 70)
+    title_font = _load_font(FONT_HEAVY, 64)
     body_font = _load_font(FONT_BOLD, 34)
 
     text_x = 140
