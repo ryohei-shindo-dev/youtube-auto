@@ -204,7 +204,7 @@ def _render_thumbnail(output_path: pathlib.Path):
         bg = Image.open(bg_path).convert("RGB")
         bg = bg.resize((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
         from PIL import ImageEnhance
-        bg = ImageEnhance.Brightness(bg).enhance(0.45)
+        bg = ImageEnhance.Brightness(bg).enhance(0.40)
         canvas = bg
     else:
         canvas = Image.new("RGB", (THUMB_WIDTH, THUMB_HEIGHT), (10, 10, 10))
@@ -213,21 +213,21 @@ def _render_thumbnail(output_path: pathlib.Path):
     # サムネ用フォント（本編より少し強め）
     thumb_font_w8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
     thumb_font_w6 = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
-    pain_font = _load_font(thumb_font_w8, 130)
+    pain_font = _load_font(thumb_font_w8, 126)
     body_font = _load_font(thumb_font_w6, 62)
 
     line1 = "含み損の夜"
     line2 = "今日は動かない"
 
-    # 左寄せ配置
+    # 左寄せ配置（やや上寄り）
     text_x = 80
     draw.text(
-        (text_x, 240), line1, font=pain_font,
+        (text_x, 200), line1, font=pain_font,
         fill=(240, 200, 60), stroke_width=6, stroke_fill=(0, 0, 0),
     )
     draw.text(
-        (text_x, 410), line2, font=body_font,
-        fill=(255, 255, 255), stroke_width=4, stroke_fill=(0, 0, 0),
+        (text_x, 360), line2, font=body_font,
+        fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0),
     )
 
     canvas.save(output_path, "PNG", optimize=True)
@@ -268,7 +268,7 @@ def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 148)
+    title_font = _load_font(FONT_HEAVY, 145)
     body_font = _load_font(FONT_BOLD, 44)
     accent = _accent_color(card["role"])
 
