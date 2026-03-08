@@ -70,6 +70,47 @@ CLOSING_SLIDE_TEXTS = [
     "同じ人いますか？コメントへ",
 ]
 
+# ── ループ再生用closingテンプレート ──
+# {hook} にhookワードが埋め込まれる。closing→hookが自然に繋がりループ再生を誘発。
+# 名詞系hook用（暴落、含み損、退場…）: 「{hook}でも」が自然
+_LOOP_CLOSING_NOUN = [
+    ("{hook}でも、ガチホ。フォローお願いします。", "{hook}でも、ガチホ。フォロー"),
+    ("{hook}でも、続けよう。フォローお願いします。", "{hook}でも、続けよう。フォロー"),
+    ("{hook}でも、売るな。コメントで教えてください。", "{hook}でも、売るな。コメントへ"),
+]
+# 形容詞系hook用（眠れない、つらい、怖い、虚しい…）: 「{hook}。それでも」が自然
+_LOOP_CLOSING_ADJ = [
+    ("{hook}。それでもガチホ。フォローお願いします。", "{hook}。それでもガチホ。フォロー"),
+    ("{hook}。それでも続けよう。フォローお願いします。", "{hook}。それでも続けよう。フォロー"),
+    ("{hook}。それでも売るな。コメントで教えてください。", "{hook}。それでも売るな。コメントへ"),
+]
+# 共通（どちらでも使える）
+_LOOP_CLOSING_COMMON = [
+    ("{hook}…それでも持つ。フォローお願いします。", "{hook}…それでも持つ。フォロー"),
+]
+# 形容詞・動詞系hookの判定語尾（「暴落」「含み損」等の名詞は非マッチ→NOUN用）
+_ADJ_HOOK_ENDINGS = ["ない", "たい", "しい", "つい", "にくい", "づらい"]
+
+
+def _pick_loop_closing(hook: str) -> tuple:
+    """hookの品詞に応じてループ再生用closingテンプレートを選択する。"""
+    is_adj = any(hook.endswith(e) for e in _ADJ_HOOK_ENDINGS)
+    pool = (_LOOP_CLOSING_ADJ if is_adj else _LOOP_CLOSING_NOUN) + _LOOP_CLOSING_COMMON
+    return random.choice(pool)
+
+
+def _apply_loop_closing(scenes: list, hook_word: str) -> tuple:
+    """hookワードからループ再生用closingを生成してscenesに反映する。"""
+    tpl_text, tpl_slide = _pick_loop_closing(hook_word)
+    closing = tpl_text.format(hook=hook_word)
+    closing_slide = tpl_slide.format(hook=hook_word)
+    for s in scenes:
+        if s.get("role") == "closing":
+            s["text"] = closing
+            s["slide_text"] = _strip_terminal_punctuation(closing_slide)
+            break
+    return closing, closing_slide
+
 # 結論フレーズ（5パターンからランダム選択）
 CONCLUSION_PHRASES = [
     "やっぱり、長期投資しかないですね。",
@@ -476,6 +517,17 @@ def _generate_script(
 
         # 固定テキストを強制適用（Claudeが指示に従わなくても上書き）
         scenes = data.get("scenes", [])
+
+        # ── ループ再生: hookワードを取得してclosingに埋め込む ──
+        hook_word = ""
+        for s in scenes:
+            if s.get("role") == "hook":
+                hook_word = s.get("text", "").rstrip("。？！ ")
+                break
+        if hook_word:
+            closing, closing_slide = _apply_loop_closing(scenes, hook_word)
+            print(f"  [ループ再生] closing にhookワード埋め込み:「{closing_slide}」")
+
         for s in scenes:
             role = s.get("role", "")
             if role == "empathy":
@@ -520,6 +572,12 @@ def _generate_script(
                             break
                     if not replaced:
                         print(f"  [警告] hookが弱い可能性:「{hook_text}」")
+                # ループ再生: hook修正後のワードでclosingを再更新
+                new_hook = text.rstrip("。？！ ")
+                if new_hook and new_hook != hook_word:
+                    hook_word = new_hook
+                    closing, closing_slide = _apply_loop_closing(scenes, hook_word)
+                    print(f"  [ループ再生] hook修正に合わせてclosing更新:「{closing_slide}」")
 
             if role == "data":
                 # 誇張表現を正確な表現に自動置換
