@@ -139,6 +139,7 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    悪い: 「含み損、つらいですよね。」← 説明的。
    悪い: 「増えない。」「差がない。」← 痛みが弱い。感情が動かない。
    hookは必ず「恐怖・後悔・焦り」のどれかを刺せ。
+   ★画面表示用のslide_textは文末の句点不要。「含み損」「不安」のように止める。
 
 2. empathy（2〜3秒）: 「あなた」+共感1文 + 「{opening}」
    良い: 「あなただけじゃない。{opening}」
@@ -225,6 +226,7 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
 - 1シーン＝1メッセージ。
 - 話し言葉で断言。丁寧語より断言。
 - slide_textは最大14文字。それだけで意味が伝わること。
+- slide_textは見出しとして扱い、文末の句点・感嘆符・疑問符は付けない。
 - resolveのslide_textは7文字以内の断言。
 - empathyのslide_textは「{opening}」固定。
 - closingのslide_textは「{closing_slide}」固定。
@@ -234,7 +236,7 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
 
 ━━━ 出力 ━━━
 JSON形式のみ（説明不要）:
-{{"title": "タイトル", "description": "概要欄", "tags": ["タグ1", ...], "theme": "{theme_name}", "scenes": [{{"text": "含み損。", "slide_text": "含み損。", "duration_sec": 1, "role": "hook"}}, {{"text": "あなたも共感。{opening}", "slide_text": "{opening}", "duration_sec": 3, "role": "empathy"}}, {{"text": "数字で希望", "slide_text": "数字要点", "duration_sec": 4, "role": "data"}}, {{"text": "だから、{conclusion}", "slide_text": "断言7文字", "duration_sec": 4, "role": "resolve"}}, {{"text": "{closing}", "slide_text": "{closing_slide}", "duration_sec": 2, "role": "closing"}}]}}
+{{"title": "タイトル", "description": "概要欄", "tags": ["タグ1", ...], "theme": "{theme_name}", "scenes": [{{"text": "含み損。", "slide_text": "含み損", "duration_sec": 1, "role": "hook"}}, {{"text": "あなたも共感。{opening}", "slide_text": "{opening}", "duration_sec": 3, "role": "empathy"}}, {{"text": "数字で希望", "slide_text": "数字要点", "duration_sec": 4, "role": "data"}}, {{"text": "だから、{conclusion}", "slide_text": "断言7文字", "duration_sec": 4, "role": "resolve"}}, {{"text": "{closing}", "slide_text": "{closing_slide}", "duration_sec": 2, "role": "closing"}}]}}
 """
 
 # ── 通常動画テンプレート ──
@@ -260,6 +262,7 @@ LONG_TEMPLATE = """
 - 各シーンには2種類のテキストを用意する:
   - "text": ナレーション用（話し言葉、全文）。openingの冒頭は必ず「{opening}」で始めること。closingの末尾は必ず「{closing}」で終わること。
   - "slide_text": スライド表示用（最大10文字）。各シーンの要点キーワード。
+- slide_textは見出しとして扱い、文末の句点・感嘆符・疑問符は付けない。
 - 投資助言は絶対にしない。
 - 穏やかで落ち着いたトーン。煽らない。
 - すべての結論は「{conclusion}」に収束させる。
@@ -320,6 +323,11 @@ _EXAGGERATION_FIXES = {
     "200年間負けなし": "長期では株式が成長し続けた",
     "株式が債券に勝ち続けた": "株式が債券を上回る傾向",
 }
+
+
+def _strip_terminal_punctuation(text: str) -> str:
+    """画面テキスト末尾の句点類を落として見出しとして整える。"""
+    return text.rstrip("。.!！?？ ").strip()
 
 
 def _select_conclusion_and_connector(data_text: str) -> tuple:
@@ -485,6 +493,9 @@ def _generate_script(
                 s["slide_text"] = closing_slide
                 s["text"] = closing
 
+            if "slide_text" in s:
+                s["slide_text"] = _strip_terminal_punctuation(s.get("slide_text", ""))
+
         # 文字数制限チェック
         # 固定フレーズを保護しながら AI生成部分を切り詰める
         strict_limits = {"hook": 8, "data": 22}
@@ -503,7 +514,7 @@ def _generate_script(
                         if kw in topic:
                             print(f"  [修正] hookが弱い「{hook_text}」→「{replacement}」に変更")
                             s["text"] = replacement
-                            s["slide_text"] = replacement
+                            s["slide_text"] = _strip_terminal_punctuation(replacement)
                             text = replacement
                             replaced = True
                             break
@@ -517,7 +528,7 @@ def _generate_script(
                         old_text = text
                         text = text.replace(bad, good)
                         s["text"] = text
-                        s["slide_text"] = good[:14]
+                        s["slide_text"] = _strip_terminal_punctuation(good[:14])
                         print(f"  [修正] data誇張表現を修正:「{old_text.rstrip('。')}」→「{text.rstrip('。')}」")
                         data_text = text  # resolve用に更新
                         break
@@ -541,7 +552,7 @@ def _generate_script(
                         best = candidate
                 print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
                 s["text"] = best
-                s["slide_text"] = best.rstrip("。")[:14]
+                s["slide_text"] = _strip_terminal_punctuation(best[:14])
                 text = best
                 data_text = best  # resolve用に更新
 
@@ -578,7 +589,10 @@ def _generate_script(
 
                 s["text"] = connector + conclusion
                 short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
-                s["slide_text"] = short_conclusion
+                s["slide_text"] = _strip_terminal_punctuation(short_conclusion)
+
+            if "slide_text" in s:
+                s["slide_text"] = _strip_terminal_punctuation(s.get("slide_text", ""))
 
         # バリデーション
         title = data.get("title", "").strip()
