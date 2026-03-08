@@ -66,6 +66,22 @@ ROLE_BG = {
     "closing": "12_sunrise.png",
 }
 
+# ロールごとのズーム方向（内面系=in / 余韻系=out）
+ROLE_ZOOM_DIR: dict[str, str] = {
+    "hook": "in",
+    "overview": "in",
+    "why_painful": "in",
+    "data": "in",
+    "interpret": "out",
+    "action": "out",
+    "closing": "out",
+}
+
+# scale→crop 方式のパラメータ
+# 背景を UPSCALE 倍に拡大し、crop 範囲をゆっくり動かす（iMovie Ken Burns 方式）
+UPSCALE = 1.5
+ZOOM_RATIO = 0.035  # 100% → 103.5% のズーム量
+
 STORYBOARD = [
     {"role": "hook", "title": "含み損", "body": "夜が長い", "share": 1.0, "layout": "number"},
     {"role": "hook", "title": "つらさの正体", "body": "判断まで疑い始める", "share": 1.0, "layout": "corner"},
@@ -325,12 +341,13 @@ def _compose_video(
 
             video_path = tmp / f"video_{index:02d}.mp4"
             audio_clip = tmp / f"audio_{index:02d}.m4a"
+            zoom_dir = ROLE_ZOOM_DIR.get(role, "in")
             _make_video_clip(
                 background_path,
                 overlay_path,
                 card["duration"],
                 video_path,
-                zoom_out=(index % 2 == 0),
+                zoom_out=(zoom_dir == "out"),
             )
             _make_audio_clip(audio_path, offset, card["duration"], audio_clip)
             video_paths.append(video_path)
@@ -364,35 +381,53 @@ def _make_video_clip(
     output_path: pathlib.Path,
     zoom_out: bool = False,
 ):
-    fps = 30
-    total_frames = max(1, int(duration * fps))
-    # 背景だけを穏やかに動かし、文字は固定して読みやすさを保つ。
+    # scale→crop 方式（iMovie Ken Burns 再現）
+    # 背景を UPSCALE 倍に拡大し、crop 範囲をゆっくり動かす。
+    # テキスト（overlay）は固定のまま合成する。
+    up_w = int(VIDEO_WIDTH * UPSCALE)
+    up_h = int(VIDEO_HEIGHT * UPSCALE)
+    cx = (up_w - VIDEO_WIDTH) // 2
+    cy = (up_h - VIDEO_HEIGHT) // 2
+    # ズーム移動量（中央基準、片側のみ）
+    pan_x = int(VIDEO_WIDTH * ZOOM_RATIO / 2)
+    pan_y = int(VIDEO_HEIGHT * ZOOM_RATIO / 2)
+
     if zoom_out:
-        z_expr = f"1.04-0.04*(on/{total_frames})"
+        # 狭い範囲 → 広い範囲（少し引いていく）
+        crop_expr = (
+            f"scale={up_w}:{up_h},"
+            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
+            f"x='{cx + pan_x} - {2 * pan_x}*(t/{duration})':"
+            f"y='{cy + pan_y} - {2 * pan_y}*(t/{duration})'"
+        )
     else:
-        z_expr = f"1.0+0.04*(on/{total_frames})"
-    background_filter = (
-        f"zoompan=z='{z_expr}'"
-        f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-        f":d={total_frames}:s={VIDEO_WIDTH}x{VIDEO_HEIGHT}:fps={fps}"
-    )
+        # 広い範囲 → 狭い範囲（少し寄っていく）
+        crop_expr = (
+            f"scale={up_w}:{up_h},"
+            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
+            f"x='{cx - pan_x} + {2 * pan_x}*(t/{duration})':"
+            f"y='{cy - pan_y} + {2 * pan_y}*(t/{duration})'"
+        )
+
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
         "-loop", "1", "-i", str(background_path),
         "-loop", "1", "-i", str(overlay_path),
         "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
         "-filter_complex",
         (
-            f"[0:v]{background_filter}[bg];"
+            f"[0:v]{crop_expr}[bg];"
             f"[1:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[fg];"
             "[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]"
         ),
         "-map", "[v]",
         "-t", str(duration),
+        "-r", "30",
         "-an",
         str(output_path),
     ]
-    _run(cmd, timeout=180)
+    _run(cmd, timeout=120)
 
 
 def _make_pause_video(
