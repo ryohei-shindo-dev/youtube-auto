@@ -41,6 +41,7 @@ TikTok Developer Portal（https://developers.tiktok.com/）で審査ステータ
 - 2026-03-08: Meta の `Access verification status` から `合同会社漸進` を法人候補として選択できる状態まで到達。候補名は `ZENSHIN, LIMITED LIABILITY COMPANY`、住所は `横浜市西区平沼1-40-9 パークハイツ横浜304` で一致。
 - 2026-03-08: `本人確認` ルートで `Ryohei Shindo` の候補を選択し、運転免許証を提出。Meta 上は `本人確認が進行中です` / `通常48時間以内` の状態。
 - 2026-03-08: 現時点のブロッカーは Meta 側の本人確認審査待ち。承認後に `instagram_business_content_publish` のアクセス状態を再確認し、必要なら `instagram_auth.py` を再実行して day 5 / day 6 の Instagram 再投稿を行う。
+- 2026-03-08: 運転免許証での本人確認が却下された。ビジネス認証を再申請: 法人番号を入力 → 公的記録から `ZENSHIN, LIMITED LIABILITY COMPANY` を選択（住所・代表者一致）→ 本人確認書類としてマイナンバーカード（表面のみ）を提出。`本人確認が進行中です / 通常48時間以内` の状態。
 
 ---
 

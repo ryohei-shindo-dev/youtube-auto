@@ -60,27 +60,34 @@
     "folder": "20260305_105923",
     "note": "暴落で売った人が、後悔している理由",
     "hook": "暴落",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/06 08:24",
+        "url": "https://youtube.com/shorts/OFn3KOkaqJU",
         "error": null
       },
       "tiktok": {
         "published": false,
         "published_at": null,
         "url": null,
-        "error": null
+        "error": "投稿に失敗しました"
       },
       "instagram": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/06 11:42",
+        "url": "https://www.instagram.com/reel/DVhs9oVDDxS/",
+        "error": null
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/06 08:24",
+        "url": "https://x.com/i/status/2029699666049388570",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/06 11:42"
   },
   {
     "day": 4,
@@ -88,12 +95,12 @@
     "folder": "20260305_105749",
     "note": "SNSの爆益報告を見るたびに焦る、あなたへ。",
     "hook": "爆益",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/06 19:01",
+        "url": "https://youtube.com/shorts/qnn9TOUPTJg",
         "error": null
       },
       "tiktok": {
@@ -103,12 +110,19 @@
         "error": null
       },
       "instagram": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/06 19:01",
+        "url": "https://www.instagram.com/reel/DVifMQZjR49/",
+        "error": null
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/06 19:01",
+        "url": "https://x.com/i/status/2029859815011352837",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/06 19:01"
   },
   {
     "day": 5,
@@ -116,12 +130,12 @@
     "folder": "20260305_094130",
     "note": "積立3年目が一番つらい。やめたくなるのはあなただけじゃない",
     "hook": "3年目が一番つらい",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/07 07:00",
+        "url": "https://youtube.com/shorts/mUBEYNs5CVY",
         "error": null
       },
       "tiktok": {
@@ -134,9 +148,16 @@
         "published": false,
         "published_at": null,
         "url": null,
+        "error": "投稿に失敗しました"
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/07 07:00",
+        "url": "https://x.com/i/status/2030040779331359120",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/07 22:44"
   },
   {
     "day": 6,
@@ -144,12 +165,12 @@
     "folder": "20260305_123024",
     "note": "コストに気づかず積み立てていた自分へ",
     "hook": "手数料",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/07 19:00",
+        "url": "https://youtube.com/shorts/jjFa8zeqBs4",
         "error": null
       },
       "tiktok": {
@@ -162,9 +183,16 @@
         "published": false,
         "published_at": null,
         "url": null,
+        "error": "投稿に失敗しました"
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/07 19:00",
+        "url": "https://x.com/i/status/2030221967920714041",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/07 22:45"
   },
   {
     "day": 7,
@@ -172,12 +200,12 @@
     "folder": "20260305_123844",
     "note": "1日の値動きを見るたびに、投資成績が下がっていた。",
     "hook": "毎日見てる",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/08 07:00",
+        "url": "https://youtube.com/shorts/XrbPtiP04Yg",
         "error": null
       },
       "tiktok": {
@@ -187,12 +215,19 @@
         "error": null
       },
       "instagram": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/08 07:00",
+        "url": "https://www.instagram.com/reel/DVmWU_YmjQq/",
+        "error": null
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/08 07:00",
+        "url": "https://x.com/i/status/2030403281198125314",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/08 07:00"
   },
   {
     "day": 8,
