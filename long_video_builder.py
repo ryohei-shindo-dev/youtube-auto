@@ -57,14 +57,15 @@ ROLE_AUDIO = {
 }
 
 ROLE_BG = {
-    "hook": "04_person_down.png",
-    "overview": "03_person_thinking.png",
-    "why_painful": "02_phone_anxious.png",
-    "data": "08_long_term_chart.png",
-    "interpret": "09_growth_graph.png",
-    "action": "05_person_relieved.png",
-    "closing": "12_sunrise.png",
+    "hook": "long_night_thinking.png",
+    "overview": "long_night_thinking.png",
+    "why_painful": "long_night_thinking.png",
+    "data": "long_waiting_person.png",
+    "interpret": "long_waiting_person.png",
+    "action": "long_lamp_room.png",
+    "closing": "long_dawn_road.png",
 }
+# 扉の光 (long_door_light.png) は resolve / closing の代替候補として保持
 
 # ロールごとのズーム方向（内面系=in / 余韻系=out）
 ROLE_ZOOM_DIR: dict[str, str] = {
