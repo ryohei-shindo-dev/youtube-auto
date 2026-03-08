@@ -33,6 +33,7 @@ TOKEN_FILE = str(_DIR / "token.json")
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
 
 SHEET_NAME = "投稿管理"

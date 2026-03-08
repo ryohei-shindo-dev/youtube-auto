@@ -26,6 +26,7 @@ def upload_video(
     privacy: str = "public",
     category_id: str = "22",
     thumbnail_path: str = None,
+    publish_at: str = None,
 ) -> str:
     """
     YouTube に動画をアップロードする。
@@ -38,12 +39,22 @@ def upload_video(
         privacy: 公開設定（public / unlisted / private）
         category_id: カテゴリID（22 = People & Blogs）
         thumbnail_path: サムネイル画像のパス（省略可）
+        publish_at: 予約公開日時（ISO 8601形式、例: "2026-03-10T12:00:00Z"）
+                    指定すると privacy は自動で private になり、指定日時に公開される
 
     Returns:
         アップロードされた動画のID（例: "IaCOIxgE80U"）
     """
     import sheets
     youtube = sheets.get_youtube_service()
+
+    status = {
+        "privacyStatus": privacy,
+        "selfDeclaredMadeForKids": False,
+    }
+    if publish_at:
+        status["privacyStatus"] = "private"
+        status["publishAt"] = publish_at
 
     body = {
         "snippet": {
@@ -52,10 +63,7 @@ def upload_video(
             "tags": tags or [],
             "categoryId": category_id,
         },
-        "status": {
-            "privacyStatus": privacy,
-            "selfDeclaredMadeForKids": False,
-        },
+        "status": status,
     }
 
     media = MediaFileUpload(
@@ -67,7 +75,10 @@ def upload_video(
 
     print(f"  アップロード開始: {os.path.basename(video_path)}")
     print(f"  タイトル: {title}")
-    print(f"  公開設定: {privacy}")
+    if publish_at:
+        print(f"  予約公開: {publish_at}")
+    else:
+        print(f"  公開設定: {privacy}")
 
     request = youtube.videos().insert(
         part="snippet,status",
