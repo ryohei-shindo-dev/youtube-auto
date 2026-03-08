@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -162,10 +163,6 @@ def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path
     overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
-    title_font = _load_font(FONT_HEAVY, 78)
-    body_font = _load_font(FONT_BOLD, 42)
-    small_font = _load_font(FONT_REGULAR, 26)
-
     layout = card.get("layout", "panel")
     if layout == "number":
         _draw_number_layout(draw, card)
@@ -176,7 +173,7 @@ def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path
     elif layout == "split":
         _draw_split_layout(draw, card)
     else:
-        _draw_panel_layout(draw, card, title_font, body_font, small_font)
+        _draw_panel_layout(draw, card)
 
     background.convert("RGB").save(background_path, "PNG", optimize=True)
     overlay.save(overlay_path, "PNG", optimize=True)
@@ -200,7 +197,9 @@ def _render_thumbnail(output_path: pathlib.Path):
     canvas.save(output_path, "PNG", optimize=True)
 
 
-def _draw_panel_layout(draw: ImageDraw.Draw, card: dict, title_font, body_font, small_font):
+def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
+    title_font = _load_font(FONT_HEAVY, 78)
+    body_font = _load_font(FONT_BOLD, 42)
     text_x = 160
     text_y = 200
 
@@ -351,7 +350,7 @@ def _compose_video(
         if BGM_PATH.exists():
             _mix_bgm(raw_audio, final_audio)
         else:
-            final_audio.write_bytes(raw_audio.read_bytes())
+            shutil.copy2(raw_audio, final_audio)
 
         _mux_video_audio(raw_video, final_audio, OUTPUT_VIDEO)
 
