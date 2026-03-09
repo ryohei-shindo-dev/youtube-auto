@@ -1,3 +1,6 @@
+# ブラウザセッション
+.note_browser/
+
 # 秘密情報・認証
 .env
 credentials.json

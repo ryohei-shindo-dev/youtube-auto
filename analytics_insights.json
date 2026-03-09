@@ -1,11 +1,13 @@
 {
   "meta": {
-    "generated_at": "2026-03-09T12:43:07+09:00",
-    "sample_size": 9,
-    "confidence": "very_low",
+    "generated_at": "2026-03-09T23:00:01+09:00",
+    "sample_size": 11,
+    "confidence": "low",
     "mode": "weekly",
-    "avg_views": 568,
-    "avg_views_24h": 545
+    "avg_views": 791,
+    "avg_views_24h": 771,
+    "avg_like_rate_pct": 0.3,
+    "avg_comment_rate_pct": 0.034
   },
   "title_rules": {
     "prefer_numeric_titles": true,
@@ -18,36 +20,58 @@
   "weak_hooks": [],
   "top_videos": [
     {
+      "title": "1800万円がつらい人へ｜積立投資 #Shorts",
+      "views": 1825
+    },
+    {
       "title": "3年目が一番つらい人へ｜長期投資の真実 #Shorts",
       "views": 1750
     },
     {
-      "title": "毎日見てるがつらい人へ｜長期投資 #Shorts",
-      "views": 902
-    },
-    {
-      "title": "長期投資で一番つらい時期、それは今かもしれない",
-      "views": 668
+      "title": "配当使ったがつらい人へ｜積立投資 #Shorts",
+      "views": 1622
     }
   ],
   "bottom_videos": [
     {
-      "title": "売りたい人へ｜長期投資の真実 #Shorts",
-      "views": 293
+      "title": "爆益で悩む人へ｜ガチホの真実 #Shorts",
+      "views": 323
     },
     {
-      "title": "1800万円がつらい人へ｜積立投資 #Shorts",
-      "views": 279
+      "title": "売りたい人へ｜長期投資の真実 #Shorts",
+      "views": 295
     },
     {
       "title": "含み損で眠れない夜に、今日は何をしないか",
       "views": 1
     }
   ],
+  "high_engagement": [
+    {
+      "title": "100円がつらい人へ｜長期投資の真実 #Shorts",
+      "views": 411,
+      "like_rate_pct": 0.97,
+      "comment_rate_pct": 0.243
+    },
+    {
+      "title": "爆益で悩む人へ｜ガチホの真実 #Shorts",
+      "views": 323,
+      "like_rate_pct": 0.93,
+      "comment_rate_pct": 0.0
+    },
+    {
+      "title": "売りたい人へ｜長期投資の真実 #Shorts",
+      "views": 295,
+      "like_rate_pct": 0.68,
+      "comment_rate_pct": 0.0
+    }
+  ],
   "prompt_guidance": [
     "タイトルに具体的な数字（金額・期間・割合）を入れると再生数が平均2.3倍。70%の動画で数字入りタイトルを使え。",
     "金額（1800万円、500万円等）はタイトルで特に強い。",
     "期間（3年目、20年、30年後等）もタイトルで効果的。",
+    "いいね率0.3%はやや低め。共感・感情に寄せたhookを増やす。",
+    "エンゲージメント高い動画: 100円がつらい人へ｜長期投資の真実 #、爆益で悩む人へ｜ガチホの真実 #Shor",
     "数字を入れても煽りトーンにしない。落ち着いたトーンを維持。"
   ]
 }
