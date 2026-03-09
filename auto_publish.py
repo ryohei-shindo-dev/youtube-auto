@@ -35,6 +35,7 @@ LOG_DIR = SCRIPT_DIR / "logs"
 
 ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
 DEFAULT_PLATFORMS = ["youtube", "instagram", "x"]
+X_HANDLE = "gachiho_motive"
 
 # Shorts タイトル用サフィックス（ランダムで選択）
 _TITLE_SUFFIXES = [
@@ -369,7 +370,7 @@ def publish_entry(
 
             tweet_id = x_upload.post_tweet(x_text)
             if tweet_id:
-                tweet_url = f"https://x.com/i/status/{tweet_id}"
+                tweet_url = f"https://x.com/{X_HANDLE}/status/{tweet_id}"
                 results["x"] = True
                 urls["x"] = tweet_url
                 print(f"  [X] 投稿完了: {tweet_url}")
@@ -408,7 +409,7 @@ def publish_entry(
 
     # スプレッドシート更新（全プラットフォームのURLをまとめて書き込む）
     if any(results.values()):
-        _update_sheet(yt_title, urls)
+        _update_sheet(raw_title, urls)
 
     return results
 

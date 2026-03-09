@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "generated_at": "2026-03-09T12:43:07+09:00",
+    "sample_size": 9,
+    "confidence": "very_low",
+    "mode": "weekly",
+    "avg_views": 568,
+    "avg_views_24h": 545
+  },
+  "title_rules": {
+    "prefer_numeric_titles": true,
+    "numeric_boost_ratio": 2.3,
+    "numeric_title_ratio": 0.7,
+    "prefer_specific_timeframes": true,
+    "prefer_money_amounts": true
+  },
+  "strong_hooks": [],
+  "weak_hooks": [],
+  "top_videos": [
+    {
+      "title": "3年目が一番つらい人へ｜長期投資の真実 #Shorts",
+      "views": 1750
+    },
+    {
+      "title": "毎日見てるがつらい人へ｜長期投資 #Shorts",
+      "views": 902
+    },
+    {
+      "title": "長期投資で一番つらい時期、それは今かもしれない",
+      "views": 668
+    }
+  ],
+  "bottom_videos": [
+    {
+      "title": "売りたい人へ｜長期投資の真実 #Shorts",
+      "views": 293
+    },
+    {
+      "title": "1800万円がつらい人へ｜積立投資 #Shorts",
+      "views": 279
+    },
+    {
+      "title": "含み損で眠れない夜に、今日は何をしないか",
+      "views": 1
+    }
+  ],
+  "prompt_guidance": [
+    "タイトルに具体的な数字（金額・期間・割合）を入れると再生数が平均2.3倍。70%の動画で数字入りタイトルを使え。",
+    "金額（1800万円、500万円等）はタイトルで特に強い。",
+    "期間（3年目、20年、30年後等）もタイトルで効果的。",
+    "数字を入れても煽りトーンにしない。落ち着いたトーンを維持。"
+  ]
+}

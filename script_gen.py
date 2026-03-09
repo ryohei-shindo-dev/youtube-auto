@@ -32,10 +32,43 @@ Claude API で YouTube 用の台本を生成するモジュール。
 
 import json
 import os
+import pathlib
 import random
 import re
 
 import anthropic
+
+# --- 分析結果の読み込み ---
+INSIGHTS_FILE = pathlib.Path(__file__).parent / "analytics_insights.json"
+
+
+def _load_insights() -> dict:
+    """analytics_insights.json を読み込む。ファイルがなければ空辞書。"""
+    try:
+        with open(INSIGHTS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _build_insights_block(insights: dict) -> str:
+    """insights辞書からプロンプトに差し込む文字列を生成する。"""
+    guidance = insights.get("prompt_guidance", [])
+    if not guidance:
+        return ""
+
+    meta = insights.get("meta", {})
+    confidence = meta.get("confidence", "unknown")
+    sample = meta.get("sample_size", 0)
+
+    lines = [
+        f"\n━━━ チャンネル分析からの学習結果（{sample}本分析、信頼度: {confidence}） ━━━",
+        "以下は過去の動画データから自動抽出されたルール。従え。",
+    ]
+    for g in guidance:
+        lines.append(f"- {g}")
+    lines.append("━━━")
+    return "\n".join(lines)
 
 # チャンネル設定
 CHANNEL_CONCEPT = (
@@ -529,6 +562,13 @@ def _generate_script(
         closing = fmt_vars["closing"]
         closing_slide = fmt_vars.get("closing_slide", "明日もガチホしたい人はフォロー")
         prompt = template.format(**fmt_vars)
+
+        # 分析 insights をプロンプト先頭に差し込む
+        insights = _load_insights()
+        insights_block = _build_insights_block(insights)
+        if insights_block:
+            prompt = insights_block + "\n\n" + prompt
+            print(f"  [insights] 分析結果を差し込み（{insights.get('meta', {}).get('sample_size', 0)}本）")
 
         print(f"  Claude API で台本を生成中（トピック: {topic}）...")
         print(f"  挨拶: {opening} / 結論: {conclusion}")

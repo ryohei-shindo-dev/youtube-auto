@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 _DIR = pathlib.Path(__file__).parent
 load_dotenv(_DIR / ".env")
 
-from sheets import get_service, NOTE_SHEET_NAME
+from sheets import get_service, get_cell, NOTE_SHEET_NAME
 
 SHEET_ID = os.environ.get("YOUTUBE_SHEET_ID", "")
 STATUS_X_ANNOUNCED = "X告知済み"
@@ -75,11 +75,6 @@ def _build_x_text(article_no: int, note_url: str) -> str:
     return f"{line1}\n{line2}\n\n{note_url}\n\n{HASHTAGS}"
 
 
-def _get_cell(row: list[str], idx: int) -> str:
-    """行データから安全にセルを取得する。"""
-    return row[idx] if len(row) > idx else ""
-
-
 def _read_sheet() -> list[list[str]]:
     """note管理シートの全行を取得する。"""
     service = get_service()
@@ -94,11 +89,11 @@ def _find_next_unregistered(rows: list[list[str]]) -> dict | None:
     """公開日（H列）順で、URL（I列）が未記入の次の記事を返す。"""
     candidates = []
     for sheet_row, row in enumerate(rows[1:], start=2):
-        no_str = _get_cell(row, 0)
+        no_str = get_cell(row, 0)
         no = int(no_str) if no_str.isdigit() else 0
-        pub_date = _get_cell(row, 7)
-        note_url = _get_cell(row, 8)
-        title = _get_cell(row, 5)
+        pub_date = get_cell(row, 7)
+        note_url = get_cell(row, 8)
+        title = get_cell(row, 5)
 
         if not note_url and pub_date:
             candidates.append({
@@ -204,10 +199,10 @@ def mode_x_only():
 
     posted_count = 0
     for sheet_row, row in enumerate(rows[1:], start=2):
-        no_str = _get_cell(row, 0)
+        no_str = get_cell(row, 0)
         no = int(no_str) if no_str.isdigit() else 0
-        note_url = _get_cell(row, 8)
-        remark = _get_cell(row, 9)
+        note_url = get_cell(row, 8)
+        remark = get_cell(row, 9)
 
         if not note_url or STATUS_X_ANNOUNCED in remark:
             continue

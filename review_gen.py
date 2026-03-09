@@ -12,7 +12,7 @@ ChatGPTレビュー用プロンプト自動生成スクリプト
     1. python review_gen.py --copy        → クリップボードにコピーされる
     2. ChatGPTに貼り付けて送信            → TSV形式でスコアが返ってくる
     3. ChatGPTの回答のTSV部分をコピー
-    4. スプレッドシートのM2セルを選択して貼り付け（1回で完了）
+    4. スプレッドシートのP2セルを選択して貼り付け（1回で完了）
     5. Claude Codeに「レビュー結果読んで」と伝える
 
 動画レビュー（映像・音声・字幕の品質確認）:
@@ -91,7 +91,7 @@ def get_sheet_data():
     svc = sheets.get_service()
     res = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range="投稿管理!A:L",
+        range="投稿管理!A:O",
     ).execute()
     rows = res.get("values", [])
     if len(rows) <= 1:
@@ -101,13 +101,13 @@ def get_sheet_data():
     for i, row in enumerate(rows[1:], start=2):
         if len(row) < 7:
             continue
-        status = row[5] if len(row) > 5 else ""
-        title = row[6] if len(row) > 6 else ""
+        status = sheets.get_cell(row, 5)
+        title = sheets.get_cell(row, 6)
         if status == "生成済み" and title:
             results.append({
                 "row": i,
-                "type": row[1] if len(row) > 1 else "",
-                "topic": row[2] if len(row) > 2 else "",
+                "type": sheets.get_cell(row, 1),
+                "topic": sheets.get_cell(row, 2),
                 "title": title,
             })
     return results
@@ -274,7 +274,7 @@ def read_reviews():
     svc = sheets.get_service()
     res = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range="投稿管理!A:R",
+        range="投稿管理!A:U",
     ).execute()
     rows = res.get("values", [])
     if len(rows) <= 1:
@@ -289,19 +289,19 @@ def read_reviews():
     total_score = 0
 
     for i, row in enumerate(rows[1:], start=2):
-        if len(row) < 13:
+        if len(row) < 16:
             continue
-        title = row[6] if len(row) > 6 else ""
+        title = sheets.get_cell(row, 6)
         if not title:
             continue
 
-        # M=12, N=13, O=14, P=15, Q=16, R=17
-        hook = row[12] if len(row) > 12 else ""
-        curve = row[13] if len(row) > 13 else ""
-        context = row[14] if len(row) > 14 else ""
-        one_msg = row[15] if len(row) > 15 else ""
-        overall = row[16] if len(row) > 16 else ""
-        comment = row[17] if len(row) > 17 else ""
+        # P=15, Q=16, R=17, S=18, T=19, U=20
+        hook = sheets.get_cell(row, 15)
+        curve = sheets.get_cell(row, 16)
+        context = sheets.get_cell(row, 17)
+        one_msg = sheets.get_cell(row, 18)
+        overall = sheets.get_cell(row, 19)
+        comment = sheets.get_cell(row, 20)
 
         if not hook:
             continue
