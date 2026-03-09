@@ -106,3 +106,8 @@ python analytics_analyze.py
 | `AGENTS.md` | コンテンツルール・表現規則 | 低（恒常） |
 | `CHANNEL_STRATEGY.md` | ブランド戦略・構成設計 | 低 |
 | `OPERATIONS_MEMO.md` | 運用数値・一時的な優先事項 | 高（変動） |
+
+### 詳細ドキュメント
+- `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
+- `docs/runbook.md` — 日常運用・よくある操作・トラブルシューティング
+- `docs/long-video.md` — 長尺動画のビジュアルルール・ディレクトリ構成
