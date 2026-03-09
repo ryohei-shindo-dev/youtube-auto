@@ -118,15 +118,22 @@ def generate_note_image(
         return None
 
 
+_bg_cache: dict[str, Image.Image] = {}
+
+
 def _load_background(
     keyword: str, explicit_path: Optional[pathlib.Path]
 ) -> Image.Image:
-    """背景画像を読み込み、1280×670にクロップ＆リサイズする。"""
+    """背景画像を読み込み、1280×670にクロップ＆リサイズする（キャッシュ付き）。"""
     if explicit_path and explicit_path.exists():
         path = explicit_path
     else:
         filename = BG_MAP.get(keyword, DEFAULT_BG)
         path = ASSETS_DIR / filename
+
+    cache_key = str(path)
+    if cache_key in _bg_cache:
+        return _bg_cache[cache_key].copy()
 
     img = Image.open(path).convert("RGB")
 
@@ -146,7 +153,8 @@ def _load_background(
         img = img.crop((0, top, img.width, top + new_h))
 
     img = img.resize((NOTE_WIDTH, NOTE_HEIGHT), Image.LANCZOS)
-    return img
+    _bg_cache[cache_key] = img
+    return img.copy()
 
 
 def _draw_title(draw: ImageDraw.Draw, text: str):
@@ -210,12 +218,20 @@ def _wrap_lines(
     return lines
 
 
+_font_cache: dict[tuple[str, int], ImageFont.FreeTypeFont] = {}
+
+
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    """フォントを読み込む。失敗時はデフォルトフォント。"""
+    """フォントを読み込む（キャッシュ付き）。失敗時はデフォルトフォント。"""
+    key = (path, size)
+    if key in _font_cache:
+        return _font_cache[key]
     try:
-        return ImageFont.truetype(path, size)
+        font = ImageFont.truetype(path, size)
     except Exception:
-        return ImageFont.load_default()
+        font = ImageFont.load_default()
+    _font_cache[key] = font
+    return font
 
 
 # ---------- 15記事分の一括生成 ----------

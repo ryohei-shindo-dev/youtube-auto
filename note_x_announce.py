@@ -25,10 +25,10 @@ from dotenv import load_dotenv
 _DIR = pathlib.Path(__file__).parent
 load_dotenv(_DIR / ".env")
 
-from sheets import get_service
+from sheets import get_service, NOTE_SHEET_NAME
 
-SHEET_ID = os.environ["YOUTUBE_SHEET_ID"]
-NOTE_SHEET = "note管理"
+SHEET_ID = os.environ.get("YOUTUBE_SHEET_ID", "")
+STATUS_X_ANNOUNCED = "X告知済み"
 
 # 記事No → X告知テンプレ
 X_TEMPLATES: dict[int, dict] = {
@@ -75,12 +75,17 @@ def _build_x_text(article_no: int, note_url: str) -> str:
     return f"{line1}\n{line2}\n\n{note_url}\n\n{HASHTAGS}"
 
 
+def _get_cell(row: list[str], idx: int) -> str:
+    """行データから安全にセルを取得する。"""
+    return row[idx] if len(row) > idx else ""
+
+
 def _read_sheet() -> list[list[str]]:
     """note管理シートの全行を取得する。"""
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=SHEET_ID,
-        range=f"{NOTE_SHEET}!A1:J16",
+        range=f"{NOTE_SHEET_NAME}!A1:J16",
     ).execute()
     return result.get("values", [])
 
@@ -88,18 +93,19 @@ def _read_sheet() -> list[list[str]]:
 def _find_next_unregistered(rows: list[list[str]]) -> dict | None:
     """公開日（H列）順で、URL（I列）が未記入の次の記事を返す。"""
     candidates = []
-    for row in rows[1:]:
-        no = int(row[0]) if len(row) > 0 and row[0].isdigit() else 0
-        pub_date = row[7] if len(row) > 7 else ""
-        note_url = row[8] if len(row) > 8 else ""
-        title = row[5] if len(row) > 5 else ""
+    for sheet_row, row in enumerate(rows[1:], start=2):
+        no_str = _get_cell(row, 0)
+        no = int(no_str) if no_str.isdigit() else 0
+        pub_date = _get_cell(row, 7)
+        note_url = _get_cell(row, 8)
+        title = _get_cell(row, 5)
 
         if not note_url and pub_date:
             candidates.append({
                 "no": no,
                 "title": title,
                 "pub_date": pub_date,
-                "sheet_row": no + 1,
+                "sheet_row": sheet_row,
             })
 
     if not candidates:
@@ -110,25 +116,25 @@ def _find_next_unregistered(rows: list[list[str]]) -> dict | None:
     return candidates[0]
 
 
-def _update_url(sheet_row: int, note_url: str):
-    """シートのI列にnote URLを記録する。"""
+def _update_cells(sheet_row: int, note_url: str | None = None, remark: str | None = None):
+    """シートのI列（URL）とJ列（備考）をまとめて更新する。"""
+    data = []
+    if note_url is not None:
+        data.append({
+            "range": f"{NOTE_SHEET_NAME}!I{sheet_row}",
+            "values": [[note_url]],
+        })
+    if remark is not None:
+        data.append({
+            "range": f"{NOTE_SHEET_NAME}!J{sheet_row}",
+            "values": [[remark]],
+        })
+    if not data:
+        return
     service = get_service()
-    service.spreadsheets().values().update(
+    service.spreadsheets().values().batchUpdate(
         spreadsheetId=SHEET_ID,
-        range=f"{NOTE_SHEET}!I{sheet_row}",
-        valueInputOption="RAW",
-        body={"values": [[note_url]]},
-    ).execute()
-
-
-def _update_remark(sheet_row: int, remark: str):
-    """シートのJ列に備考を記録する。"""
-    service = get_service()
-    service.spreadsheets().values().update(
-        spreadsheetId=SHEET_ID,
-        range=f"{NOTE_SHEET}!J{sheet_row}",
-        valueInputOption="RAW",
-        body={"values": [[remark]]},
+        body={"valueInputOption": "RAW", "data": data},
     ).execute()
 
 
@@ -173,17 +179,17 @@ def mode_register_and_announce():
         print("URLが正しくないようです。https:// で始まるURLを入力してください。")
         return
 
-    # 1. シートにURL記録
-    _update_url(sheet_row, note_url)
-    print(f"  シート更新: 記事#{no:02d} I列にURL記録完了")
-
-    # 2. X告知
+    # 1. X告知
     tweet_id = _post_x(no, note_url)
+
+    # 2. シート更新（URL + 告知結果をまとめて書き込み）
     if tweet_id:
         print(f"  X投稿成功: tweet_id={tweet_id}")
-        _update_remark(sheet_row, "X告知済み")
-        print(f"  シート更新: J列に「X告知済み」記録完了")
+        _update_cells(sheet_row, note_url=note_url, remark=STATUS_X_ANNOUNCED)
+        print(f"  シート更新: I列にURL、J列に「{STATUS_X_ANNOUNCED}」記録完了")
     else:
+        _update_cells(sheet_row, note_url=note_url)
+        print(f"  シート更新: I列にURL記録完了")
         print(f"  [エラー] X告知に失敗。シートにはURLのみ記録済みです。")
 
     print(f"\n記事#{no:02d} 完了！")
@@ -197,20 +203,20 @@ def mode_x_only():
         return
 
     posted_count = 0
-    for row in rows[1:]:
-        no = int(row[0]) if row[0].isdigit() else 0
-        note_url = row[8] if len(row) > 8 else ""
-        remark = row[9] if len(row) > 9 else ""
+    for sheet_row, row in enumerate(rows[1:], start=2):
+        no_str = _get_cell(row, 0)
+        no = int(no_str) if no_str.isdigit() else 0
+        note_url = _get_cell(row, 8)
+        remark = _get_cell(row, 9)
 
-        if not note_url or "X告知済み" in remark:
+        if not note_url or STATUS_X_ANNOUNCED in remark:
             continue
 
         tweet_id = _post_x(no, note_url)
         if tweet_id:
             print(f"  X投稿成功: tweet_id={tweet_id}")
-            sheet_row = no + 1
-            new_remark = "X告知済み" if not remark else f"{remark} / X告知済み"
-            _update_remark(sheet_row, new_remark)
+            new_remark = STATUS_X_ANNOUNCED if not remark else f"{remark} / {STATUS_X_ANNOUNCED}"
+            _update_cells(sheet_row, remark=new_remark)
             posted_count += 1
         else:
             print(f"  [エラー] 記事#{no:02d}のX告知に失敗しました。")
