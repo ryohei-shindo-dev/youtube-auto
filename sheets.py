@@ -48,7 +48,17 @@ SCOPES = [
 
 SHEET_NAME = "投稿管理"
 
-# プラットフォーム別のURL列マッピング（投稿管理シート）
+# 投稿管理シートの列インデックス（0始まり）と列レター
+COL = {
+    "no": 0, "folder": 1, "type": 2, "topic": 3,
+    "keyword": 4, "intent": 5, "status": 6, "title": 7,
+    "gen_date": 8, "pub_date": 9,
+    "youtube_url": 10, "instagram_url": 11, "x_url": 12, "tiktok_url": 13,
+    "views": 14, "remarks": 15,
+    "hook": 16, "curve": 17, "context": 18, "one_msg": 19, "overall": 20, "comment": 21,
+}
+
+# プラットフォーム別のURL列レターマッピング（投稿管理シート）
 PLATFORM_COLUMNS = {
     "youtube": "K",
     "instagram": "L",
@@ -56,13 +66,6 @@ PLATFORM_COLUMNS = {
     "tiktok": "N",
 }
 
-# プラットフォーム別のURL列インデックス（0始まり）
-PLATFORM_COL_INDEX = {
-    "youtube": 10,
-    "instagram": 11,
-    "x": 12,
-    "tiktok": 13,
-}
 NOTE_SHEET_NAME = "note管理"
 
 STATUS_PENDING = "未生成"
@@ -181,15 +184,29 @@ def update_published(
     spreadsheet_id: str,
     row: int,
     urls: dict = None,
+    failed_platforms: list = None,
 ):
-    """公開後にシートを更新する。各プラットフォームのURLを書き込む。"""
+    """公開後にシートを更新する。
+
+    Args:
+        urls: 成功したプラットフォームのURL dict
+        failed_platforms: 全プラットフォーム失敗時のみ指定（備考に記録）
+    """
     service = get_service()
     today = datetime.now().strftime("%Y/%m/%d")
+    all_failed = failed_platforms and not urls
 
-    data = [
-        {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]},
-        {"range": f"{SHEET_NAME}!J{row}", "values": [[today]]},
-    ]
+    if all_failed:
+        data = [
+            {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_FAILED]]},
+            {"range": f"{SHEET_NAME}!P{row}", "values": [[f"投稿失敗: {', '.join(failed_platforms)}"]]},
+        ]
+    else:
+        data = [
+            {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]},
+            {"range": f"{SHEET_NAME}!J{row}", "values": [[today]]},
+        ]
+
     for platform, column in PLATFORM_COLUMNS.items():
         url = (urls or {}).get(platform)
         if url:
@@ -200,7 +217,8 @@ def update_published(
         body={"valueInputOption": "RAW", "data": data},
     ).execute()
 
-    print(f"  シート更新完了（行{row}: {STATUS_PUBLISHED}）")
+    status_text = STATUS_FAILED if all_failed else STATUS_PUBLISHED
+    print(f"  シート更新完了（行{row}: {status_text}）")
 
 
 def populate_from_topics_json(spreadsheet_id: str):

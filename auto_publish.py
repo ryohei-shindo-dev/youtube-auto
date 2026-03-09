@@ -169,25 +169,27 @@ def _read_sheet_rows() -> list[list[str]]:
 def _row_to_entry(row: list, sheet_row: int) -> dict:
     """シートの行データをエントリdictに変換する。"""
     import sheets
+    C = sheets.COL
     return {
         "row": sheet_row,
-        "no": sheets.get_cell(row, 0),
-        "folder": sheets.get_cell(row, 1),
-        "type": sheets.get_cell(row, 2),
-        "title": sheets.get_cell(row, 7),
-        "status": sheets.get_cell(row, 6),
-        "gen_date": sheets.get_cell(row, 8),
-        "youtube_url": sheets.get_cell(row, 10),
-        "instagram_url": sheets.get_cell(row, 11),
-        "x_url": sheets.get_cell(row, 12),
-        "tiktok_url": sheets.get_cell(row, 13),
+        "no": sheets.get_cell(row, C["no"]),
+        "folder": sheets.get_cell(row, C["folder"]),
+        "type": sheets.get_cell(row, C["type"]),
+        "title": sheets.get_cell(row, C["title"]),
+        "status": sheets.get_cell(row, C["status"]),
+        "gen_date": sheets.get_cell(row, C["gen_date"]),
+        "youtube_url": sheets.get_cell(row, C["youtube_url"]),
+        "instagram_url": sheets.get_cell(row, C["instagram_url"]),
+        "x_url": sheets.get_cell(row, C["x_url"]),
+        "tiktok_url": sheets.get_cell(row, C["tiktok_url"]),
     }
 
 
-def get_next_publishable() -> dict | None:
+def get_next_publishable(rows: list | None = None) -> dict | None:
     """シートからG=生成済みで最も古い（I列=生成日順）動画を取得する。"""
     import sheets
-    rows = _read_sheet_rows()
+    if rows is None:
+        rows = _read_sheet_rows()
     candidates = []
     for i, row in enumerate(rows[1:], start=2):
         entry = _row_to_entry(row, i)
@@ -231,13 +233,14 @@ def _get_retry_platforms(entry: dict, allowed_platforms: list) -> list:
     return failed
 
 
-def get_remaining_count() -> int:
+def get_remaining_count(rows: list | None = None) -> int:
     """生成済みで未投稿の動画数を返す。"""
     import sheets
-    rows = _read_sheet_rows()
+    if rows is None:
+        rows = _read_sheet_rows()
     count = 0
     for row in rows[1:]:
-        status = sheets.get_cell(row, 6)
+        status = sheets.get_cell(row, sheets.COL["status"])
         if status == sheets.STATUS_GENERATED:
             count += 1
     return count
@@ -440,52 +443,22 @@ def publish_entry(
     print(f"  {'='*40}")
 
     # スプレッドシート更新
-    _update_sheet_after_publish(entry, results, urls)
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    if sheet_id:
+        try:
+            import sheets
+            failed = [p for p, ok in results.items() if not ok]
+            any_success = any(results.values())
+            sheets.update_published(
+                sheet_id,
+                entry["row"],
+                urls=urls or None,
+                failed_platforms=failed if not any_success else None,
+            )
+        except Exception as e:
+            print(f"  [警告] シート更新に失敗: {e}")
 
     return results
-
-
-def _update_sheet_after_publish(entry: dict, results: dict, urls: dict):
-    """投稿後にシートを更新する。B列フォルダ名で行を特定済み。"""
-    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
-    if not sheet_id:
-        return
-
-    row = entry["row"]
-    any_success = any(results.values())
-
-    try:
-        import sheets
-        svc = sheets.get_service()
-
-        data = []
-        if any_success:
-            data.append({"range": f"投稿管理!G{row}", "values": [[sheets.STATUS_PUBLISHED]]})
-            data.append({"range": f"投稿管理!J{row}", "values": [[datetime.now().strftime("%Y/%m/%d")]]})
-        else:
-            data.append({"range": f"投稿管理!G{row}", "values": [[sheets.STATUS_FAILED]]})
-
-        # URL列を書き込み
-        for platform, col in sheets.PLATFORM_COLUMNS.items():
-            url = urls.get(platform)
-            if url:
-                data.append({"range": f"投稿管理!{col}{row}", "values": [[url]]})
-
-        # 全失敗の場合、備考に理由
-        failed = [p for p, ok in results.items() if not ok]
-        if failed and not any_success:
-            data.append({"range": f"投稿管理!P{row}", "values": [[f"投稿失敗: {', '.join(failed)}"]]})
-
-        svc.spreadsheets().values().batchUpdate(
-            spreadsheetId=sheet_id,
-            body={"valueInputOption": "RAW", "data": data},
-        ).execute()
-
-        status_text = "公開済み" if any_success else "投稿失敗"
-        print(f"  シート更新完了（行{row}: {status_text}）")
-
-    except Exception as e:
-        print(f"  [警告] シート更新に失敗: {e}")
 
 
 # 固定コメントテンプレ
@@ -541,6 +514,9 @@ def main():
 
     LOG_DIR.mkdir(exist_ok=True)
 
+    # シートを1回だけ読み込み（複数箇所で使い回す）
+    sheet_rows = _read_sheet_rows()
+
     # 投稿対象を決定
     if args.force is not None:
         entry = get_entry_by_no(args.force)
@@ -551,7 +527,7 @@ def main():
         if entry["status"] == sheets.STATUS_PUBLISHED and not args.dry_run and not args.retry_failed:
             print(f"[警告] No.{args.force} は既に公開済みです。再投稿します。")
     else:
-        entry = get_next_publishable()
+        entry = get_next_publishable(sheet_rows)
         if not entry:
             print(f"[情報] 投稿可能な動画（生成済み）がありません。")
             sys.exit(0)
@@ -576,8 +552,8 @@ def main():
         success_count = sum(1 for r in results.values() if r)
         print(f"\n  投稿完了（No.{entry['no']}: {success_count}/{len(results)} 成功）")
 
-    # 次回予告
-    remaining = get_remaining_count()
+    # 次回予告（シートは投稿前の状態だが、概算として十分）
+    remaining = get_remaining_count(sheet_rows)
     if remaining > 0:
         # 今投稿した分を除外
         remaining_after = remaining - 1 if any(results.values()) else remaining
