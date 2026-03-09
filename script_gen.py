@@ -378,6 +378,27 @@ def _strip_terminal_punctuation(text: str) -> str:
     return text.rstrip("。.!！?？ ").strip()
 
 
+# 絵文字除去用の正規表現（サロゲートペア・記号・修飾子を除去）
+_RE_EMOJI = re.compile(r'[\U00010000-\U0010FFFF\u2600-\u27BF\uFE00-\uFE0F\u200D]')
+
+
+def _clean_slide_text(text: str) -> str:
+    """slide_text から絵文字を除去し、末尾句読点を落とす。"""
+    return _strip_terminal_punctuation(_RE_EMOJI.sub('', text).strip())
+
+
+def _trim_to_first_sentence(text: str, max_len: int) -> str:
+    """テキストを最初の文（句点区切り）で切り詰める。句点がなければmax_lenで切る。"""
+    if len(text) <= max_len:
+        return text
+    parts = re.split(r"(?<=[。？！])", text)
+    trimmed = parts[0].rstrip("。、 ") if parts[0] else ""
+    # 句点区切りでも長すぎる or 句点がない場合はmax_lenで切る
+    if not trimmed or len(trimmed) > max_len:
+        return text[:max_len]
+    return trimmed
+
+
 def _select_conclusion_and_connector(data_text: str) -> tuple:
     """dataの内容に最も合う結論フレーズと接続詞を選択する。"""
     is_crash = any(w in data_text for w in _CRASH_WORDS)
@@ -562,9 +583,7 @@ def _generate_script(
                 s["text"] = closing
 
             if "slide_text" in s:
-                # 絵文字除去（日本語・英数・記号のみ残す）+ 句読点除去
-                slide = re.sub(r'[\U00010000-\U0010FFFF\u2600-\u27BF\u2700-\u27BF\uFE00-\uFE0F\u200D]', '', s.get("slide_text", "")).strip()
-                s["slide_text"] = _strip_terminal_punctuation(slide)
+                s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
 
         # 文字数制限チェック
         # 固定フレーズを保護しながら AI生成部分を切り詰める
@@ -646,19 +665,17 @@ def _generate_script(
                     s["text"] = trimmed if trimmed else text[:limit]
 
             elif role == "empathy":
-                # AI生成部分を最大6文字に制限 — 間延び防止
+                # AI生成部分の間延び防止
                 if opening and opening in text:
-                    ai_part = text.replace(opening, "").strip().rstrip("。、 ")
-                    if len(ai_part) > 6:
-                        parts = re.split(r"(?<=[。？！])", ai_part)
-                        ai_part = parts[0].rstrip("。、 ") if parts[0] else ai_part[:6]
+                    raw_ai_part = text.replace(opening, "").strip().rstrip("。、 ")
+                    ai_part = _trim_to_first_sentence(raw_ai_part, 6)
+                    if ai_part != raw_ai_part:
                         print(f"  [調整] empathyのAI部分を切り詰めました")
                     s["text"] = (ai_part + "。" + opening) if ai_part else opening
                 elif not opening:
                     # 語りかけなし → AI生成の共感テキストを10文字以内に制限
                     if len(text) > 10:
-                        parts = re.split(r"(?<=[。？！])", text)
-                        trimmed = parts[0].rstrip("。、 ") if parts[0] else text[:10]
+                        trimmed = _trim_to_first_sentence(text, 10)
                         s["text"] = trimmed + "。"
                         print(f"  [調整] empathy（語りかけなし）を切り詰めました")
 
@@ -674,9 +691,7 @@ def _generate_script(
                 s["slide_text"] = _strip_terminal_punctuation(short_conclusion)
 
             if "slide_text" in s:
-                # 絵文字除去（日本語・英数・記号のみ残す）+ 句読点除去
-                slide = re.sub(r'[\U00010000-\U0010FFFF\u2600-\u27BF\u2700-\u27BF\uFE00-\uFE0F\u200D]', '', s.get("slide_text", "")).strip()
-                s["slide_text"] = _strip_terminal_punctuation(slide)
+                s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
 
         # バリデーション
         title = data.get("title", "").strip()
