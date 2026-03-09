@@ -1,0 +1,166 @@
+#!/bin/zsh
+# youtube-auto 定期実行タスク一覧 & 対話メニュー
+
+# 全角数字を半角に変換する関数
+to_half() { echo "$1" | sed 'y/０１２３４５６７８９/0123456789/' }
+
+YT_DIR="/Users/shindoryohei/youtube-auto"
+
+echo ""
+echo "========================================="
+echo "  youtube-auto コマンド一覧"
+echo "========================================="
+echo ""
+echo "  0. 定期実行ステータス（一覧表示）"
+echo ""
+echo "  1. 動画生成パイプライン"
+echo "     → 11.script_gen / 12.voice_gen / 13.slide_gen"
+echo "     → 14.video_gen / 15.thumbnail / 16.subtitles"
+echo ""
+echo "  2. 投稿・配信"
+echo "     → 21.auto_publish / 22.note_gen / 23.social_gen"
+echo "     → 24.note_x_announce"
+echo ""
+echo "  3. 分析"
+echo "     → 31.analytics_collect / 32.analytics_analyze"
+echo ""
+echo "========================================="
+echo ""
+echo -n "番号を入力してください（Enterでキャンセル）: "
+read num
+num=$(to_half "$num")
+
+case "$num" in
+  # ==================================================
+  # 0. 定期実行ステータス（一覧表示）
+  # ==================================================
+  0)
+    echo ""
+    echo "========================================="
+    echo "  定期実行タスク一覧"
+    echo "========================================="
+    echo ""
+    echo "  ┌─ 毎日 ─────────────────────────────────"
+    echo "  │  07:00  auto_publish（朝）"
+    echo "  │  19:00  auto_publish（夜）"
+    echo "  │         YouTube / Instagram / X に動画を自動投稿"
+    echo "  │"
+    echo "  │  21:30  note_x_announce（--x-only）"
+    echo "  │         Xにスタンドアロン投稿を自動ポスト"
+    echo "  │"
+    echo "  │  22:00  analytics_collect"
+    echo "  │         YouTube / Instagram / X の再生数・エンゲージメントを収集"
+    echo "  └──────────────────────────────────────────"
+    echo ""
+    echo "  ┌─ 毎週 ─────────────────────────────────"
+    echo "  │  月曜 23:00  analytics_analyze"
+    echo "  │              週次分析レポートを生成 → script_genに自動反映"
+    echo "  └──────────────────────────────────────────"
+    echo ""
+
+    # cron登録状況を実際に確認
+    echo "  ┌─ cron登録状況 ──────────────────────────"
+    cron_lines=$(crontab -l 2>/dev/null | grep -c "youtube-auto\|auto_publish\|analytics_\|note_x_announce")
+    if [ "$cron_lines" -gt 0 ]; then
+      echo "  │  登録済み: ${cron_lines}件"
+      crontab -l 2>/dev/null | grep "youtube-auto\|auto_publish\|analytics_\|note_x_announce" | while read -r line; do
+        echo "  │    $line"
+      done
+    else
+      echo "  │  ⚠ cronにタスクが登録されていません"
+    fi
+    echo "  └──────────────────────────────────────────"
+    echo ""
+    echo "========================================="
+    echo ""
+    ;;
+
+  # ==================================================
+  # 1. 動画生成パイプライン（サブメニュー）
+  # ==================================================
+  1)
+    echo ""
+    echo "  1: script_gen — AIで台本を自動生成"
+    echo "  2: voice_gen — 台本から音声を合成（VOICEVOX）"
+    echo "  3: slide_gen — スライド画像を生成"
+    echo "  4: video_gen — 音声+スライドで動画を合成"
+    echo "  5: thumbnail — サムネイル画像を生成"
+    echo "  6: subtitles — 字幕を生成"
+    echo ""
+    echo -n "選択（Enterでキャンセル）: "
+    read sub
+    sub=$(to_half "$sub")
+    echo ""
+    case "$sub" in
+      1) cd "$YT_DIR" && venv/bin/python script_gen.py ;;
+      2) cd "$YT_DIR" && venv/bin/python voice_gen.py ;;
+      3) cd "$YT_DIR" && venv/bin/python slide_gen.py ;;
+      4) cd "$YT_DIR" && venv/bin/python video_gen.py ;;
+      5) cd "$YT_DIR" && venv/bin/python thumbnail.py ;;
+      6) cd "$YT_DIR" && venv/bin/python subtitles.py ;;
+      *) echo "キャンセルしました。" ;;
+    esac
+    ;;
+  11) cd "$YT_DIR" && venv/bin/python script_gen.py ;;
+  12) cd "$YT_DIR" && venv/bin/python voice_gen.py ;;
+  13) cd "$YT_DIR" && venv/bin/python slide_gen.py ;;
+  14) cd "$YT_DIR" && venv/bin/python video_gen.py ;;
+  15) cd "$YT_DIR" && venv/bin/python thumbnail.py ;;
+  16) cd "$YT_DIR" && venv/bin/python subtitles.py ;;
+
+  # ==================================================
+  # 2. 投稿・配信（サブメニュー）
+  # ==================================================
+  2)
+    echo ""
+    echo "  1: auto_publish — YouTube / IG / X に動画を投稿"
+    echo "  2: note_gen — note記事を生成"
+    echo "  3: social_gen — SNS投稿文を生成"
+    echo "  4: note_x_announce — X告知投稿"
+    echo ""
+    echo -n "選択（Enterでキャンセル）: "
+    read sub
+    sub=$(to_half "$sub")
+    echo ""
+    case "$sub" in
+      1) cd "$YT_DIR" && venv/bin/python auto_publish.py --platforms youtube instagram x ;;
+      2) cd "$YT_DIR" && venv/bin/python note_gen.py ;;
+      3) cd "$YT_DIR" && venv/bin/python social_gen.py ;;
+      4) cd "$YT_DIR" && venv/bin/python note_x_announce.py --x-only ;;
+      *) echo "キャンセルしました。" ;;
+    esac
+    ;;
+  21) cd "$YT_DIR" && venv/bin/python auto_publish.py --platforms youtube instagram x ;;
+  22) cd "$YT_DIR" && venv/bin/python note_gen.py ;;
+  23) cd "$YT_DIR" && venv/bin/python social_gen.py ;;
+  24) cd "$YT_DIR" && venv/bin/python note_x_announce.py --x-only ;;
+
+  # ==================================================
+  # 3. 分析（サブメニュー）
+  # ==================================================
+  3)
+    echo ""
+    echo "  1: analytics_collect — 各プラットフォームの指標を収集"
+    echo "  2: analytics_analyze — 週次分析レポートを生成"
+    echo ""
+    echo -n "選択（Enterでキャンセル）: "
+    read sub
+    sub=$(to_half "$sub")
+    echo ""
+    case "$sub" in
+      1) cd "$YT_DIR" && venv/bin/python analytics_collect.py ;;
+      2) cd "$YT_DIR" && venv/bin/python analytics_analyze.py ;;
+      *) echo "キャンセルしました。" ;;
+    esac
+    ;;
+  31) cd "$YT_DIR" && venv/bin/python analytics_collect.py ;;
+  32) cd "$YT_DIR" && venv/bin/python analytics_analyze.py ;;
+
+  # ==================================================
+  "")
+    echo "キャンセルしました。"
+    ;;
+  *)
+    echo "無効な番号です: $num"
+    ;;
+esac
