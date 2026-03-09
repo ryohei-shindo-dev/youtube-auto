@@ -98,6 +98,14 @@ def _optimize_title(raw_title: str, meta: dict) -> str:
     return title
 
 
+_YT_FOOTER = (
+    "▼ 他のプラットフォーム\n"
+    "note（深掘り記事）: https://note.com/gachiho_motive\n"
+    "X: https://x.com/gachiho_motive\n"
+    "Instagram: https://www.instagram.com/gachiho_motive/"
+)
+
+
 def _optimize_description(raw_description: str, raw_title: str) -> str:
     """YouTube用の説明文を生成する。"""
     lines = [raw_title, ""]
@@ -105,6 +113,8 @@ def _optimize_description(raw_description: str, raw_title: str) -> str:
         lines.append(raw_description)
         lines.append("")
     lines.append(_YT_HASHTAGS)
+    lines.append("")
+    lines.append(_YT_FOOTER)
     return "\n".join(lines)
 
 

@@ -155,8 +155,17 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     avg_views = sum(v["views"] for v in shorts) / len(shorts)
     avg_views_24h = sum(v["views_24h"] for v in shorts) / len(shorts)
 
+    # --- エンゲージメント指標 ---
+    total_likes = sum(v.get("likes", 0) for v in shorts)
+    total_comments = sum(v.get("comments", 0) for v in shorts)
+    total_views = sum(v["views"] for v in shorts)
+    avg_like_rate = total_likes / max(total_views, 1) * 100
+    avg_comment_rate = total_comments / max(total_views, 1) * 100
+
     print(f"  平均再生数: {avg_views:.0f}")
     print(f"  平均24h再生数: {avg_views_24h:.0f}")
+    print(f"  いいね率: {avg_like_rate:.2f}%")
+    print(f"  コメント率: {avg_comment_rate:.3f}%")
 
     # --- タイトル数字分析 ---
     numeric_titles = [v for v in shorts if v["has_number"]]
@@ -199,6 +208,15 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     strong_hooks.sort(key=lambda x: x["score"], reverse=True)
     weak_hooks.sort(key=lambda x: x["score"])
 
+    # --- エンゲージメント上位動画 ---
+    # いいね率・コメント率が高い動画を特定（再生数10以上のみ対象）
+    eligible = [v for v in shorts if v["views"] >= 10]
+    for v in eligible:
+        v["like_rate"] = v.get("likes", 0) / max(v["views"], 1) * 100
+        v["comment_rate"] = v.get("comments", 0) / max(v["views"], 1) * 100
+
+    high_engagement = sorted(eligible, key=lambda v: v["like_rate"], reverse=True)[:3]
+
     # --- 上位/下位動画の特徴 ---
     sorted_by_views = sorted(shorts, key=lambda v: v["views"], reverse=True)
     top_videos = sorted_by_views[:3]
@@ -231,6 +249,14 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     if weak_hooks:
         weak_str = "、".join(h["text"] for h in weak_hooks[:3])
         guidance.append(f"避けるべきhook語: {weak_str}")
+    # エンゲージメント分析のガイダンス
+    if avg_like_rate >= 4.0:
+        guidance.append(f"いいね率{avg_like_rate:.1f}%は良好。共感テーマが響いている。")
+    elif avg_like_rate < 2.0 and sample_size >= 10:
+        guidance.append(f"いいね率{avg_like_rate:.1f}%はやや低め。共感・感情に寄せたhookを増やす。")
+    if high_engagement:
+        eng_str = "、".join(v["title"][:20] for v in high_engagement[:2])
+        guidance.append(f"エンゲージメント高い動画: {eng_str}")
     # トーン維持の注意
     guidance.append("数字を入れても煽りトーンにしない。落ち着いたトーンを維持。")
 
@@ -243,6 +269,8 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
             "mode": mode,
             "avg_views": round(avg_views),
             "avg_views_24h": round(avg_views_24h),
+            "avg_like_rate_pct": round(avg_like_rate, 2),
+            "avg_comment_rate_pct": round(avg_comment_rate, 3),
         },
         "title_rules": title_rules,
         "strong_hooks": strong_hooks[:5],
@@ -254,6 +282,12 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
         "bottom_videos": [
             {"title": v["title"], "views": v["views"]}
             for v in bottom_videos
+        ],
+        "high_engagement": [
+            {"title": v["title"], "views": v["views"],
+             "like_rate_pct": round(v["like_rate"], 2),
+             "comment_rate_pct": round(v["comment_rate"], 3)}
+            for v in high_engagement
         ],
         "prompt_guidance": guidance,
     }
