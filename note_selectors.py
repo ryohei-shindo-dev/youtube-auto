@@ -20,10 +20,9 @@ import json
 import pathlib
 import time
 
-from playwright.sync_api import sync_playwright, Page
+from playwright.sync_api import Page
 
-SCRIPT_DIR = pathlib.Path(__file__).parent
-USER_DATA_DIR = SCRIPT_DIR / ".note_browser"
+from note_publish import _launch_browser, _close_browser
 
 JS_DUMP_SELECTORS = """
 () => {
@@ -118,14 +117,7 @@ def main():
     parser.add_argument("--current", action="store_true", help="現在のページ")
     args = parser.parse_args()
 
-    pw = sync_playwright().start()
-    context = pw.chromium.launch_persistent_context(
-        user_data_dir=str(USER_DATA_DIR),
-        headless=False,
-        viewport={"width": 1280, "height": 900},
-        locale="ja-JP",
-    )
-    page = context.pages[0] if context.pages else context.new_page()
+    pw, context, page = _launch_browser(headless=False)
 
     try:
         if args.editor:
@@ -148,15 +140,10 @@ def main():
             input("  → Enter: ")
             dump_selectors(page)
 
-        print("\n確認が終わったらブラウザを閉じてください。")
-        try:
-            context.pages[0].wait_for_event("close", timeout=0)
-        except Exception:
-            pass
-
-    finally:
-        context.close()
-        pw.stop()
+        _close_browser(pw, context)
+    except Exception:
+        _close_browser(pw, context, wait_for_user=False)
+        raise
 
 
 if __name__ == "__main__":

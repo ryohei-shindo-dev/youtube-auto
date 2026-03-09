@@ -26,7 +26,7 @@ import pathlib
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from playwright.sync_api import sync_playwright, Page, BrowserContext
 
@@ -35,13 +35,16 @@ ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 USER_DATA_DIR = SCRIPT_DIR / ".note_browser"
 
+# note アカウント情報
+NOTE_USER = "gachiho_motive"
+NOTE_MAGAZINE = "含み損の夜に読むメモ"
+
 # 固定タグ
 NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]
 
 # 第2弾の投稿スケジュール（No. → 日付）
 SCHEDULE = {
-    # 16: 投稿済み → https://note.com/gachiho_motive/n/n1dbe97f73b8b
-    20: "2026-03-21 21:00",  # 初日は#16と2本
+    20: "2026-03-21 21:00",
     18: "2026-03-22 21:00",
     23: "2026-03-23 21:00",
     17: "2026-03-24 21:00",
@@ -54,27 +57,26 @@ SCHEDULE = {
     27: "2026-03-31 21:00",
 }
 
-# 記事Noごとの追加タグ（固定タグに加えて使う）
+# 記事Noごとの追加タグ（固定タグに加えて使う。未登録はデフォルト空）
 EXTRA_TAGS: dict[int, list[str]] = {
     16: ["新NISA"],
     17: ["含み益"],
-    18: [],
     19: ["老後資金"],
     20: ["一括投資"],
-    21: [],
     22: ["機会損失"],
     23: ["円高"],
     24: ["一括投資"],
     25: ["インフレ"],
-    26: [],
-    27: [],
 }
+
+# 記事No. → ファイル番号のマッピング（第1弾=1-15はシート側、第2弾=16-27）
+_ARTICLE_FILE_OFFSET = 15  # note_{no - offset:02d}_*.md
 
 
 def _find_article(no: int) -> tuple[str, str, pathlib.Path | None]:
     """記事No.に対応するタイトル・本文・画像パスを返す。"""
     # 記事ファイルを探す
-    pattern = f"note_{no - 15:02d}_*"
+    pattern = f"note_{no - _ARTICLE_FILE_OFFSET:02d}_*"
     matches = list(ARTICLES_DIR.glob(pattern))
     if not matches:
         raise FileNotFoundError(f"記事ファイルが見つかりません: {pattern}")
@@ -114,19 +116,29 @@ def _launch_browser(headless: bool = False) -> tuple:
     return pw, context, page
 
 
+def _close_browser(pw, context, wait_for_user: bool = True):
+    """ブラウザを安全に閉じる。wait_for_user=True ならユーザーが閉じるまで待つ。"""
+    if wait_for_user:
+        print("\n確認が終わったらブラウザを閉じてください。")
+        try:
+            context.pages[0].wait_for_event("close", timeout=0)
+        except Exception:
+            pass
+    context.close()
+    pw.stop()
+
+
 def do_login():
     """ブラウザを開いてログインしてもらう。"""
     print("ブラウザを起動します。noteにログインしてください。")
     print("ログイン完了後、ブラウザを閉じてください。")
     pw, context, page = _launch_browser(headless=False)
-    page.goto("https://note.com/login")
-    # ユーザーがブラウザを閉じるまで待つ
     try:
-        context.pages[0].wait_for_event("close", timeout=0)
+        page.goto("https://note.com/login")
+        _close_browser(pw, context, wait_for_user=True)
     except Exception:
-        pass
-    context.close()
-    pw.stop()
+        _close_browser(pw, context, wait_for_user=False)
+        raise
     print("ログイン情報を保存しました。")
 
 
@@ -135,15 +147,14 @@ def do_debug():
     print("エディタを開きます。開発者ツール（F12）でセレクタを確認してください。")
     print("確認が終わったらブラウザを閉じてください。")
     pw, context, page = _launch_browser(headless=False)
-    page.goto("https://note.com/new")
-    page.wait_for_load_state("networkidle")
-    time.sleep(2)
     try:
-        context.pages[0].wait_for_event("close", timeout=0)
+        page.goto("https://note.com/new")
+        page.wait_for_load_state("networkidle")
+        time.sleep(2)
+        _close_browser(pw, context, wait_for_user=True)
     except Exception:
-        pass
-    context.close()
-    pw.stop()
+        _close_browser(pw, context, wait_for_user=False)
+        raise
 
 
 def _markdown_to_note_text(body: str) -> str:
@@ -307,7 +318,7 @@ def post_article(
     # --- マガジン追加 ---
     try:
         magazine_btn = page.wait_for_selector(
-            'button:has-text("追加"):near(:text("含み損の夜に読むメモ"))',
+            f'button:has-text("追加"):near(:text("{NOTE_MAGAZINE}"))',
             timeout=5000,
         )
         magazine_btn.click()
@@ -390,7 +401,7 @@ def post_article(
 
         # リダイレクト先にURLがない場合、エディタURLから組み立てる
         if note_id:
-            article_url = f"https://note.com/gachiho_motive/n/{note_id}"
+            article_url = f"https://note.com/{NOTE_USER}/n/{note_id}"
             print(f"  URL: {article_url}")
             return article_url
 
@@ -409,13 +420,7 @@ def do_post_single(no: int, schedule_str: str | None, draft: bool):
         if url:
             _update_sheet(no, url)
     finally:
-        print("\n確認が終わったらブラウザを閉じてください。")
-        try:
-            context.pages[0].wait_for_event("close", timeout=0)
-        except Exception:
-            pass
-        context.close()
-        pw.stop()
+        _close_browser(pw, context)
 
 
 def do_batch():
@@ -445,13 +450,7 @@ def do_batch():
             print(f"  #{r['no']:2d} {status:6s} {url}")
 
     finally:
-        print("\n確認が終わったらブラウザを閉じてください。")
-        try:
-            context.pages[0].wait_for_event("close", timeout=0)
-        except Exception:
-            pass
-        context.close()
-        pw.stop()
+        _close_browser(pw, context)
 
 
 def do_fetch_urls():
@@ -510,17 +509,13 @@ def do_fetch_urls():
                 } catch(e) {}
             }
 
-            // 方法2: DOMからすべてのリンク・テキストを取得
+            // 方法2: DOMからリンク要素を取得
             if (results.length === 0) {
-                // ページ内のすべてのテキストとリンクをダンプ
-                const allElements = document.querySelectorAll('*');
-                for (const el of allElements) {
-                    const href = el.getAttribute('href') || '';
-                    const text = el.textContent?.trim()?.substring(0, 80) || '';
-                    if (href.includes('/n/') || href.includes('/notes/')) {
-                        results.push({title: text, url: href, key: '', method: 'dom-link'});
-                    }
-                }
+                const links = document.querySelectorAll('a[href*="/n/"], a[href*="/notes/"]');
+                for (const a of links) {
+                    const href = a.getAttribute('href') || '';
+                    const label = a.getAttribute('aria-label') || a.textContent?.trim()?.substring(0, 80) || '';
+                    results.push({title: label, url: href, key: '', method: 'dom-link'});
             }
 
             return results;
@@ -530,9 +525,8 @@ def do_fetch_urls():
         if not articles:
             # フォールバック: ページ全体のHTMLからnoteキーを正規表現で抽出
             html = page.content()
-            import re as _re
-            keys = _re.findall(r'"key":"(n[a-f0-9]{12,})"', html)
-            names = _re.findall(r'"name":"([^"]{5,80})"', html)
+            keys = re.findall(r'"key":"(n[a-f0-9]{12,})"', html)
+            names = re.findall(r'"name":"([^"]{5,80})"', html)
             print(f"  HTMLから抽出: key={len(keys)}件, name={len(names)}件")
             # key と name をペアにする（出現順）
             for i, key in enumerate(keys):
@@ -540,7 +534,7 @@ def do_fetch_urls():
                 articles.append({
                     "title": title,
                     "key": key,
-                    "url": f"https://note.com/gachiho_motive/n/{key}",
+                    "url": f"https://note.com/{NOTE_USER}/n/{key}",
                 })
 
         print(f"\n取得した記事: {len(articles)}件\n")
@@ -563,72 +557,84 @@ def do_fetch_urls():
         if unmatched:
             print(f"\n  未マッチ: {sorted(unmatched)}")
 
-        # シートにURL記録（ステータスは変えない、URLのみ）
+        # シートにURL一括記録（ステータスは変えない、URLのみ）
         if matched:
             print(f"\nシートに{len(matched)}件のURLを記録します...")
-            for no, url in matched.items():
-                _update_sheet_url_only(no, url)
+            try:
+                sheet_id, sheets_mod = _get_sheet_env()
+                if sheet_id:
+                    row_map = _get_note_row_map(sheet_id, sheets_mod)
+                    svc = sheets_mod.get_service()
+                    for no, url in sorted(matched.items()):
+                        target_row = row_map.get(no)
+                        if target_row:
+                            svc.spreadsheets().values().update(
+                                spreadsheetId=sheet_id,
+                                range=f"{sheets_mod.NOTE_SHEET_NAME}!I{target_row}",
+                                valueInputOption="RAW",
+                                body={"values": [[url]]},
+                            ).execute()
+                            print(f"  #{no:2d} URL記録完了（行{target_row}）")
+                        else:
+                            print(f"  [警告] #{no} のシート行が見つかりません")
+            except Exception as e:
+                print(f"  [警告] シート更新失敗: {e}")
 
         return matched
 
     finally:
-        context.close()
-        pw.stop()
+        _close_browser(pw, context, wait_for_user=False)
 
 
-def _find_sheet_row(no: int) -> tuple[str, int | None]:
-    """記事No.に対応するシートの行番号を返す。"""
+def _get_sheet_env() -> tuple:
+    """シートIDとsheetsモジュールを返す（遅延ロード、1回だけ）。"""
     import os
     from dotenv import load_dotenv
     load_dotenv(SCRIPT_DIR / ".env")
     import sheets
-
     sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
-    if not sheet_id:
-        return sheet_id, None
+    return sheet_id, sheets
 
-    svc = sheets.get_service()
+
+def _get_note_row_map(sheet_id, sheets_mod) -> dict[int, int]:
+    """note管理シートのA列を読み、{記事No: 行番号} のマップを返す。"""
+    svc = sheets_mod.get_service()
     result = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f"{sheets.NOTE_SHEET_NAME}!A:A",
+        range=f"{sheets_mod.NOTE_SHEET_NAME}!A:A",
     ).execute()
     rows = result.get("values", [])
+    return {
+        int(row[0]): i + 1
+        for i, row in enumerate(rows)
+        if row and row[0].isdigit()
+    }
 
-    for i, row in enumerate(rows):
-        if row and str(row[0]) == str(no):
-            return sheet_id, i + 1
-    return sheet_id, None
 
-
-def _update_sheet(no: int, url: str):
-    """noteシートにステータス+URL+日付を記録する。"""
+def _update_sheet(no: int, url: str, url_only: bool = False):
+    """noteシートに記録する。url_only=True ならURLのみ（ステータス変更なし）。"""
     try:
-        import sheets
-        sheet_id, target_row = _find_sheet_row(no)
-        if target_row:
-            sheets.update_note_published(sheet_id, target_row, url)
-            print(f"  シート更新完了（行{target_row}）")
-    except Exception as e:
-        print(f"  [警告] シート更新失敗: {e}")
-
-
-def _update_sheet_url_only(no: int, url: str):
-    """noteシートにURLのみ記録する（ステータスは変えない）。"""
-    try:
-        import sheets
-        sheet_id, target_row = _find_sheet_row(no)
+        sheet_id, sheets_mod = _get_sheet_env()
+        if not sheet_id:
+            return
+        row_map = _get_note_row_map(sheet_id, sheets_mod)
+        target_row = row_map.get(no)
         if not target_row:
             print(f"  [警告] #{no} のシート行が見つかりません")
             return
 
-        svc = sheets.get_service()
-        svc.spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=f"{sheets.NOTE_SHEET_NAME}!I{target_row}",
-            valueInputOption="RAW",
-            body={"values": [[url]]},
-        ).execute()
-        print(f"  #{no:2d} URL記録完了（行{target_row}）")
+        if url_only:
+            svc = sheets_mod.get_service()
+            svc.spreadsheets().values().update(
+                spreadsheetId=sheet_id,
+                range=f"{sheets_mod.NOTE_SHEET_NAME}!I{target_row}",
+                valueInputOption="RAW",
+                body={"values": [[url]]},
+            ).execute()
+            print(f"  #{no:2d} URL記録完了（行{target_row}）")
+        else:
+            sheets_mod.update_note_published(sheet_id, target_row, url)
+            print(f"  シート更新完了（行{target_row}）")
     except Exception as e:
         print(f"  [警告] #{no} シート更新失敗: {e}")
 
