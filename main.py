@@ -157,13 +157,8 @@ def main():
     print("\n[Step 8/9] SNSキャプション生成（TikTok・Instagram）")
     social_data = social_gen.generate_social_captions(script_data, PENDING_DIR)
 
-    # ── Step 9: シート更新 ──
-    if sheet_row and sheet_id:
-        print("\n[Step 9/9] シート更新")
-        import sheets
-        sheets.update_generated(sheet_id, sheet_row, script_data["title"], script_data.get("tags", []))
-    else:
-        print("\n[Step 9/9] シート更新（スキップ）")
+    # ── Step 9: シート更新（アーカイブ後にフォルダ名と共に更新） ──
+    # → アーカイブ後に実行（フォルダ名が確定してから）
 
     # ── 結果サマリー ──
     print("\n" + "=" * 50)
@@ -185,7 +180,20 @@ def main():
     else:
         print("\n  (アップロード機能は Phase 2 で実装予定)")
 
-    _archive_files(script_data["title"])
+    folder_name = _archive_files(script_data["title"])
+
+    # ── Step 9: シート更新 ──
+    if sheet_row and sheet_id:
+        print("\n[Step 9/9] シート更新")
+        import sheets
+        sheets.update_generated(
+            sheet_id, sheet_row,
+            script_data["title"], script_data.get("tags", []),
+            folder=folder_name,
+        )
+    else:
+        print("\n[Step 9/9] シート更新（スキップ）")
+
     print("\n完了！")
 
 
@@ -214,8 +222,8 @@ def _check_env():
     return True
 
 
-def _archive_files(title: str):
-    """生成したファイルを done/ にアーカイブする。"""
+def _archive_files(title: str) -> str:
+    """生成したファイルを done/ にアーカイブする。フォルダ名を返す。"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     archive_dir = DONE_DIR / timestamp
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -225,6 +233,7 @@ def _archive_files(title: str):
             shutil.move(str(f), str(archive_dir / f.name))
 
     print(f"  ファイルをアーカイブ: {archive_dir}")
+    return timestamp
 
 
 if __name__ == "__main__":

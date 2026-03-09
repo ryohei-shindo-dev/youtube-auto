@@ -165,15 +165,17 @@ def main():
             # 生成
             script_data = generate_one(topic, theme, i, target)
 
-            # シート更新
+            # アーカイブ（フォルダ名確定）
+            archive_path = archive_files(script_data["title"])
+            folder_name = pathlib.Path(archive_path).name
+
+            # シート更新（フォルダ名付き）
             sheets.update_generated(
                 sheet_id, sheet_row,
                 script_data["title"],
                 script_data.get("tags", []),
+                folder=folder_name,
             )
-
-            # アーカイブ
-            archive_path = archive_files(script_data["title"])
 
             success += 1
             results.append({

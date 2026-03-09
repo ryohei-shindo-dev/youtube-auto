@@ -143,6 +143,7 @@ def update_generated(
     row: int,
     title: str,
     tags: list,
+    folder: str = "",
 ):
     """動画生成完了後にシートを更新する。"""
     service = get_service()
@@ -155,6 +156,8 @@ def update_generated(
         {"range": f"{SHEET_NAME}!H{row}", "values": [[today]]},
         {"range": f"{SHEET_NAME}!O{row}", "values": [[tag_str]]},
     ]
+    if folder:
+        data.append({"range": f"{SHEET_NAME}!A{row}", "values": [[folder]]})
 
     service.spreadsheets().values().batchUpdate(
         spreadsheetId=spreadsheet_id,

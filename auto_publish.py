@@ -419,33 +419,36 @@ def publish_entry(
 
     # スプレッドシート更新（全プラットフォームのURLをまとめて書き込む）
     if any(results.values()):
-        _update_sheet(raw_title, urls)
+        _update_sheet(entry.get("folder", ""), urls)
 
     return results
 
 
-def _update_sheet(title: str, urls: dict):
-    """スプレッドシートを更新する。全プラットフォームのURLを書き込む。"""
+def _update_sheet(folder: str, urls: dict):
+    """スプレッドシートを更新する。A列のフォルダ名で行を特定し、URLを書き込む。
+    A列が空の行（未生成トピック）にはフォルダ名を書き込んで紐づける。
+    """
     sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
-    if not sheet_id:
+    if not sheet_id or not folder:
         return
     try:
         import sheets
         svc = sheets.get_service()
         result = svc.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range="投稿管理!A:G",
+            range="投稿管理!A:A",
         ).execute()
         rows = result.get("values", [])
         sheet_row = None
+        # A列のフォルダ名で完全一致検索
         for i, row in enumerate(rows[1:], start=2):
-            if len(row) > 6 and row[6] == title:
+            if len(row) > 0 and row[0] == folder:
                 sheet_row = i
                 break
         if sheet_row:
             sheets.update_published(sheet_id, sheet_row, urls=urls)
         else:
-            print(f"  [警告] シートでタイトル「{title}」が見つかりませんでした")
+            print(f"  [警告] シートでフォルダ「{folder}」が見つかりませんでした")
     except Exception as e:
         print(f"  [警告] シート更新に失敗: {e}")
 
