@@ -47,13 +47,19 @@ CHANNEL_CONCEPT = (
     "視聴後に「長期投資を続けてよかった」「短期売買に手を出さなくてよかった」と思える内容を目指す。"
 )
 
-# 固定フレーズ
+# 語りかけフレーズ（「〜か？」で視聴者に継続を確認する形式）
 OPENING_PHRASES = [
     "ガチホしてますか？",
     "まだ残ってますか？",
     "続けてますか？",
+    "持ち続けてますか？",
+    "今日もガチホしてますか？",
+    "まだ持ってますか？",
+    "今日も残ってますか？",
 ]
 OPENING_PHRASE = OPENING_PHRASES[0]  # デフォルト（通常動画用）
+# Shortsで語りかけフレーズを入れる確率（約3本に1本）
+_SHORTS_OPENING_RATIO = 1 / 3
 CLOSING_PHRASES_LIST = [
     "明日もガチホしたい人はフォローお願いします。",
     "同じ気持ちの人、コメントで教えてください。",
@@ -182,10 +188,11 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    hookは必ず「恐怖・後悔・焦り」のどれかを刺せ。
    ★画面表示用のslide_textは文末の句点不要。「含み損」「不安」のように止める。
 
-2. empathy（2〜3秒）: 「あなた」+共感1文 + 「{opening}」
-   良い: 「あなただけじゃない。{opening}」
+2. empathy（2〜3秒）: 「あなた」+共感1文。{opening}
+   {opening}がある場合 → 共感文の後に「{opening}」を付ける。例: 「あなただけじゃない。{opening}」
+   {opening}が空の場合 → 共感文だけでOK。例: 「あなただけじゃない。」「つらい夜です。」
    共感部分は6文字以内。短いほど強い。間延びは離脱される。
-   悪い: 「あなたもそう感じたことありますよね。{opening}」← 長すぎ。離脱。
+   悪い: 「あなたもそう感じたことありますよね。」← 長すぎ。離脱。
 
 3. data（4秒）: 数字1つで希望を見せる。教えるな。
    トピックに最も合うデータを1つ選べ。
@@ -435,8 +442,12 @@ def extract_scene_texts(script_data: dict, *roles: str) -> dict:
 def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
     """Shorts用台本（5シーン、16〜18秒）を生成する。"""
     theme_desc = SHORTS_THEMES.get(theme, SHORTS_THEMES["ガチホモチベ"])
-    # フレーズをランダム選択（結論はdata生成後にポスプロで再選択）
-    opening = random.choice(OPENING_PHRASES)
+    # 語りかけフレーズ: 約3本に1本だけ入れる（尺圧迫を避ける）
+    if random.random() < _SHORTS_OPENING_RATIO:
+        opening = random.choice(OPENING_PHRASES)
+        print(f"  [語りかけ] この動画にフレーズを入れます:「{opening}」")
+    else:
+        opening = ""
     conclusion = random.choice(CONCLUSION_PHRASES)  # 初期値（ポスプロで上書き）
     closing_idx = random.randrange(len(CLOSING_PHRASES_LIST))
     closing = CLOSING_PHRASES_LIST[closing_idx]
@@ -458,12 +469,13 @@ def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dic
 
 def generate_long_script(topic: str) -> dict:
     """通常動画用台本（6シーン、約5分）を生成する。"""
+    opening = random.choice(OPENING_PHRASES)
     conclusion = random.choice(CONCLUSION_PHRASES)
     return _generate_script(
         topic,
         LONG_TEMPLATE,
         expected_scenes=6,
-        extra_vars={"conclusion": conclusion},
+        extra_vars={"opening": opening, "conclusion": conclusion},
     )
 
 
@@ -531,10 +543,14 @@ def _generate_script(
         for s in scenes:
             role = s.get("role", "")
             if role == "empathy":
-                s["slide_text"] = opening
-                # ナレーションにも挨拶フレーズを必ず含める
-                if opening not in s.get("text", ""):
-                    s["text"] = s.get("text", "").rstrip("。") + "。" + opening
+                if opening:
+                    # 語りかけフレーズあり → slide_textに表示、ナレーションにも含める
+                    s["slide_text"] = opening
+                    if opening not in s.get("text", ""):
+                        s["text"] = s.get("text", "").rstrip("。") + "。" + opening
+                else:
+                    # 語りかけなし → ナレーションからslide_textを生成（絵文字防止）
+                    s["slide_text"] = s.get("text", "").rstrip("。？！ ")[:10]
             elif role == "opening":
                 # 通常動画用: openingのslide_textを固定
                 s["slide_text"] = OPENING_PHRASE
@@ -546,7 +562,9 @@ def _generate_script(
                 s["text"] = closing
 
             if "slide_text" in s:
-                s["slide_text"] = _strip_terminal_punctuation(s.get("slide_text", ""))
+                # 絵文字除去（日本語・英数・記号のみ残す）+ 句読点除去
+                slide = re.sub(r'[\U00010000-\U0010FFFF\u2600-\u27BF\u2700-\u27BF\uFE00-\uFE0F\u200D]', '', s.get("slide_text", "")).strip()
+                s["slide_text"] = _strip_terminal_punctuation(slide)
 
         # 文字数制限チェック
         # 固定フレーズを保護しながら AI生成部分を切り詰める
@@ -628,15 +646,21 @@ def _generate_script(
                     s["text"] = trimmed if trimmed else text[:limit]
 
             elif role == "empathy":
-                # AI生成部分を最大6文字に制限（+ 挨拶フレーズ）— 間延び防止
-                if opening in text:
+                # AI生成部分を最大6文字に制限 — 間延び防止
+                if opening and opening in text:
                     ai_part = text.replace(opening, "").strip().rstrip("。、 ")
                     if len(ai_part) > 6:
-                        # 句点で区切って自然に切る
                         parts = re.split(r"(?<=[。？！])", ai_part)
                         ai_part = parts[0].rstrip("。、 ") if parts[0] else ai_part[:6]
                         print(f"  [調整] empathyのAI部分を切り詰めました")
                     s["text"] = (ai_part + "。" + opening) if ai_part else opening
+                elif not opening:
+                    # 語りかけなし → AI生成の共感テキストを10文字以内に制限
+                    if len(text) > 10:
+                        parts = re.split(r"(?<=[。？！])", text)
+                        trimmed = parts[0].rstrip("。、 ") if parts[0] else text[:10]
+                        s["text"] = trimmed + "。"
+                        print(f"  [調整] empathy（語りかけなし）を切り詰めました")
 
             elif role == "resolve":
                 # dataの内容に最も合う結論フレーズと接続詞を一括選択
@@ -650,7 +674,9 @@ def _generate_script(
                 s["slide_text"] = _strip_terminal_punctuation(short_conclusion)
 
             if "slide_text" in s:
-                s["slide_text"] = _strip_terminal_punctuation(s.get("slide_text", ""))
+                # 絵文字除去（日本語・英数・記号のみ残す）+ 句読点除去
+                slide = re.sub(r'[\U00010000-\U0010FFFF\u2600-\u27BF\u2700-\u27BF\uFE00-\uFE0F\u200D]', '', s.get("slide_text", "")).strip()
+                s["slide_text"] = _strip_terminal_punctuation(slide)
 
         # バリデーション
         title = data.get("title", "").strip()
