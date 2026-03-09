@@ -17,8 +17,12 @@ pending/
 debug/
 long_video/
 
-# ログ
+# ログ・自動更新データ
 logs/
+analytics_log.json
+
+# Claude Code ローカル設定
+.claude/settings.local.json
 
 # macOS
 .DS_Store

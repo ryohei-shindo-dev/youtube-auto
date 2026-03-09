@@ -236,12 +236,12 @@
     "folder": "20260305_122022",
     "note": "1800万円の非課税枠、使い切れるか不安なあなたへ",
     "hook": "1800万円",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/08 19:00",
+        "url": "https://youtube.com/shorts/jb5YBBPjoSQ",
         "error": null
       },
       "tiktok": {
@@ -251,12 +251,19 @@
         "error": null
       },
       "instagram": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/08 19:00",
+        "url": "https://www.instagram.com/reel/DVnovAOFVoY/",
+        "error": null
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/08 19:00",
+        "url": "https://x.com/i/status/2030584518084792322",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/08 19:00"
   },
   {
     "day": 9,
@@ -264,12 +271,12 @@
     "folder": "20260305_121813",
     "note": "配当、再投資してますか？リターンが変わります",
     "hook": "配当、使った",
-    "published": false,
+    "published": true,
     "platforms": {
       "youtube": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/09 07:00",
+        "url": "https://youtube.com/shorts/eMqIMn0ccxI",
         "error": null
       },
       "tiktok": {
@@ -279,12 +286,19 @@
         "error": null
       },
       "instagram": {
-        "published": false,
-        "published_at": null,
-        "url": null,
+        "published": true,
+        "published_at": "2026/03/09 07:00",
+        "url": "https://www.instagram.com/reel/DVo7HxnEr69/",
+        "error": null
+      },
+      "x": {
+        "published": true,
+        "published_at": "2026/03/09 07:00",
+        "url": "https://x.com/i/status/2030765642744500543",
         "error": null
       }
-    }
+    },
+    "published_at": "2026/03/09 07:00"
   },
   {
     "day": 10,
