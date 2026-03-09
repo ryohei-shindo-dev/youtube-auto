@@ -30,3 +30,4 @@ analytics_log.json
 # Python
 __pycache__/
 *.pyc
+note_images/
