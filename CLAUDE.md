@@ -48,7 +48,6 @@
 ├── CHANNEL_STRATEGY.md  # ブランド戦略・感情曲線・テーマ設計
 ├── OPERATIONS_MEMO.md   # 変動する運用情報・一時的な優先事項
 │
-├── posting_schedule.json    # 全動画の投稿スケジュール・状態
 ├── analytics_insights.json  # 分析結果 → script_gen に自動注入
 ├── hooks.json               # hook ワード 50 個（5 タイプ × 10）
 ├── analytics_log.json       # 再生数の時系列ログ
@@ -58,12 +57,25 @@
 ## Pipeline Flow
 
 ```
-topics / Sheets → script_gen → voice_gen → slide_gen → video_gen
+Sheets(投稿管理) → script_gen → voice_gen → slide_gen → video_gen
     → thumbnail_gen → subtitle_gen → note_gen → social_gen
-    → auto_publish（YouTube / IG / X / TikTok）
+    → done/{folder}/ にアーカイブ → Sheets に B列フォルダ名 + G=生成済み を記録
+    → auto_publish: Sheets から G=生成済み を取得 → 各プラットフォーム投稿
+    → Sheets に G=公開済み + URL を記録
     → analytics_collect（毎晩）→ analytics_analyze（毎週）
     → analytics_insights.json → script_gen にフィードバック
 ```
+
+### 投稿管理シート列構成（正本）
+```
+A: No.（通番、人間用） B: フォルダ名（コードの唯一のキー）
+C: 種別  D: トピック  E: 検索KW  F: 狙い
+G: ステータス（未生成/生成済み/公開済み/投稿失敗）
+H: タイトル  I: 生成日  J: 公開日
+K: YouTube URL  L: Instagram URL  M: X URL  N: TikTok URL
+O: 再生数  P: 備考  Q-V: レビュー列
+```
+- **コードは B列（フォルダ名）のみをキーに使う。A列・タイトル検索は禁止。**
 
 ## Rules & Commands
 

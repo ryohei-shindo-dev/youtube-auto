@@ -1,11 +1,15 @@
 """
 auto_publish.py
-投稿スケジュールに従って YouTube Shorts / TikTok / Instagram Reels を自動投稿するスクリプト。
+投稿管理シートを正本として、YouTube Shorts / TikTok / Instagram Reels / X を自動投稿する。
+
+データソース:
+    Google Sheets「投稿管理」シート（唯一の管理元）
+    B列のフォルダ名をキーに done/{フォルダ名}/ から動画を取得
 
 使い方:
-    python auto_publish.py                                    # 今日の分を既定プラットフォームに投稿
+    python auto_publish.py                                    # 次の未投稿動画を自動投稿
     python auto_publish.py --dry-run                          # 投稿せずに確認だけ
-    python auto_publish.py --force 2                          # day 2 を強制投稿
+    python auto_publish.py --force 5                          # No.5 を強制投稿
     python auto_publish.py --private                          # 非公開で投稿（テスト用）
     python auto_publish.py --platforms youtube tiktok         # 指定プラットフォームのみ
     python auto_publish.py --retry-failed                     # 失敗したプラットフォームだけ再投稿
@@ -15,6 +19,8 @@ cron設定例（毎朝7:00 / 毎晩19:00に自動投稿）:
     0 19 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -22,7 +28,6 @@ import pathlib
 import random
 import sys
 from datetime import datetime
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -30,7 +35,6 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 DONE_DIR = SCRIPT_DIR / "done"
-SCHEDULE_FILE = SCRIPT_DIR / "posting_schedule.json"
 LOG_DIR = SCRIPT_DIR / "logs"
 
 ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
@@ -132,35 +136,6 @@ def _optimize_instagram_caption(raw_title: str, meta: dict) -> str:
     return f"{front}｜{suffix}\n\n{_IG_HASHTAGS}"
 
 
-def load_schedule() -> list:
-    """投稿スケジュールを読み込む。"""
-    with open(SCHEDULE_FILE, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_schedule(schedule: list):
-    """投稿スケジュールを保存する。"""
-    with open(SCHEDULE_FILE, "w", encoding="utf-8") as f:
-        json.dump(schedule, f, ensure_ascii=False, indent=2)
-
-
-def find_today_entry(schedule: list) -> dict:
-    """今日投稿すべきエントリを返す。"""
-    today = datetime.now().strftime("%Y/%m/%d")
-    for entry in schedule:
-        if entry["date"] == today and not entry.get("published"):
-            return entry
-    return None
-
-
-def find_entry_by_day(schedule: list, day: int) -> dict:
-    """指定したday番号のエントリを返す。"""
-    for entry in schedule:
-        if entry["day"] == day:
-            return entry
-    return None
-
-
 def _build_x_text_from_transcript(meta: dict) -> str:
     """transcript.json からXポスト用テキストを生成する（social_captions.json がない場合の代替）。"""
     from social_gen import _strip_connector, X_HASHTAGS
@@ -175,32 +150,97 @@ def _build_x_text_from_transcript(meta: dict) -> str:
     return "\n".join(lines)
 
 
-def _ensure_platforms(entry: dict):
-    """エントリにplatformsフィールドがなければ追加する（後方互換）。"""
-    if "platforms" not in entry:
-        entry["platforms"] = {
-            "youtube": {
-                "published": entry.get("published", False),
-                "published_at": entry.get("published_at"),
-                "url": None,
-                "error": None,
-            },
-            "tiktok": {"published": False, "url": None, "error": None},
-            "instagram": {"published": False, "url": None, "error": None},
-            "x": {"published": False, "url": None, "error": None},
-        }
+# ── シートからエントリを取得する関数群 ──
+
+def _read_sheet_rows() -> list[list[str]]:
+    """投稿管理シートの全行を取得する（A列〜N列）。"""
+    import sheets
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    if not sheet_id:
+        return []
+    svc = sheets.get_service()
+    result = svc.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range="投稿管理!A:N",
+    ).execute()
+    return result.get("values", [])
 
 
-def _get_retry_platforms(entry: dict, allowed_platforms: Optional[list] = None) -> list:
-    """失敗したプラットフォームのリストを返す。"""
-    _ensure_platforms(entry)
-    target_platforms = allowed_platforms or list(ALL_PLATFORMS)
+def _row_to_entry(row: list, sheet_row: int) -> dict:
+    """シートの行データをエントリdictに変換する。"""
+    import sheets
+    return {
+        "row": sheet_row,
+        "no": sheets.get_cell(row, 0),
+        "folder": sheets.get_cell(row, 1),
+        "type": sheets.get_cell(row, 2),
+        "title": sheets.get_cell(row, 7),
+        "status": sheets.get_cell(row, 6),
+        "gen_date": sheets.get_cell(row, 8),
+        "youtube_url": sheets.get_cell(row, 10),
+        "instagram_url": sheets.get_cell(row, 11),
+        "x_url": sheets.get_cell(row, 12),
+        "tiktok_url": sheets.get_cell(row, 13),
+    }
+
+
+def get_next_publishable() -> dict | None:
+    """シートからG=生成済みで最も古い（I列=生成日順）動画を取得する。"""
+    import sheets
+    rows = _read_sheet_rows()
+    candidates = []
+    for i, row in enumerate(rows[1:], start=2):
+        entry = _row_to_entry(row, i)
+        if entry["status"] != sheets.STATUS_GENERATED:
+            continue
+        if not entry["folder"]:
+            continue
+        candidates.append(entry)
+
+    if not candidates:
+        return None
+    # 生成日順で最も古いものを返す
+    candidates.sort(key=lambda c: c["gen_date"])
+    return candidates[0]
+
+
+def get_entry_by_no(no: int) -> dict | None:
+    """A列のNo.でエントリを検索する。"""
+    rows = _read_sheet_rows()
+    import sheets
+    for i, row in enumerate(rows[1:], start=2):
+        no_str = sheets.get_cell(row, 0)
+        if no_str.isdigit() and int(no_str) == no:
+            return _row_to_entry(row, i)
+    return None
+
+
+def _get_retry_platforms(entry: dict, allowed_platforms: list) -> list:
+    """URLが空のプラットフォームを返す（再投稿対象）。"""
+    url_keys = {
+        "youtube": "youtube_url",
+        "instagram": "instagram_url",
+        "x": "x_url",
+        "tiktok": "tiktok_url",
+    }
     failed = []
-    for p in target_platforms:
-        pdata = entry["platforms"].get(p, {})
-        if not pdata.get("published", False):
+    for p in allowed_platforms:
+        key = url_keys.get(p)
+        if key and not entry.get(key):
             failed.append(p)
     return failed
+
+
+def get_remaining_count() -> int:
+    """生成済みで未投稿の動画数を返す。"""
+    import sheets
+    rows = _read_sheet_rows()
+    count = 0
+    for row in rows[1:]:
+        status = sheets.get_cell(row, 6)
+        if status == sheets.STATUS_GENERATED:
+            count += 1
+    return count
 
 
 def publish_entry(
@@ -246,7 +286,8 @@ def publish_entry(
     ig_caption = _optimize_instagram_caption(raw_title, meta)
 
     print(f"\n{'='*60}")
-    print(f"  Day {entry['day']}: {raw_title[:40]}")
+    print(f"  No.{entry['no']}: {raw_title[:40]}")
+    print(f"  フォルダ: {entry['folder']}")
     print(f"  動画: {video_path}")
     print(f"  公開設定: {privacy}")
     print(f"  プラットフォーム: {', '.join(platforms)}")
@@ -398,57 +439,51 @@ def publish_entry(
         print(f"  {p:12s}: {status}")
     print(f"  {'='*40}")
 
-    # platforms フィールドを更新
-    _ensure_platforms(entry)
-    now = datetime.now().strftime("%Y/%m/%d %H:%M")
-    for p in platforms:
-        if results.get(p):
-            entry["platforms"][p] = {
-                "published": True,
-                "published_at": now,
-                "url": urls.get(p),
-                "error": None,
-            }
-        else:
-            entry["platforms"][p] = {
-                "published": False,
-                "published_at": None,
-                "url": None,
-                "error": "投稿に失敗しました",
-            }
-
-    # スプレッドシート更新（全プラットフォームのURLをまとめて書き込む）
-    if any(results.values()):
-        _update_sheet(entry.get("folder", ""), urls)
+    # スプレッドシート更新
+    _update_sheet_after_publish(entry, results, urls)
 
     return results
 
 
-def _update_sheet(folder: str, urls: dict):
-    """スプレッドシートを更新する。A列のフォルダ名で行を特定し、URLを書き込む。
-    A列が空の行（未生成トピック）にはフォルダ名を書き込んで紐づける。
-    """
+def _update_sheet_after_publish(entry: dict, results: dict, urls: dict):
+    """投稿後にシートを更新する。B列フォルダ名で行を特定済み。"""
     sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
-    if not sheet_id or not folder:
+    if not sheet_id:
         return
+
+    row = entry["row"]
+    any_success = any(results.values())
+
     try:
         import sheets
         svc = sheets.get_service()
-        result = svc.spreadsheets().values().get(
-            spreadsheetId=sheet_id,
-            range="投稿管理!A:A",
-        ).execute()
-        rows = result.get("values", [])
-        sheet_row = None
-        # A列のフォルダ名で完全一致検索
-        for i, row in enumerate(rows[1:], start=2):
-            if len(row) > 0 and row[0] == folder:
-                sheet_row = i
-                break
-        if sheet_row:
-            sheets.update_published(sheet_id, sheet_row, urls=urls)
+
+        data = []
+        if any_success:
+            data.append({"range": f"投稿管理!G{row}", "values": [[sheets.STATUS_PUBLISHED]]})
+            data.append({"range": f"投稿管理!J{row}", "values": [[datetime.now().strftime("%Y/%m/%d")]]})
         else:
-            print(f"  [警告] シートでフォルダ「{folder}」が見つかりませんでした")
+            data.append({"range": f"投稿管理!G{row}", "values": [[sheets.STATUS_FAILED]]})
+
+        # URL列を書き込み
+        for platform, col in sheets.PLATFORM_COLUMNS.items():
+            url = urls.get(platform)
+            if url:
+                data.append({"range": f"投稿管理!{col}{row}", "values": [[url]]})
+
+        # 全失敗の場合、備考に理由
+        failed = [p for p, ok in results.items() if not ok]
+        if failed and not any_success:
+            data.append({"range": f"投稿管理!P{row}", "values": [[f"投稿失敗: {', '.join(failed)}"]]})
+
+        svc.spreadsheets().values().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"valueInputOption": "RAW", "data": data},
+        ).execute()
+
+        status_text = "公開済み" if any_success else "投稿失敗"
+        print(f"  シート更新完了（行{row}: {status_text}）")
+
     except Exception as e:
         print(f"  [警告] シート更新に失敗: {e}")
 
@@ -493,7 +528,7 @@ def _like_video(youtube, video_id: str):
 def main():
     parser = argparse.ArgumentParser(description="マルチプラットフォーム自動投稿")
     parser.add_argument("--dry-run", action="store_true", help="投稿せずに確認だけ")
-    parser.add_argument("--force", type=int, default=None, help="指定したday番号を強制投稿")
+    parser.add_argument("--force", type=int, default=None, help="指定したNo.を強制投稿")
     parser.add_argument("--private", action="store_true", help="非公開で投稿（テスト用）")
     parser.add_argument("--platforms", nargs="+", default=None,
                         choices=ALL_PLATFORMS,
@@ -506,24 +541,19 @@ def main():
 
     LOG_DIR.mkdir(exist_ok=True)
 
-    schedule = load_schedule()
-
     # 投稿対象を決定
     if args.force is not None:
-        entry = find_entry_by_day(schedule, args.force)
+        entry = get_entry_by_no(args.force)
         if not entry:
-            print(f"[エラー] day {args.force} がスケジュールにありません")
+            print(f"[エラー] No.{args.force} がシートにありません")
             sys.exit(1)
-        if entry.get("published") and not args.dry_run and not args.retry_failed:
-            print(f"[警告] day {args.force} は既に投稿済みです。再投稿します。")
+        import sheets
+        if entry["status"] == sheets.STATUS_PUBLISHED and not args.dry_run and not args.retry_failed:
+            print(f"[警告] No.{args.force} は既に公開済みです。再投稿します。")
     else:
-        entry = find_today_entry(schedule)
+        entry = get_next_publishable()
         if not entry:
-            print(f"[情報] 今日（{datetime.now().strftime('%Y/%m/%d')}）の投稿予定はありません。")
-            for e in schedule:
-                if not e.get("published"):
-                    print(f"  次の投稿: day {e['day']} ({e['date']}) — {e['note']}")
-                    break
+            print(f"[情報] 投稿可能な動画（生成済み）がありません。")
             sys.exit(0)
 
     # プラットフォームを決定
@@ -531,7 +561,7 @@ def main():
         retry_candidates = args.platforms or list(DEFAULT_PLATFORMS)
         platforms = _get_retry_platforms(entry, retry_candidates)
         if not platforms:
-            print(f"  [情報] day {entry['day']} は全プラットフォーム投稿済みです。")
+            print(f"  [情報] No.{entry['no']} は全プラットフォーム投稿済みです。")
             sys.exit(0)
         print(f"  再投稿対象: {', '.join(platforms)}")
     elif args.platforms:
@@ -543,27 +573,18 @@ def main():
     results = publish_entry(entry, privacy=privacy, dry_run=args.dry_run, platforms=platforms)
 
     if not args.dry_run:
-        # published フラグ更新（YouTube成功で true — 後方互換）
-        _ensure_platforms(entry)
-        yt_done = entry["platforms"].get("youtube", {}).get("published", False)
-        entry["published"] = yt_done
-        entry["published_at"] = datetime.now().strftime("%Y/%m/%d %H:%M")
-
-        save_schedule(schedule)
-
         success_count = sum(1 for r in results.values() if r)
-        print(f"\n  スケジュール更新完了（day {entry['day']}: {success_count}/{len(results)} 成功）")
+        print(f"\n  投稿完了（No.{entry['no']}: {success_count}/{len(results)} 成功）")
 
     # 次回予告
-    next_entry = None
-    for e in schedule:
-        if not e.get("published"):
-            next_entry = e
-            break
-    if next_entry:
-        print(f"\n  次回: day {next_entry['day']} ({next_entry['date']}) — {next_entry['note']}")
+    remaining = get_remaining_count()
+    if remaining > 0:
+        # 今投稿した分を除外
+        remaining_after = remaining - 1 if any(results.values()) else remaining
+        if remaining_after > 0:
+            print(f"\n  残り投稿待ち: {remaining_after}本")
     else:
-        print("\n  全投稿が完了しました！")
+        print("\n  全動画が投稿済みです！")
 
     failed_platforms = [p for p, ok in results.items() if not ok]
     if failed_platforms and not args.dry_run:

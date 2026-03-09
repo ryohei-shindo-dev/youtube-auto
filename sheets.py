@@ -3,27 +3,28 @@ sheets.py
 Google Sheets API で投稿管理シートを読み書きするモジュール。
 
 【シート列構成】
-  A: No.（連番）
-  B: 種別
-  C: トピック
-  D: 検索キーワード
-  E: 狙い
-  F: ステータス（未生成 / 生成済み / 公開済み）
-  G: タイトル（生成後に記録）
-  H: 生成日
-  I: 公開日
-  J: YouTube URL
-  K: Instagram URL
-  L: X URL
-  M: TikTok URL
-  N: 再生数
-  O: 備考
-  P: hook力（レビュー）
-  Q: 感情曲線（レビュー）
-  R: 文脈（レビュー）
-  S: 1メッセージ（レビュー）
-  T: 総合（レビュー）
-  U: コメント（レビュー）
+  A: No.（通番、人間用。コードでは使わない）
+  B: フォルダ名（コードの唯一のキー。done/ディレクトリ名と一致）
+  C: 種別
+  D: トピック
+  E: 検索キーワード
+  F: 狙い
+  G: ステータス（未生成 / 生成済み / 公開済み / 投稿失敗）
+  H: タイトル（生成後に記録）
+  I: 生成日
+  J: 公開日
+  K: YouTube URL
+  L: Instagram URL
+  M: X URL
+  N: TikTok URL
+  O: 再生数
+  P: 備考
+  Q: hook力（レビュー）
+  R: 感情曲線（レビュー）
+  S: 文脈（レビュー）
+  T: 1メッセージ（レビュー）
+  U: 総合（レビュー）
+  V: コメント（レビュー）
 """
 
 import os
@@ -49,15 +50,24 @@ SHEET_NAME = "投稿管理"
 
 # プラットフォーム別のURL列マッピング（投稿管理シート）
 PLATFORM_COLUMNS = {
-    "youtube": "J",
-    "instagram": "K",
-    "x": "L",
-    "tiktok": "M",
+    "youtube": "K",
+    "instagram": "L",
+    "x": "M",
+    "tiktok": "N",
+}
+
+# プラットフォーム別のURL列インデックス（0始まり）
+PLATFORM_COL_INDEX = {
+    "youtube": 10,
+    "instagram": 11,
+    "x": 12,
+    "tiktok": 13,
 }
 NOTE_SHEET_NAME = "note管理"
 
 STATUS_PENDING = "未生成"
 STATUS_GENERATED = "生成済み"
+STATUS_FAILED = "投稿失敗"
 
 
 def get_cell(row: list, idx: int, default: str = "") -> str:
@@ -108,7 +118,7 @@ def get_next_topic(
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
-        range=f"{SHEET_NAME}!A:F",
+        range=f"{SHEET_NAME}!A:G",
     ).execute()
 
     rows = result.get("values", [])
@@ -116,24 +126,24 @@ def get_next_topic(
         return None
 
     for i, row in enumerate(rows[1:], start=2):
-        if len(row) < 6 or row[5] != STATUS_PENDING:
+        if len(row) < 7 or row[6] != STATUS_PENDING:
             continue
 
-        row_type = row[1] if len(row) > 1 else ""
+        row_type = row[2] if len(row) > 2 else ""
 
         if video_type == "通常":
             # 通常動画を検索
             if row_type == "通常":
-                return {"row": i, "type": row_type, "topic": row[2] if len(row) > 2 else ""}
+                return {"row": i, "type": row_type, "topic": row[3] if len(row) > 3 else ""}
         else:
             # Shorts を検索（テーマ指定あり/なし）
             if theme:
                 target = f"Shorts/{theme}"
                 if row_type == target:
-                    return {"row": i, "type": row_type, "topic": row[2] if len(row) > 2 else ""}
+                    return {"row": i, "type": row_type, "topic": row[3] if len(row) > 3 else ""}
             else:
                 if row_type.startswith("Shorts"):
-                    return {"row": i, "type": row_type, "topic": row[2] if len(row) > 2 else ""}
+                    return {"row": i, "type": row_type, "topic": row[3] if len(row) > 3 else ""}
 
     return None
 
@@ -151,13 +161,13 @@ def update_generated(
     tag_str = ", ".join(tags) if tags else ""
 
     data = [
-        {"range": f"{SHEET_NAME}!F{row}", "values": [[STATUS_GENERATED]]},
-        {"range": f"{SHEET_NAME}!G{row}", "values": [[title]]},
-        {"range": f"{SHEET_NAME}!H{row}", "values": [[today]]},
-        {"range": f"{SHEET_NAME}!O{row}", "values": [[tag_str]]},
+        {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_GENERATED]]},
+        {"range": f"{SHEET_NAME}!H{row}", "values": [[title]]},
+        {"range": f"{SHEET_NAME}!I{row}", "values": [[today]]},
+        {"range": f"{SHEET_NAME}!P{row}", "values": [[tag_str]]},
     ]
     if folder:
-        data.append({"range": f"{SHEET_NAME}!A{row}", "values": [[folder]]})
+        data.append({"range": f"{SHEET_NAME}!B{row}", "values": [[folder]]})
 
     service.spreadsheets().values().batchUpdate(
         spreadsheetId=spreadsheet_id,
@@ -177,8 +187,8 @@ def update_published(
     today = datetime.now().strftime("%Y/%m/%d")
 
     data = [
-        {"range": f"{SHEET_NAME}!F{row}", "values": [[STATUS_PUBLISHED]]},
-        {"range": f"{SHEET_NAME}!I{row}", "values": [[today]]},
+        {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]},
+        {"range": f"{SHEET_NAME}!J{row}", "values": [[today]]},
     ]
     for platform, column in PLATFORM_COLUMNS.items():
         url = (urls or {}).get(platform)
@@ -209,7 +219,7 @@ def populate_from_topics_json(spreadsheet_id: str):
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
-        range=f"{SHEET_NAME}!A:C",
+        range=f"{SHEET_NAME}!A:D",
     ).execute()
     existing_rows = result.get("values", [])
     existing_count = len(existing_rows) - 1 if len(existing_rows) > 1 else 0
@@ -219,8 +229,8 @@ def populate_from_topics_json(spreadsheet_id: str):
         return
 
     # ヘッダー + データ行を作成
-    rows = [["No.", "種別", "トピック", "検索キーワード", "狙い", "ステータス",
-             "タイトル", "生成日", "公開日", "YouTube URL",
+    rows = [["No.", "フォルダ名", "種別", "トピック", "検索キーワード", "狙い",
+             "ステータス", "タイトル", "生成日", "公開日", "YouTube URL",
              "Instagram URL", "X URL", "TikTok URL",
              "再生数", "備考",
              "hook力", "感情曲線", "文脈", "1メッセージ", "総合", "コメント"]]
@@ -231,17 +241,17 @@ def populate_from_topics_json(spreadsheet_id: str):
     for theme_name, items in shorts.items():
         for item in items:
             keywords = ", ".join(item.get("search_keywords", []))
-            rows.append([no, f"Shorts/{theme_name}", item["topic"], keywords,
+            rows.append([no, "", f"Shorts/{theme_name}", item["topic"], keywords,
                          item.get("intent", ""), STATUS_PENDING,
-                         "", "", "", "", "", ""])
+                         "", "", "", "", "", "", ""])
             no += 1
 
     # 通常動画
     for item in topics_data.get("long", []):
         keywords = ", ".join(item.get("search_keywords", []))
-        rows.append([no, "通常", item["topic"], keywords,
+        rows.append([no, "", "通常", item["topic"], keywords,
                      item.get("intent", ""), STATUS_PENDING,
-                     "", "", "", "", "", ""])
+                     "", "", "", "", "", "", ""])
         no += 1
 
     service.spreadsheets().values().update(

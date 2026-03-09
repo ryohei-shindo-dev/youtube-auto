@@ -91,7 +91,7 @@ def get_sheet_data():
     svc = sheets.get_service()
     res = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range="投稿管理!A:O",
+        range="投稿管理!A:P",
     ).execute()
     rows = res.get("values", [])
     if len(rows) <= 1:
@@ -99,15 +99,15 @@ def get_sheet_data():
 
     results = []
     for i, row in enumerate(rows[1:], start=2):
-        if len(row) < 7:
+        if len(row) < 8:
             continue
-        status = sheets.get_cell(row, 5)
-        title = sheets.get_cell(row, 6)
+        status = sheets.get_cell(row, 6)
+        title = sheets.get_cell(row, 7)
         if status == "生成済み" and title:
             results.append({
                 "row": i,
-                "type": sheets.get_cell(row, 1),
-                "topic": sheets.get_cell(row, 2),
+                "type": sheets.get_cell(row, 2),
+                "topic": sheets.get_cell(row, 3),
                 "title": title,
             })
     return results
@@ -274,7 +274,7 @@ def read_reviews():
     svc = sheets.get_service()
     res = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range="投稿管理!A:U",
+        range="投稿管理!A:V",
     ).execute()
     rows = res.get("values", [])
     if len(rows) <= 1:
@@ -289,19 +289,19 @@ def read_reviews():
     total_score = 0
 
     for i, row in enumerate(rows[1:], start=2):
-        if len(row) < 16:
+        if len(row) < 17:
             continue
-        title = sheets.get_cell(row, 6)
+        title = sheets.get_cell(row, 7)
         if not title:
             continue
 
-        # P=15, Q=16, R=17, S=18, T=19, U=20
-        hook = sheets.get_cell(row, 15)
-        curve = sheets.get_cell(row, 16)
-        context = sheets.get_cell(row, 17)
-        one_msg = sheets.get_cell(row, 18)
-        overall = sheets.get_cell(row, 19)
-        comment = sheets.get_cell(row, 20)
+        # Q=16, R=17, S=18, T=19, U=20, V=21
+        hook = sheets.get_cell(row, 16)
+        curve = sheets.get_cell(row, 17)
+        context = sheets.get_cell(row, 18)
+        one_msg = sheets.get_cell(row, 19)
+        overall = sheets.get_cell(row, 20)
+        comment = sheets.get_cell(row, 21)
 
         if not hook:
             continue

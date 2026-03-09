@@ -11,29 +11,19 @@ cron設定例（毎晩22:00に収集）:
 """
 
 import json
+import os
 import pathlib
 from datetime import datetime
 
 import sheets
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-SCHEDULE_FILE = SCRIPT_DIR / "posting_schedule.json"
 ANALYTICS_FILE = SCRIPT_DIR / "analytics_log.json"
 STRATEGY_FILE = SCRIPT_DIR / "CHANNEL_STRATEGY.md"
 
 
 def collect_analytics():
     """投稿済み動画の統計を収集する。"""
-    # スケジュールから投稿済みエントリを取得
-    with open(SCHEDULE_FILE, encoding="utf-8") as f:
-        schedule = json.load(f)
-
-    published = [e for e in schedule if e.get("published")]
-    if not published:
-        print("投稿済み動画がありません。")
-        return []
-
-    # 各動画のvideo_idを取得（transcript.jsonまたはpublished_atから）
     youtube = sheets.get_youtube_service()
 
     # チャンネルの全動画を取得
@@ -137,21 +127,34 @@ def update_strategy_log(stats: list):
         print("  [警告] CHANNEL_STRATEGY.mdに分析ログテーブルが見つかりません")
         return
 
-    # スケジュールからDay番号とhookを取得
-    with open(SCHEDULE_FILE, encoding="utf-8") as f:
-        schedule = json.load(f)
-
-    # folder→Day/hookのマッピング
-    folder_map = {}
-    for entry in schedule:
-        folder_map[entry["folder"]] = entry
+    # シートからNo.とフォルダ名のマッピングを取得
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    folder_to_no = {}
+    if sheet_id:
+        try:
+            svc = sheets.get_service()
+            result = svc.spreadsheets().values().get(
+                spreadsheetId=sheet_id,
+                range="投稿管理!A:B",
+            ).execute()
+            for row in result.get("values", [])[1:]:
+                no = sheets.get_cell(row, 0)
+                folder = sheets.get_cell(row, 1)
+                if no and folder:
+                    folder_to_no[folder] = no
+        except Exception:
+            pass
 
     # transcript.jsonからhookを取得
     done_dir = SCRIPT_DIR / "done"
     hook_map = {}  # title → hook
-    for entry in schedule:
-        tp = done_dir / entry["folder"] / "transcript.json"
-        if tp.exists():
+    if done_dir.exists():
+        for folder_dir in done_dir.iterdir():
+            if not folder_dir.is_dir():
+                continue
+            tp = folder_dir / "transcript.json"
+            if not tp.exists():
+                continue
             with open(tp, encoding="utf-8") as f:
                 data = json.load(f)
             raw_title = data.get("title", "")
@@ -160,7 +163,8 @@ def update_strategy_log(stats: list):
                 if s.get("role") == "hook":
                     hook = s.get("slide_text", "").replace("。", "")
                     break
-            hook_map[raw_title] = {"hook": hook, "day": entry["day"]}
+            no = folder_to_no.get(folder_dir.name, "?")
+            hook_map[raw_title] = {"hook": hook, "no": no}
 
     # テーブル行を生成
     lines = [
@@ -178,7 +182,7 @@ def update_strategy_log(stats: list):
                 hook_info = info
                 break
 
-        day = hook_info["day"] if hook_info else "?"
+        day = hook_info["no"] if hook_info else "?"
         hook = hook_info["hook"] if hook_info else "-"
 
         lines.append(
