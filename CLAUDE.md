@@ -2,10 +2,7 @@
 
 ## Purpose
 
-YouTube チャンネル「ガチホのモチベ」の動画生成〜配信〜分析を完全自動化するシステム。
-長期投資を続けるモチベーションを与える Shorts 動画・note 記事・SNS 投稿を AI で生成し、マルチプラットフォームに配信する。
-
-トーンは「煽らない・助言しない・静かに寄り添う」。詳細なコンテンツルールは `AGENTS.md` を参照。
+`AGENTS.md` を参照。コンテンツルール・表現規則・禁止表現はすべて `AGENTS.md` が一次資料。
 
 ## Repo Map
 
@@ -96,16 +93,17 @@ python analytics_analyze.py
 - 認証トークン（`*_token.json`, `credentials.json`）は `.gitignore` 管理
 
 ### 禁止事項
-- 投資助言と受け取られる表現の生成（詳細は `AGENTS.md` の Avoid Phrases）
-- 煽り・誇張・過剰断定（「絶対儲かる」「今が買い時」等）
 - `done/`, `pending/`, `debug/` 内のファイルの Git 追跡
+- コンテンツの禁止表現は `AGENTS.md` の Avoid Phrases を参照
 
-### 情報の階層
-| ファイル | 役割 | 変更頻度 |
-|----------|------|----------|
-| `AGENTS.md` | コンテンツルール・表現規則 | 低（恒常） |
-| `CHANNEL_STRATEGY.md` | ブランド戦略・構成設計 | 低 |
-| `OPERATIONS_MEMO.md` | 運用数値・一時的な優先事項 | 高（変動） |
+### 情報の階層（1つの情報は1箇所だけに書く）
+| ファイル | 役割 | 読み手 |
+|----------|------|--------|
+| `AGENTS.md` | コンテンツルール・表現規則（恒常） | Codex / Claude Code 共通 |
+| `CLAUDE.md` | リポジトリの地図・コマンド | Claude Code |
+| `PENDING_TASKS.md` | 残タスク・次のアクション | Codex / Claude Code 共通 |
+| `CHANNEL_STRATEGY.md` | ブランド戦略・構成設計 | 両方 |
+| `OPERATIONS_MEMO.md` | 変動する運用数値・一時的な優先事項 | 両方 |
 
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
