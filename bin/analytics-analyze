@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+PROJECT_DIR="/Users/shindoryohei/youtube-auto"
+exec "$PROJECT_DIR/run_with_notify.sh" "analytics_analyze" \
+  "$PROJECT_DIR/venv/bin/python" "$PROJECT_DIR/analytics_analyze.py"
