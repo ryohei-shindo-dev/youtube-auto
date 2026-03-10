@@ -14,9 +14,13 @@ auto_publish.py
     python auto_publish.py --platforms youtube tiktok         # 指定プラットフォームのみ
     python auto_publish.py --retry-failed                     # 失敗したプラットフォームだけ再投稿
 
-cron設定例（毎朝7:00 / 毎晩19:00に自動投稿）:
-    0 7 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x
-    0 19 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x
+cron設定例（プラットフォーム別に時間をずらして投稿）:
+    0 7 * * *  cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube
+    30 7 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms x
+    0 12 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms instagram
+    0 19 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube
+    30 19 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms x
+    0 21 * * * cd /Users/shindoryohei/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms instagram
 """
 
 from __future__ import annotations
@@ -185,25 +189,47 @@ def _row_to_entry(row: list, sheet_row: int) -> dict:
     }
 
 
-def get_next_publishable(rows: list | None = None) -> dict | None:
-    """シートからG=生成済みで最も古い（I列=生成日順）動画を取得する。"""
+def get_next_publishable(rows: list | None = None, platforms: list | None = None) -> dict | None:
+    """シートから次に投稿すべき動画を取得する。
+
+    1. G=生成済み（まだどこにも投稿していない）を優先
+    2. 該当がなければ、指定プラットフォームのURLが空の動画を探す
+       （プラットフォーム別に時間をずらして投稿する運用に対応）
+    """
     import sheets
     if rows is None:
         rows = _read_sheet_rows()
-    candidates = []
+    if platforms is None:
+        platforms = list(DEFAULT_PLATFORMS)
+
+    url_keys = {
+        "youtube": "youtube_url",
+        "instagram": "instagram_url",
+        "x": "x_url",
+        "tiktok": "tiktok_url",
+    }
+
+    generated = []
+    partial = []
     for i, row in enumerate(rows[1:], start=2):
         entry = _row_to_entry(row, i)
-        if entry["status"] != sheets.STATUS_GENERATED:
-            continue
         if not entry["folder"]:
             continue
-        candidates.append(entry)
+        if entry["status"] == sheets.STATUS_GENERATED:
+            generated.append(entry)
+        elif entry["status"] == sheets.STATUS_PUBLISHED:
+            # 指定プラットフォームのURLが空なら投稿が必要
+            missing = [p for p in platforms if not entry.get(url_keys.get(p, ""))]
+            if missing:
+                partial.append(entry)
 
-    if not candidates:
-        return None
-    # 生成日順で最も古いものを返す
-    candidates.sort(key=lambda c: c["gen_date"])
-    return candidates[0]
+    if generated:
+        generated.sort(key=lambda c: c["gen_date"])
+        return generated[0]
+    if partial:
+        partial.sort(key=lambda c: c["gen_date"])
+        return partial[0]
+    return None
 
 
 def get_entry_by_no(no: int) -> dict | None:
@@ -416,7 +442,8 @@ def publish_entry(
                 x_text = _build_x_text_from_transcript(meta)
 
             # YouTube URLがあればShorts誘導リンクを追加
-            yt_url = urls.get("youtube", "")
+            # 同一プロセス内のurlsと、シート上の既存URLの両方を確認
+            yt_url = urls.get("youtube", "") or entry.get("youtube_url", "")
             if yt_url and "今日のShorts👇" in x_text:
                 x_text = x_text.replace("今日のShorts👇", f"今日のShorts👇\n{yt_url}")
             elif yt_url:
@@ -454,6 +481,7 @@ def publish_entry(
                 entry["row"],
                 urls=urls or None,
                 failed_platforms=failed if not any_success else None,
+                target_platforms=DEFAULT_PLATFORMS,
             )
         except Exception as e:
             print(f"  [警告] シート更新に失敗: {e}")
@@ -527,7 +555,7 @@ def main():
         if entry["status"] == sheets.STATUS_PUBLISHED and not args.dry_run and not args.retry_failed:
             print(f"[警告] No.{args.force} は既に公開済みです。再投稿します。")
     else:
-        entry = get_next_publishable(sheet_rows)
+        entry = get_next_publishable(sheet_rows, platforms=args.platforms)
         if not entry:
             print(f"[情報] 投稿可能な動画（生成済み）がありません。")
             sys.exit(0)

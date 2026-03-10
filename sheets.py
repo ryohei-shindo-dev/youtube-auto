@@ -185,40 +185,76 @@ def update_published(
     row: int,
     urls: dict = None,
     failed_platforms: list = None,
+    target_platforms: list = None,
 ):
     """公開後にシートを更新する。
+
+    プラットフォーム別に時間をずらして投稿する運用に対応。
+    - URLは投稿成功のたびに即座に書き込む
+    - ステータスは target_platforms 全てのURLが埋まった時だけ「公開済み」にする
+    - 全プラットフォーム失敗時は「投稿失敗」にする
 
     Args:
         urls: 成功したプラットフォームのURL dict
         failed_platforms: 全プラットフォーム失敗時のみ指定（備考に記録）
+        target_platforms: 今回の投稿対象プラットフォーム一覧（省略時は従来動作）
     """
     service = get_service()
     today = datetime.now().strftime("%Y/%m/%d")
     all_failed = failed_platforms and not urls
 
+    data = []
+
     if all_failed:
-        data = [
-            {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_FAILED]]},
-            {"range": f"{SHEET_NAME}!P{row}", "values": [[f"投稿失敗: {', '.join(failed_platforms)}"]]},
-        ]
+        data.append({"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_FAILED]]})
+        data.append({"range": f"{SHEET_NAME}!P{row}", "values": [[f"投稿失敗: {', '.join(failed_platforms)}"]]})
     else:
-        data = [
-            {"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]},
-            {"range": f"{SHEET_NAME}!J{row}", "values": [[today]]},
-        ]
+        # URLを書き込む
+        for platform, column in PLATFORM_COLUMNS.items():
+            url = (urls or {}).get(platform)
+            if url:
+                data.append({"range": f"{SHEET_NAME}!{column}{row}", "values": [[url]]})
 
-    for platform, column in PLATFORM_COLUMNS.items():
-        url = (urls or {}).get(platform)
-        if url:
-            data.append({"range": f"{SHEET_NAME}!{column}{row}", "values": [[url]]})
+        # 全対象プラットフォームのURLが埋まったかチェック
+        if target_platforms:
+            # 現在のシート上のURLを読み取り
+            existing = _read_platform_urls(spreadsheet_id, row)
+            # 今回成功した分をマージ
+            merged = {**existing, **(urls or {})}
+            all_filled = all(merged.get(p) for p in target_platforms)
+        else:
+            # target_platforms 未指定なら従来動作（即座に公開済み）
+            all_filled = True
 
-    service.spreadsheets().values().batchUpdate(
+        if all_filled:
+            data.append({"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]})
+            data.append({"range": f"{SHEET_NAME}!J{row}", "values": [[today]]})
+
+    if data:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"valueInputOption": "RAW", "data": data},
+        ).execute()
+
+    if all_failed:
+        print(f"  シート更新完了（行{row}: {STATUS_FAILED}）")
+    elif all_filled:
+        print(f"  シート更新完了（行{row}: {STATUS_PUBLISHED}）")
+    else:
+        written = [p for p in (urls or {}) if urls.get(p)]
+        print(f"  シート更新完了（行{row}: URL書き込み {', '.join(written)}）")
+
+
+def _read_platform_urls(spreadsheet_id: str, row: int) -> dict:
+    """シートから指定行のプラットフォームURL列を読み取る。"""
+    service = get_service()
+    result = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
-        body={"valueInputOption": "RAW", "data": data},
+        range=f"{SHEET_NAME}!K{row}:N{row}",
     ).execute()
-
-    status_text = STATUS_FAILED if all_failed else STATUS_PUBLISHED
-    print(f"  シート更新完了（行{row}: {status_text}）")
+    values = result.get("values", [[]])[0]
+    cols = ["youtube", "instagram", "x", "tiktok"]
+    return {cols[i]: (values[i] if i < len(values) else "") for i in range(4)}
 
 
 def populate_from_topics_json(spreadsheet_id: str):
