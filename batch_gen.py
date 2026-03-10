@@ -28,10 +28,15 @@ import thumbnail_gen
 import subtitle_gen
 import note_gen
 import social_gen
+import candidate_ranker
+import dedupe_check
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 PENDING_DIR = SCRIPT_DIR / "pending"
 DONE_DIR = SCRIPT_DIR / "done"
+
+# スコアリングで不合格の場合のリトライ上限
+MAX_SCRIPT_RETRIES = 2
 
 
 def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
@@ -47,11 +52,42 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
         if f.is_file():
             f.unlink()
 
-    # Step 1: 台本生成
+    # Step 1: 台本生成 + スコアリング（閾値未満は再生成）
     print("\n  [1/5] 台本生成...")
-    script_data = script_gen.generate_shorts_script(topic, theme=theme)
-    if not script_data:
-        raise RuntimeError("台本生成に失敗")
+    script_data = None
+    for attempt in range(1, MAX_SCRIPT_RETRIES + 2):
+        candidate = script_gen.generate_shorts_script(topic, theme=theme)
+        if not candidate:
+            raise RuntimeError("台本生成に失敗")
+
+        result = candidate_ranker.score_script(candidate)
+        print(candidate_ranker.format_report(result))
+
+        if candidate_ranker.is_acceptable(result):
+            # 重複チェック
+            dup = dedupe_check.check_duplicate(candidate)
+            print(dedupe_check.format_report(dup))
+            if not dup["is_duplicate"]:
+                script_data = candidate
+                break
+            # 重複あり → リトライ扱い
+            if attempt <= MAX_SCRIPT_RETRIES:
+                print(f"  [再生成] 類似動画あり → リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+                time.sleep(1)
+                continue
+            else:
+                print(f"  [採用] リトライ上限到達。重複あるが採用")
+                script_data = candidate
+                break
+
+        if attempt <= MAX_SCRIPT_RETRIES:
+            print(f"  [再生成] スコア不足（{result['total_score']}/{result['max_score']}）→ リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+            time.sleep(1)
+        else:
+            # リトライ上限 → 最後の候補をそのまま採用
+            print(f"  [採用] リトライ上限到達。最終候補を採用（{result['total_score']}/{result['max_score']}）")
+            script_data = candidate
+            break
 
     scenes = script_data["scenes"]
     print(f"    タイトル: {script_data['title']}")

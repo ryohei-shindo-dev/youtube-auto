@@ -42,7 +42,7 @@ import anthropic
 INSIGHTS_FILE = pathlib.Path(__file__).parent / "analytics_insights.json"
 
 
-def _load_insights() -> dict:
+def load_insights() -> dict:
     """analytics_insights.json を読み込む。ファイルがなければ空辞書。"""
     try:
         with open(INSIGHTS_FILE, encoding="utf-8") as f:
@@ -390,9 +390,9 @@ _POSITIVE_WORDS = ["ゼロ", "勝率", "2倍", "成長", "利益", "6000万", "5
 _SURPRISE_WORDS = ["バフェット", "99%", "50歳", "プロ", "忘れ"]
 
 # hookチェック用キーワード
-_STRONG_HOOKS = ["含み損", "暴落", "売りたい", "退場", "不安", "怖い",
+STRONG_HOOKS = ["含み損", "暴落", "売りたい", "退場", "不安", "怖い",
                  "つらい", "眠れない", "後悔", "焦る", "損した", "溶けた"]
-_WEAK_HOOKS = ["増えない", "差がない", "もったいない", "知らない", "違う"]
+WEAK_HOOKS = ["増えない", "差がない", "もったいない", "知らない", "違う"]
 _TOPIC_PAIN_MAP = {"配当": "損してる。", "複利": "焦る。", "年利": "不安。",
                    "積立": "つらい。", "100円": "不安。", "差": "後悔。",
                    "200年": "不安。", "非課税": "焦る。", "再投資": "損してる。"}
@@ -564,7 +564,7 @@ def _generate_script(
         prompt = template.format(**fmt_vars)
 
         # 分析 insights をプロンプト先頭に差し込む
-        insights = _load_insights()
+        insights = load_insights()
         insights_block = _build_insights_block(insights)
         if insights_block:
             prompt = insights_block + "\n\n" + prompt
@@ -637,7 +637,7 @@ def _generate_script(
             if role == "hook":
                 # hookの痛みワードチェック: 弱いhookを検出して警告
                 hook_text = text.rstrip("。？！ ")
-                if any(w in hook_text for w in _WEAK_HOOKS) and not any(w in hook_text for w in _STRONG_HOOKS):
+                if any(w in hook_text for w in WEAK_HOOKS) and not any(w in hook_text for w in STRONG_HOOKS):
                     replaced = False
                     for kw, replacement in _TOPIC_PAIN_MAP.items():
                         if kw in topic:
