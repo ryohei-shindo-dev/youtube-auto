@@ -45,6 +45,14 @@ ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
 DEFAULT_PLATFORMS = ["youtube", "instagram", "x"]
 X_HANDLE = "gachiho_motive"
 
+# プラットフォーム名 → _row_to_entry() のURLキー
+_PLATFORM_URL_KEYS = {
+    "youtube": "youtube_url",
+    "instagram": "instagram_url",
+    "x": "x_url",
+    "tiktok": "tiktok_url",
+}
+
 # Shorts タイトル用サフィックス（ランダムで選択）
 _TITLE_SUFFIXES = [
     "長期投資の真実",
@@ -202,13 +210,6 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     if platforms is None:
         platforms = list(DEFAULT_PLATFORMS)
 
-    url_keys = {
-        "youtube": "youtube_url",
-        "instagram": "instagram_url",
-        "x": "x_url",
-        "tiktok": "tiktok_url",
-    }
-
     generated = []
     partial = []
     for i, row in enumerate(rows[1:], start=2):
@@ -219,7 +220,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
             generated.append(entry)
         elif entry["status"] == sheets.STATUS_PUBLISHED:
             # 指定プラットフォームのURLが空なら投稿が必要
-            missing = [p for p in platforms if not entry.get(url_keys.get(p, ""))]
+            missing = [p for p in platforms if not entry.get(_PLATFORM_URL_KEYS.get(p, ""))]
             if missing:
                 partial.append(entry)
 
@@ -245,15 +246,9 @@ def get_entry_by_no(no: int) -> dict | None:
 
 def _get_retry_platforms(entry: dict, allowed_platforms: list) -> list:
     """URLが空のプラットフォームを返す（再投稿対象）。"""
-    url_keys = {
-        "youtube": "youtube_url",
-        "instagram": "instagram_url",
-        "x": "x_url",
-        "tiktok": "tiktok_url",
-    }
     failed = []
     for p in allowed_platforms:
-        key = url_keys.get(p)
+        key = _PLATFORM_URL_KEYS.get(p)
         if key and not entry.get(key):
             failed.append(p)
     return failed

@@ -202,6 +202,7 @@ def update_published(
     service = get_service()
     today = datetime.now().strftime("%Y/%m/%d")
     all_failed = failed_platforms and not urls
+    all_filled = False
 
     data = []
 
@@ -241,20 +242,25 @@ def update_published(
     elif all_filled:
         print(f"  シート更新完了（行{row}: {STATUS_PUBLISHED}）")
     else:
-        written = [p for p in (urls or {}) if urls.get(p)]
+        written = [p for p, url in (urls or {}).items() if url]
         print(f"  シート更新完了（行{row}: URL書き込み {', '.join(written)}）")
 
 
 def _read_platform_urls(spreadsheet_id: str, row: int) -> dict:
     """シートから指定行のプラットフォームURL列を読み取る。"""
     service = get_service()
+    columns = sorted(PLATFORM_COLUMNS.values())  # K, L, M, N
     result = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
-        range=f"{SHEET_NAME}!K{row}:N{row}",
+        range=f"{SHEET_NAME}!{columns[0]}{row}:{columns[-1]}{row}",
     ).execute()
     values = result.get("values", [[]])[0]
-    cols = ["youtube", "instagram", "x", "tiktok"]
-    return {cols[i]: (values[i] if i < len(values) else "") for i in range(4)}
+    # PLATFORM_COLUMNS の列順（K=youtube, L=instagram, M=x, N=tiktok）に合わせる
+    col_to_platform = {col: name for name, col in PLATFORM_COLUMNS.items()}
+    return {
+        col_to_platform[col]: (values[i] if i < len(values) else "")
+        for i, col in enumerate(columns)
+    }
 
 
 def populate_from_topics_json(spreadsheet_id: str):
