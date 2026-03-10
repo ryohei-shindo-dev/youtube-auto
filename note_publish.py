@@ -636,22 +636,9 @@ def _update_sheet(no: int, url: str, url_only: bool = False, schedule_str: str |
                 body={"values": [[url]]},
             ).execute()
             print(f"  #{no:2d} URL記録完了（行{target_row}）")
-        elif schedule_str:
-            # 予約投稿: SCHEDULEの日付をH列に記録（今日の日付ではなく予約公開日）
-            pub_date = schedule_str.split(" ")[0].replace("-", "/")
-            svc = sheets_mod.get_service()
-            data = [
-                {"range": f"{sheets_mod.NOTE_SHEET_NAME}!E{target_row}", "values": [[sheets_mod.STATUS_PUBLISHED]]},
-                {"range": f"{sheets_mod.NOTE_SHEET_NAME}!H{target_row}", "values": [[pub_date]]},
-                {"range": f"{sheets_mod.NOTE_SHEET_NAME}!I{target_row}", "values": [[url]]},
-            ]
-            svc.spreadsheets().values().batchUpdate(
-                spreadsheetId=sheet_id,
-                body={"valueInputOption": "RAW", "data": data},
-            ).execute()
-            print(f"  シート更新完了（行{target_row}、公開日={pub_date}）")
         else:
-            sheets_mod.update_note_published(sheet_id, target_row, url)
+            pub_date = schedule_str.split(" ")[0].replace("-", "/") if schedule_str else None
+            sheets_mod.update_note_published(sheet_id, target_row, url, pub_date=pub_date)
             print(f"  シート更新完了（行{target_row}）")
     except Exception as e:
         print(f"  [警告] #{no} シート更新失敗: {e}")

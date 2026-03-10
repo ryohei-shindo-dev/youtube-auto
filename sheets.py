@@ -382,14 +382,19 @@ def update_note_generated(spreadsheet_id: str, row: int, title: str):
     print(f"  note管理シート更新完了（行{row}: {STATUS_GENERATED}）")
 
 
-def update_note_published(spreadsheet_id: str, row: int, note_url: str):
-    """note記事公開後にシートを更新する。"""
+def update_note_published(spreadsheet_id: str, row: int, note_url: str, pub_date: Optional[str] = None):
+    """note記事公開後にシートを更新する。
+
+    pub_date: 公開日（"YYYY/MM/DD"）。None の場合は今日の日付を使う。
+    予約投稿の場合は予約公開日を渡す。
+    """
     service = get_service()
-    today = datetime.now().strftime("%Y/%m/%d")
+    if pub_date is None:
+        pub_date = datetime.now().strftime("%Y/%m/%d")
 
     data = [
         {"range": f"{NOTE_SHEET_NAME}!E{row}", "values": [[STATUS_PUBLISHED]]},
-        {"range": f"{NOTE_SHEET_NAME}!H{row}", "values": [[today]]},
+        {"range": f"{NOTE_SHEET_NAME}!H{row}", "values": [[pub_date]]},
         {"range": f"{NOTE_SHEET_NAME}!I{row}", "values": [[note_url]]},
     ]
 

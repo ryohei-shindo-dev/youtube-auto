@@ -121,16 +121,13 @@ _JST = ZoneInfo("Asia/Tokyo")
 
 
 def _parse_pub_date(pub_date_str: str) -> date | None:
-    """シートの公開日文字列を date に変換する。パース失敗は None。"""
+    """シートの公開日文字列を date に変換する。パース失敗は None。
+
+    対応フォーマット: "2026/03/09", "2026-03-09", "2026/3/9" 等
+    """
     if not pub_date_str:
         return None
     normalized = pub_date_str.replace("-", "/").strip()
-    for fmt in ("%Y/%m/%d", "%Y/%m/%-d", "%Y/%-m/%-d"):
-        try:
-            return datetime.strptime(normalized, fmt).date()
-        except ValueError:
-            continue
-    # ゼロ埋めなし対応（"2026/3/9" 等）
     try:
         parts = normalized.split("/")
         return date(int(parts[0]), int(parts[1]), int(parts[2]))
@@ -153,14 +150,17 @@ def _is_published_today_or_before(pub_date_str: str) -> bool:
 def _is_note_url_public(note_url: str) -> bool:
     """note URLに実際にアクセスし、記事が公開済みかどうかを確認する。
 
-    「予約投稿中の公開前記事です」が含まれる場合は未公開と判定。
+    1. HEAD リクエストでステータスコードを確認（軽量）
+    2. 200 の場合のみ GET で本文を取得し「予約投稿中」の文字列を検出
     アクセスエラー時は False（安全側に倒す）。
     """
     try:
-        resp = requests.get(note_url, timeout=15, allow_redirects=True)
-        if resp.status_code != 200:
-            print(f"    [URL確認] ステータス {resp.status_code} — 未公開扱い")
+        head = requests.head(note_url, timeout=10, allow_redirects=True)
+        if head.status_code != 200:
+            print(f"    [URL確認] ステータス {head.status_code} — 未公開扱い")
             return False
+        # 200 でも予約投稿ページの可能性があるため本文を確認
+        resp = requests.get(note_url, timeout=15, allow_redirects=True)
         if "予約投稿中の公開前記事です" in resp.text:
             return False
         return True
