@@ -4,7 +4,8 @@ note記事のURL記録＋X告知を1コマンドで行うスクリプト。
 
 使い方:
     python note_x_announce.py              # URL入力 → シート記録 → X告知
-    python note_x_announce.py --x-only     # シートにURLがある未告知分をX告知
+    python note_x_announce.py --x-only     # 公開日が今日以前＋未告知の記事をX告知
+    python note_x_announce.py --x-only --dry-run  # 告知対象を確認（投稿しない）
 
 動作（通常モード）:
     1. note管理シートを読み取り、公開日順で次のURL未記入の記事を特定
@@ -12,6 +13,10 @@ note記事のURL記録＋X告知を1コマンドで行うスクリプト。
     3. シートのI列にURLを記録
     4. Xに告知ポストを投稿
     5. J列に「X告知済み」と記録
+
+安全策:
+    --x-only モードでは公開日（H列）が今日以前の記事のみ告知対象にする。
+    予約投稿中（公開日が未来）の記事はスキップし、未公開URLの事故を防ぐ。
 """
 
 from __future__ import annotations
@@ -19,7 +24,10 @@ from __future__ import annotations
 import os
 import pathlib
 import sys
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
+import requests
 from dotenv import load_dotenv
 
 _DIR = pathlib.Path(__file__).parent
@@ -62,6 +70,30 @@ X_TEMPLATES: dict[int, dict] = {
          "line2": "毎日アプリを開いていた、という共通点を整理しました。"},
     15: {"line1": "含み損の夜に読む、バフェットの言葉。",
          "line2": "「潮が引いたとき」の意味を整理しました。"},
+    16: {"line1": "新NISAを始めて1年。「やめたい」が頭をよぎる夜に。",
+         "line2": "その気持ちの正体を整理しました。"},
+    17: {"line1": "含み益があるのに、なぜか不安になる。",
+         "line2": "利確したくなる夜に起きていることを書きました。"},
+    18: {"line1": "投資を始めるのが遅かった、と感じる夜に。",
+         "line2": "「30年」の数字を見ると、少し気持ちが楽になるかもしれません。"},
+    19: {"line1": "老後資金が間に合わない気がする夜に。",
+         "line2": "「65歳まで」の計算を整理しました。"},
+    20: {"line1": "一括投資が怖い。その気持ちは正しい。",
+         "line2": "「怖さ」の正体を分解して書きました。"},
+    21: {"line1": "積立なのに「今買って大丈夫？」と思う夜がある。",
+         "line2": "その不安が来る理由を書きました。"},
+    22: {"line1": "「あのとき買っておけば」がつらい夜に。",
+         "line2": "後悔を整理するための1つの視点を書きました。"},
+    23: {"line1": "円高ショックが怖い夜に。",
+         "line2": "20年の数字を見ると、少し落ち着けるかもしれません。"},
+    24: {"line1": "一括か積立か、ずっと迷っている。",
+         "line2": "迷い続けた時間より大切なことを書きました。"},
+    25: {"line1": "現金のまま10年置いた100万円、実質いくら残るか。",
+         "line2": "「何もしないリスク」の話を書きました。"},
+    26: {"line1": "下がった月に積立を止めたくなる。",
+         "line2": "止めると平均取得単価に何が起きるかを整理しました。"},
+    27: {"line1": "何もしなかった日が、実は一番大事かもしれない。",
+         "line2": "「続けた記録」の話を書きました。"},
 }
 
 HASHTAGS = "#長期投資 #積立投資 #ガチホ"
@@ -80,9 +112,61 @@ def _read_sheet() -> list[list[str]]:
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=SHEET_ID,
-        range=f"{NOTE_SHEET_NAME}!A1:J16",
+        range=f"{NOTE_SHEET_NAME}!A1:J50",
     ).execute()
     return result.get("values", [])
+
+
+_JST = ZoneInfo("Asia/Tokyo")
+
+
+def _parse_pub_date(pub_date_str: str) -> date | None:
+    """シートの公開日文字列を date に変換する。パース失敗は None。"""
+    if not pub_date_str:
+        return None
+    normalized = pub_date_str.replace("-", "/").strip()
+    for fmt in ("%Y/%m/%d", "%Y/%m/%-d", "%Y/%-m/%-d"):
+        try:
+            return datetime.strptime(normalized, fmt).date()
+        except ValueError:
+            continue
+    # ゼロ埋めなし対応（"2026/3/9" 等）
+    try:
+        parts = normalized.split("/")
+        return date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (ValueError, IndexError):
+        return None
+
+
+def _is_published_today_or_before(pub_date_str: str) -> bool:
+    """公開日が今日（JST）以前（＝既に公開済み）かどうかを判定する。
+
+    公開日が空、またはパースできない場合は False を返す（安全側に倒す）。
+    """
+    pub = _parse_pub_date(pub_date_str)
+    if pub is None:
+        return False
+    today = datetime.now(_JST).date()
+    return pub <= today
+
+
+def _is_note_url_public(note_url: str) -> bool:
+    """note URLに実際にアクセスし、記事が公開済みかどうかを確認する。
+
+    「予約投稿中の公開前記事です」が含まれる場合は未公開と判定。
+    アクセスエラー時は False（安全側に倒す）。
+    """
+    try:
+        resp = requests.get(note_url, timeout=15, allow_redirects=True)
+        if resp.status_code != 200:
+            print(f"    [URL確認] ステータス {resp.status_code} — 未公開扱い")
+            return False
+        if "予約投稿中の公開前記事です" in resp.text:
+            return False
+        return True
+    except Exception as e:
+        print(f"    [URL確認] アクセス失敗: {e} — 未公開扱い")
+        return False
 
 
 def _find_next_unregistered(rows: list[list[str]]) -> dict | None:
@@ -190,21 +274,64 @@ def mode_register_and_announce():
     print(f"\n記事#{no:02d} 完了！")
 
 
-def mode_x_only():
-    """X告知のみモード: URLあり＋未告知の記事をまとめてX投稿"""
+def mode_x_only(dry_run: bool = False):
+    """X告知のみモード: 5条件すべて満たす記事のみX投稿する。
+
+    対象条件:
+        1. H列（公開日）あり
+        2. I列（note URL）あり
+        3. J列に「X告知済み」なし
+        4. 公開日 <= 今日（JST）
+        5. note URLへアクセスして公開済み確認
+    追加安全策:
+        - テンプレ未定義の記事はスキップ（空文面で投稿しない）
+    """
     rows = _read_sheet()
     if len(rows) <= 1:
         print("シートにデータがありません。")
         return
 
     posted_count = 0
+    skipped_future = 0
+    skipped_not_public = 0
+    skipped_no_template = 0
     for sheet_row, row in enumerate(rows[1:], start=2):
         no_str = get_cell(row, 0)
         no = int(no_str) if no_str.isdigit() else 0
+        title = get_cell(row, 5)
+        pub_date = get_cell(row, 7)
         note_url = get_cell(row, 8)
         remark = get_cell(row, 9)
 
+        # 条件1〜3: URL・告知済みチェック
         if not note_url or STATUS_X_ANNOUNCED in remark:
+            continue
+
+        # 条件4: 公開日チェック（date比較、JST）
+        if not _is_published_today_or_before(pub_date):
+            skipped_future += 1
+            print(f"  [スキップ] #{no:02d} 公開日={pub_date or '未設定'} — 公開日が未来")
+            continue
+
+        # テンプレ未定義チェック
+        if no not in X_TEMPLATES:
+            skipped_no_template += 1
+            print(f"  [スキップ] #{no:02d} — X告知テンプレートが未定義")
+            continue
+
+        # 条件5: note URLへ実アクセスして公開確認
+        print(f"  #{no:02d} 公開確認中... {note_url[:50]}")
+        if not _is_note_url_public(note_url):
+            skipped_not_public += 1
+            print(f"  [スキップ] #{no:02d} — noteページがまだ公開されていません")
+            continue
+
+        if dry_run:
+            text = _build_x_text(no, note_url)
+            print(f"\n  [dry-run] #{no:02d}（公開日: {pub_date}）{title[:25]}")
+            print(f"  --- X告知テキスト ---")
+            print(f"  {text[:80]}...")
+            posted_count += 1
             continue
 
         tweet_id = _post_x(no, note_url)
@@ -216,15 +343,22 @@ def mode_x_only():
         else:
             print(f"  [エラー] 記事#{no:02d}のX告知に失敗しました。")
 
+    # サマリー
+    skipped_total = skipped_future + skipped_not_public + skipped_no_template
+    if skipped_total > 0:
+        print(f"\n  スキップ: 公開日未来={skipped_future} 未公開={skipped_not_public} テンプレなし={skipped_no_template}")
     if posted_count == 0:
         print("\nX告知する記事はありませんでした。")
+    elif dry_run:
+        print(f"\n[dry-run] {posted_count}件が告知対象です（実際の投稿はしていません）。")
     else:
         print(f"\n{posted_count}件のX告知を完了しました。")
 
 
 def main():
+    dry_run = "--dry-run" in sys.argv
     if "--x-only" in sys.argv:
-        mode_x_only()
+        mode_x_only(dry_run=dry_run)
     else:
         mode_register_and_announce()
 
