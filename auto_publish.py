@@ -299,8 +299,21 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     if not generated:
         return None
 
+    # publish_queue.json があればその順序を優先、なければ生成日順
+    queue_path = SCRIPT_DIR / "publish_queue.json"
+    if queue_path.exists():
+        try:
+            queue_order = json.loads(queue_path.read_text(encoding="utf-8"))
+            queue_index = {folder: idx for idx, folder in enumerate(queue_order)}
+            # キューに載っている候補をキュー順で、載ってない候補を後ろに
+            generated.sort(key=lambda c: queue_index.get(c["folder"], 999999))
+            print(f"  [公開順] publish_queue.json の最適順を使用（{len(queue_order)}本）")
+        except (json.JSONDecodeError, OSError):
+            generated.sort(key=lambda c: c["gen_date"])
+    else:
+        generated.sort(key=lambda c: c["gen_date"])
+
     # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
-    generated.sort(key=lambda c: c["gen_date"])
     recent_hooks = _get_recent_published_hooks(rows)
 
     if not recent_hooks:
