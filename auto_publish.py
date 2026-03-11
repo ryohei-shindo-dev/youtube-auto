@@ -42,15 +42,10 @@ DONE_DIR = SCRIPT_DIR / "done"
 LOG_DIR = SCRIPT_DIR / "logs"
 
 # ── hook 近接チェック用定義 ──
-
-# hook ステム一覧（hookテキストから句読点を除去して部分一致で判定）
-_HOOK_STEMS = [
-    "売りたい", "暴落", "増え", "積立", "含み損", "焦",
-    "つらい", "待て", "不安", "退場", "利確", "元本割れ", "手数料", "配当",
-]
+# stock_scorer.py からもインポートされる（hook定義の正本）
 
 # hook カテゴリ定義（部分一致キーワード → カテゴリ名）
-_HOOK_CATEGORIES: dict[str, list[str]] = {
+HOOK_CATEGORIES: dict[str, list[str]] = {
     "含み損系": ["含み損", "損", "元本割れ", "目減り", "負け"],
     "暴落系": ["暴落", "退場"],
     "売りたい系": ["売りたい", "利確", "動き"],
@@ -59,6 +54,18 @@ _HOOK_CATEGORIES: dict[str, list[str]] = {
     "積立疲れ系": ["積立", "つらい", "やめ", "疲れ", "向いてな"],
     "不安系": ["不安", "怖い", "円高", "不確実"],
 }
+
+# hookステム一覧（カテゴリキーワードをフラット化）
+HOOK_STEMS = sorted(
+    {kw for keywords in HOOK_CATEGORIES.values() for kw in keywords},
+    key=len, reverse=True,  # 長いキーワードを先にマッチ
+)
+
+# stem → category のマッピング
+STEM_TO_CATEGORY: dict[str, str] = {}
+for _cat_name, _kws in HOOK_CATEGORIES.items():
+    for _kw in _kws:
+        STEM_TO_CATEGORY[_kw] = _cat_name
 
 # 近接制約: 同じステムは直近N本以内に出さない
 _STEM_PROXIMITY = 5
@@ -81,23 +88,22 @@ def _read_hook_text(folder_name: str) -> str:
     return ""
 
 
-def _extract_hook_stem(hook_text: str) -> str:
+def extract_hook_stem(hook_text: str) -> str:
     """hook テキストから句読点を除去し、既知ステムに一致するものを返す。"""
     cleaned = hook_text.rstrip("。？！?! ")
-    for stem in _HOOK_STEMS:
+    for stem in HOOK_STEMS:
         if stem in cleaned:
             return stem
-    return cleaned  # 既知ステムに一致しない場合はテキスト全体をステムとする
+    return cleaned[:3] if cleaned else "不明"
 
 
-def _extract_hook_category(hook_text: str) -> str:
+def extract_hook_category(hook_text: str) -> str:
     """hook テキストからカテゴリを判定する。"""
     cleaned = hook_text.rstrip("。？！?! ")
-    for category, keywords in _HOOK_CATEGORIES.items():
-        for kw in keywords:
-            if kw in cleaned:
-                return category
-    return ""
+    for stem, cat in STEM_TO_CATEGORY.items():
+        if stem in cleaned:
+            return cat
+    return "その他"
 
 
 def _get_recent_published_hooks(rows: list, limit: int = 7) -> list[dict]:
@@ -125,8 +131,8 @@ def _get_recent_published_hooks(rows: list, limit: int = 7) -> list[dict]:
         hook_text = _read_hook_text(entry["folder"])
         if hook_text:
             entry["hook_text"] = hook_text
-            entry["hook_stem"] = _extract_hook_stem(hook_text)
-            entry["hook_category"] = _extract_hook_category(hook_text)
+            entry["hook_stem"] = extract_hook_stem(hook_text)
+            entry["hook_category"] = extract_hook_category(hook_text)
             result.append(entry)
     return result
 
@@ -301,16 +307,12 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
 
     # publish_queue.json があればその順序を優先、なければ生成日順
     queue_path = SCRIPT_DIR / "publish_queue.json"
-    if queue_path.exists():
-        try:
-            queue_order = json.loads(queue_path.read_text(encoding="utf-8"))
-            queue_index = {folder: idx for idx, folder in enumerate(queue_order)}
-            # キューに載っている候補をキュー順で、載ってない候補を後ろに
-            generated.sort(key=lambda c: queue_index.get(c["folder"], 999999))
-            print(f"  [公開順] publish_queue.json の最適順を使用（{len(queue_order)}本）")
-        except (json.JSONDecodeError, OSError):
-            generated.sort(key=lambda c: c["gen_date"])
-    else:
+    try:
+        queue_order = json.loads(queue_path.read_text(encoding="utf-8"))
+        queue_index = {folder: idx for idx, folder in enumerate(queue_order)}
+        generated.sort(key=lambda c: queue_index.get(c["folder"], 999999))
+        print(f"  [公開順] publish_queue.json の最適順を使用（{len(queue_order)}本）")
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
         generated.sort(key=lambda c: c["gen_date"])
 
     # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
@@ -333,8 +335,8 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
             # hook が取得できない場合はチェックをスキップして候補として返す
             return candidate
 
-        c_stem = _extract_hook_stem(hook_text)
-        c_category = _extract_hook_category(hook_text)
+        c_stem = extract_hook_stem(hook_text)
+        c_category = extract_hook_category(hook_text)
 
         # ステム近接チェック
         stem_conflict = c_stem in recent_stems
@@ -358,9 +360,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
 
     # 全候補が近接制約に引っかかった場合 → 最も古いステムの候補を選択
     chosen = best_fallback or generated[0]
-    chosen_hook = _read_hook_text(chosen["folder"])
-    print(f"  [hook近接] △ 全候補が近接制約に該当。"
-          f"最も被りが古い「{chosen_hook.rstrip('。？！')}」を選択")
+    print(f"  [hook近接] △ 全候補が近接制約に該当。フォールバック候補を選択")
     return chosen
 
 

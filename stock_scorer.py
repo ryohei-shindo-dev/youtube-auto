@@ -18,9 +18,8 @@ import argparse
 import json
 import os
 import pathlib
-import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from difflib import SequenceMatcher
 
 from dotenv import load_dotenv
@@ -30,25 +29,16 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 SCRIPT_DIR = pathlib.Path(__file__).parent
 DONE_DIR = SCRIPT_DIR / "done"
 
-# ── hookカテゴリ定義 ──
-HOOK_CATEGORIES: dict[str, list[str]] = {
-    "含み損系": ["含み損", "損してる", "元本割れ", "目減り", "負けてる"],
-    "暴落系": ["暴落", "退場", "今回は違"],
-    "売りたい系": ["売りたい", "利確", "動きたい", "動けない"],
-    "比較焦り系": ["焦", "比べ", "また見た", "爆益", "差がない", "毎日見て"],
-    "増えてない系": ["増え", "待て", "続かない", "続ける意"],
-    "積立疲れ系": ["積立", "つらい", "やめた", "やめたい", "疲れた", "向いてな"],
-    "不安系": ["不安", "怖い", "円高", "不確実性"],
-}
+# hook定義は auto_publish.py が正本
+from auto_publish import (
+    HOOK_CATEGORIES,
+    STEM_TO_CATEGORY,
+    extract_hook_stem,
+    extract_hook_category,
+    _read_hook_text,
+)
+from candidate_ranker import _RE_NUMBER
 
-# hookステム抽出用: カテゴリのキーワードをフラットにして stem → category のマッピング
-_STEM_TO_CATEGORY: dict[str, str] = {}
-for cat_name, stems in HOOK_CATEGORIES.items():
-    for stem in stems:
-        _STEM_TO_CATEGORY[stem] = cat_name
-
-# タイトル具体性の数字パターン
-_RE_NUMBER = re.compile(r"\d+[万億円%年ヶ月倍本]")
 # 具体的なキーワード（数字以外でも具体性の高いワード）
 _SPECIFIC_KEYWORDS = [
     "1800万", "72", "3年", "S&P500", "オルカン", "NISA", "iDeCo",
@@ -120,23 +110,6 @@ def _build_sheet_status_map(rows: list[list[str]]) -> dict[str, dict]:
     return status_map
 
 
-# ── hookステム抽出 ──
-
-def _extract_hook_stem(hook_text: str) -> str:
-    """hookテキストから最も近いステム（キーワード）を返す。"""
-    for stem in _STEM_TO_CATEGORY:
-        if stem in hook_text:
-            return stem
-    # マッチしなければhookの先頭3文字をステムとする
-    return hook_text[:3] if hook_text else "不明"
-
-
-def _get_hook_category(hook_text: str) -> str:
-    """hookテキストからカテゴリ名を返す。"""
-    for stem, cat in _STEM_TO_CATEGORY.items():
-        if stem in hook_text:
-            return cat
-    return "その他"
 
 
 # ── スコアリング ──
@@ -152,7 +125,7 @@ def score_videos(
     # 全動画のhookステム分布を集計
     stem_counts: Counter = Counter()
     for s in all_scripts:
-        stem = _extract_hook_stem(s["hook"])
+        stem = extract_hook_stem(s["hook"])
         stem_counts[stem] += 1
 
     # 全動画のhookテキスト出現回数
@@ -166,7 +139,7 @@ def score_videos(
         reasons = []
 
         # 1. hook_penalty: 同一ステムが5本超なら -2/本
-        stem = _extract_hook_stem(video["hook"])
+        stem = extract_hook_stem(video["hook"])
         stem_count = stem_counts[stem]
         if stem_count > 5:
             penalty = -2 * (stem_count - 5)
@@ -203,7 +176,7 @@ def score_videos(
             score += 2
             reasons.append(f"hookユニーク({hook_count}本): +2")
 
-        category = _get_hook_category(video["hook"])
+        category = extract_hook_category(video["hook"])
         scored.append({
             "folder": video["folder"],
             "title": title,
@@ -351,7 +324,7 @@ def main() -> None:
         stem_dist[v["hook_stem"]] += 1
     print("\nhookステム分布（未公開のみ、上位10）:")
     for stem, count in stem_dist.most_common(10):
-        cat = _STEM_TO_CATEGORY.get(stem, "その他")
+        cat = STEM_TO_CATEGORY.get(stem, "その他")
         print(f"  {stem}({cat}): {count}本")
 
     # カテゴリ分布
