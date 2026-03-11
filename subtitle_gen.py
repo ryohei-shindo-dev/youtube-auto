@@ -93,6 +93,7 @@ def _generate_transcript_json(
     """文字起こしJSON を生成する。"""
     transcript = {
         "title": script_data.get("title", ""),
+        "topic": script_data.get("topic", ""),
         "description": script_data.get("description", ""),
         "tags": script_data.get("tags", []),
         "total_duration_sec": sum(s.get("actual_duration_sec", 0) for s in scenes),

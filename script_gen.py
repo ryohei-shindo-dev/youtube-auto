@@ -745,6 +745,9 @@ def _generate_script(
         print(f"  台本生成完了（タイトル: {title}）")
         print(f"  シーン数: {len(scenes)} / 想定尺: {total_sec}秒 / 文字数: {total_chars}文字")
 
+        # トピックを返り値に含める（transcript.json への保存・dedupe等で使用）
+        data["topic"] = topic
+
         return data
 
     except json.JSONDecodeError as e:
