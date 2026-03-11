@@ -41,6 +41,95 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 DONE_DIR = SCRIPT_DIR / "done"
 LOG_DIR = SCRIPT_DIR / "logs"
 
+# ── hook 近接チェック用定義 ──
+
+# hook ステム一覧（hookテキストから句読点を除去して部分一致で判定）
+_HOOK_STEMS = [
+    "売りたい", "暴落", "増え", "積立", "含み損", "焦",
+    "つらい", "待て", "不安", "退場", "利確", "元本割れ", "手数料", "配当",
+]
+
+# hook カテゴリ定義（部分一致キーワード → カテゴリ名）
+_HOOK_CATEGORIES: dict[str, list[str]] = {
+    "含み損系": ["含み損", "損", "元本割れ", "目減り", "負け"],
+    "暴落系": ["暴落", "退場"],
+    "売りたい系": ["売りたい", "利確", "動き"],
+    "比較焦り系": ["焦", "比べ", "爆益", "差がない", "毎日見"],
+    "増えてない系": ["増え", "待て", "続かない", "続け"],
+    "積立疲れ系": ["積立", "つらい", "やめ", "疲れ", "向いてな"],
+    "不安系": ["不安", "怖い", "円高", "不確実"],
+}
+
+# 近接制約: 同じステムは直近N本以内に出さない
+_STEM_PROXIMITY = 5
+# 近接制約: 同じカテゴリは直近N本以内に出さない
+_CATEGORY_PROXIMITY = 4
+
+
+def _read_hook_text(folder_name: str) -> str:
+    """done/{folder}/transcript.json から hook テキストを取得する。"""
+    path = DONE_DIR / folder_name / "transcript.json"
+    if not path.exists():
+        return ""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for s in data.get("scenes", []):
+            if s.get("role") == "hook":
+                return s.get("text", "")
+    except (json.JSONDecodeError, OSError):
+        pass
+    return ""
+
+
+def _extract_hook_stem(hook_text: str) -> str:
+    """hook テキストから句読点を除去し、既知ステムに一致するものを返す。"""
+    cleaned = hook_text.rstrip("。？！?! ")
+    for stem in _HOOK_STEMS:
+        if stem in cleaned:
+            return stem
+    return cleaned  # 既知ステムに一致しない場合はテキスト全体をステムとする
+
+
+def _extract_hook_category(hook_text: str) -> str:
+    """hook テキストからカテゴリを判定する。"""
+    cleaned = hook_text.rstrip("。？！?! ")
+    for category, keywords in _HOOK_CATEGORIES.items():
+        for kw in keywords:
+            if kw in cleaned:
+                return category
+    return ""
+
+
+def _get_recent_published_hooks(rows: list, limit: int = 7) -> list[dict]:
+    """公開済みエントリから直近N件のhook情報を取得する（pub_date降順）。"""
+    import sheets
+    C = sheets.COL
+    published = []
+    for row in rows[1:]:
+        status = sheets.get_cell(row, C["status"])
+        if status != sheets.STATUS_PUBLISHED:
+            continue
+        folder = sheets.get_cell(row, C["folder"])
+        pub_date = sheets.get_cell(row, C["pub_date"])
+        if not folder:
+            continue
+        published.append({"folder": folder, "pub_date": pub_date})
+
+    # pub_date 降順でソートし、直近 limit 件を取得
+    published.sort(key=lambda e: e["pub_date"], reverse=True)
+    recent = published[:limit]
+
+    # 各エントリに hook 情報を付加
+    result = []
+    for entry in recent:
+        hook_text = _read_hook_text(entry["folder"])
+        if hook_text:
+            entry["hook_text"] = hook_text
+            entry["hook_stem"] = _extract_hook_stem(hook_text)
+            entry["hook_category"] = _extract_hook_category(hook_text)
+            result.append(entry)
+    return result
+
 ALL_PLATFORMS = ["youtube", "tiktok", "instagram", "x"]
 DEFAULT_PLATFORMS = ["youtube", "instagram", "x"]
 X_HANDLE = "gachiho_motive"
@@ -207,10 +296,59 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     if partial:
         partial.sort(key=lambda c: c["gen_date"])
         return partial[0]
-    if generated:
-        generated.sort(key=lambda c: c["gen_date"])
+    if not generated:
+        return None
+
+    # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
+    generated.sort(key=lambda c: c["gen_date"])
+    recent_hooks = _get_recent_published_hooks(rows)
+
+    if not recent_hooks:
+        # 公開済みがなければ近接チェック不要 → 最古の候補を返す
         return generated[0]
-    return None
+
+    recent_stems = [h["hook_stem"] for h in recent_hooks[:_STEM_PROXIMITY]]
+    recent_categories = [h["hook_category"] for h in recent_hooks[:_CATEGORY_PROXIMITY]
+                         if h["hook_category"]]
+
+    best_fallback = None
+    best_fallback_recency = -1  # ステムの最終出現位置（大きいほど古い＝良い）
+
+    for candidate in generated:
+        hook_text = _read_hook_text(candidate["folder"])
+        if not hook_text:
+            # hook が取得できない場合はチェックをスキップして候補として返す
+            return candidate
+
+        c_stem = _extract_hook_stem(hook_text)
+        c_category = _extract_hook_category(hook_text)
+
+        # ステム近接チェック
+        stem_conflict = c_stem in recent_stems
+        # カテゴリ近接チェック
+        category_conflict = c_category and c_category in recent_categories
+
+        if not stem_conflict and not category_conflict:
+            print(f"  [hook近接] ✓ hook「{hook_text.rstrip('。？！')}」は直近と被りなし")
+            return candidate
+
+        # フォールバック用: ステムの最終出現位置が最も古い候補を記録
+        if c_stem in recent_stems:
+            # recent_stems のインデックス（0が最新、大きいほど古い）
+            recency = recent_stems.index(c_stem)
+        else:
+            recency = len(recent_stems)  # ステムは被ってない（カテゴリだけ被り）
+
+        if recency > best_fallback_recency:
+            best_fallback_recency = recency
+            best_fallback = candidate
+
+    # 全候補が近接制約に引っかかった場合 → 最も古いステムの候補を選択
+    chosen = best_fallback or generated[0]
+    chosen_hook = _read_hook_text(chosen["folder"])
+    print(f"  [hook近接] △ 全候補が近接制約に該当。"
+          f"最も被りが古い「{chosen_hook.rstrip('。？！')}」を選択")
+    return chosen
 
 
 def get_entry_by_no(no: int) -> dict | None:

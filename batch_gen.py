@@ -68,6 +68,20 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
             dup = dedupe_check.check_duplicate(candidate)
             print(dedupe_check.format_report(dup))
             if not dup["is_duplicate"]:
+                # トピック−タイトル一致チェック
+                topic_result = candidate_ranker.check_topic_match(candidate)
+                if topic_result["score"] <= -2:
+                    print(f"  [トピック不一致] スコア={topic_result['score']}、"
+                          f"トピックKW: {topic_result['topic_keywords']}")
+                    if attempt <= MAX_SCRIPT_RETRIES:
+                        print(f"  [再生成] トピック不一致 → リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise RuntimeError(
+                            f"リトライ上限到達。タイトルがトピックと無関係: "
+                            f"「{candidate.get('title', '')}」"
+                        )
                 script_data = candidate
                 dedupe_check.register_accepted(candidate)
                 break
@@ -91,6 +105,12 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
             if dup["is_duplicate"]:
                 raise RuntimeError(
                     f"リトライ上限到達。スコア不足かつ類似動画あり: {dup['reason']}"
+                )
+            topic_result = candidate_ranker.check_topic_match(candidate)
+            if topic_result["score"] <= -2:
+                raise RuntimeError(
+                    f"リトライ上限到達。タイトルがトピックと無関係: "
+                    f"「{candidate.get('title', '')}」"
                 )
             print(f"  [採用] リトライ上限到達。最終候補を採用（{result['total_score']}/{result['max_score']}）")
             script_data = candidate
