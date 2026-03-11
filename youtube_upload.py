@@ -135,18 +135,17 @@ def add_to_playlists(
     mapping = config.get("topic_mapping", {})
     title_kw = config.get("title_keywords", {})
 
-    # topic でマッチするリストを収集
+    # topic/tags で完全一致 → マッチしなければ title で部分一致フォールバック
     playlist_ids = set()
     if topic and topic in mapping:
         playlist_ids.update(mapping[topic])
 
-    # tags でもマッチを試みる
     for tag in (tags or []):
         if tag in mapping:
             playlist_ids.update(mapping[tag])
 
-    # title のキーワード部分一致（topic/tags でテーマ別にマッチしなかった場合の補助）
-    if title:
+    # topic/tags でテーマ別にマッチしなかった場合のみ title キーワードで補助
+    if not playlist_ids and title:
         for keyword, pids in title_kw.items():
             if keyword in title:
                 playlist_ids.update(pids)
