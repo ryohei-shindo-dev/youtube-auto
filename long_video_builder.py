@@ -534,7 +534,7 @@ def _mix_bgm(audio_path: pathlib.Path, output_path: pathlib.Path):
         "-filter_complex",
         (
             f"[1:a]volume={BGM_VOLUME},afade=t=in:d=2,afade=t=out:st=999:d=3[bgm];"
-            "[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+            "[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]"
         ),
         "-map", "[aout]",
         "-c:a", "aac",

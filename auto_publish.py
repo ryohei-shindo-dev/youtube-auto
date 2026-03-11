@@ -358,7 +358,7 @@ def publish_entry(
                 results["youtube"] = True
                 print(f"  [YouTube] 投稿完了: {youtube_url}")
 
-                # 固定コメント + いいね
+                # 固定コメント + いいね + 再生リスト追加
                 try:
                     import sheets
                     youtube = sheets.get_youtube_service()
@@ -366,6 +366,16 @@ def publish_entry(
                     _like_video(youtube, video_id)
                 except Exception as e:
                     print(f"  [警告] 初期ブースト処理に失敗: {e}")
+
+                try:
+                    youtube_upload.add_to_playlists(
+                        video_id,
+                        topic=meta.get("topic", ""),
+                        tags=tags,
+                        title=raw_title,
+                    )
+                except Exception as e:
+                    print(f"  [警告] 再生リスト追加に失敗: {e}")
             else:
                 results["youtube"] = False
                 print("  [YouTube] アップロード失敗")

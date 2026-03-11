@@ -106,8 +106,7 @@ def compose_shorts_video(
             "-c:v", "libx264",
             "-preset", "medium",
             "-crf", "23",
-            "-c:a", "aac",
-            "-b:a", "128k",
+            "-c:a", "copy",  # 各クリップで既にAAC済み。再エンコードしない
             "-movflags", "+faststart",
             str(concat_output),
         ]
@@ -240,7 +239,7 @@ def _mix_bgm(
         "-i", str(BGM_PATH),
         "-filter_complex",
         f"[1:a]volume={BGM_VOLUME},afade=t=in:d=1,afade=t=out:st=999:d=2[bgm];"
-        f"[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+        f"[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]",
         "-map", "0:v",
         "-map", "[aout]",
         "-c:v", "copy",  # 映像は再エンコードなし

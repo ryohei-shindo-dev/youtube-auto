@@ -12,10 +12,17 @@ YouTube Data API v3 で動画をアップロードするモジュール。
     )
 """
 
+from __future__ import annotations
+
+import json
 import os
+import pathlib
 import time
 
 from googleapiclient.http import MediaFileUpload
+
+_DIR = pathlib.Path(__file__).parent
+_PLAYLISTS_PATH = _DIR / "playlists.json"
 
 
 def upload_video(
@@ -102,6 +109,77 @@ def upload_video(
         _set_thumbnail(youtube, video_id, thumbnail_path)
 
     return video_id
+
+
+def add_to_playlists(
+    video_id: str,
+    topic: str = "",
+    tags: list | None = None,
+    title: str = "",
+):
+    """playlists.json のマッピングに基づいて動画を再生リストに追加する。
+
+    1. topic で完全一致
+    2. tags で完全一致
+    3. title でキーワード部分一致
+    4. 最後に必ず「全動画」リストに追加
+    """
+    if not _PLAYLISTS_PATH.exists():
+        print("  [警告] playlists.json が見つかりません。再生リスト追加をスキップ。")
+        return
+
+    with open(_PLAYLISTS_PATH, encoding="utf-8") as f:
+        config = json.load(f)
+
+    all_id = config.get("all_playlist_id", "")
+    mapping = config.get("topic_mapping", {})
+    title_kw = config.get("title_keywords", {})
+
+    # topic でマッチするリストを収集
+    playlist_ids = set()
+    if topic and topic in mapping:
+        playlist_ids.update(mapping[topic])
+
+    # tags でもマッチを試みる
+    for tag in (tags or []):
+        if tag in mapping:
+            playlist_ids.update(mapping[tag])
+
+    # title のキーワード部分一致（topic/tags でテーマ別にマッチしなかった場合の補助）
+    if title:
+        for keyword, pids in title_kw.items():
+            if keyword in title:
+                playlist_ids.update(pids)
+
+    # 全動画リストを追加
+    if all_id:
+        playlist_ids.add(all_id)
+
+    if not playlist_ids:
+        return
+
+    import sheets
+    youtube = sheets.get_youtube_service()
+    names = config.get("playlists", {})
+
+    for pid in playlist_ids:
+        try:
+            youtube.playlistItems().insert(
+                part="snippet",
+                body={
+                    "snippet": {
+                        "playlistId": pid,
+                        "resourceId": {
+                            "kind": "youtube#video",
+                            "videoId": video_id,
+                        },
+                    }
+                },
+            ).execute()
+            name = names.get(pid, pid)
+            print(f"  再生リスト追加: {name}")
+        except Exception as e:
+            print(f"  [警告] 再生リスト追加失敗 ({pid}): {e}")
 
 
 def _set_thumbnail(youtube, video_id: str, thumbnail_path: str):

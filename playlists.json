@@ -1,0 +1,63 @@
+{
+  "_comment": "YouTube 再生リストの自動振り分け設定",
+  "_comment2": "topic/tags の完全一致 → title_keywords の部分一致 → 全動画リスト",
+
+  "all_playlist_id": "PLxsqPMwO1hN8rzg7n47kNFRWxmvN0RurL",
+
+  "playlists": {
+    "PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF": "含み損・暴落｜長期投資のつらい夜に",
+    "PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh": "積立・増えてない｜それでも続ける理由",
+    "PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM": "焦り・比較｜SNSを見て不安になったら",
+    "PLxsqPMwO1hN8rzg7n47kNFRWxmvN0RurL": "全動画｜ガチホのモチベ Shorts"
+  },
+
+  "topic_mapping": {
+    "含み損":       ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "暴落":         ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "売りたい":     ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "退場":         ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "元本割れ":     ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "配当":         ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "利確したい":   ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "含み益":       ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "積立3年目":    ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "増えない":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "複利":         ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "積立やめたい": ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "手数料":       ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "100円":        ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "1800万":       ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "新NISA":       ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "積立NISA":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "比較":         ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "SNS":          ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "SNS疲れ":      ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "確認回数":     ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "焦り":         ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "投資あるある": ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"]
+  },
+
+  "title_keywords": {
+    "含み損":   ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "暴落":     ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "売りたい": ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "売りたく": ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "利確":     ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "含み益":   ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"],
+    "積立":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "増え":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "報われ":   ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "待て":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "続け":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "やめ":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "手数料":   ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "NISA":     ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "非課税":   ["PLxsqPMwO1hN8EBVliTFOka7RxIGxQTsMh"],
+    "SNS":      ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "焦":       ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "比べ":     ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "儲かっ":   ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "口座を見": ["PLxsqPMwO1hN-HxyHL5mrQkvtLOXQLRijM"],
+    "不安":     ["PLxsqPMwO1hN_u_VFXPsaqqiiKKmnEh2eF"]
+  }
+}
