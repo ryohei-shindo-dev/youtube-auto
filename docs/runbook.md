@@ -4,13 +4,15 @@
 
 ### 動画が自動投稿されているか確認
 ```bash
-# cron ログを確認
-cat logs/auto_publish.log
+# launchd ジョブの状態確認
+launchctl list | grep youtube-auto
 
-# posting_schedule.json で最新の投稿状態を確認
-python -c "import json; d=json.load(open('posting_schedule.json')); print(f'総数: {len(d)}本'); print(f'投稿済み: {sum(1 for x in d if x.get(\"published\"))}本')"
+# 各プラットフォームのログを確認
+cat logs/auto_publish_youtube.log
+cat logs/auto_publish_instagram.log
+cat logs/auto_publish_x.log
 
-# Google Sheets でも確認可能（F列: Status、J-M列: URL）
+# Google Sheets で確認（G列: ステータス、K-N列: URL）
 ```
 
 ### 分析データの確認
@@ -61,12 +63,47 @@ python note_x_announce.py --x-only
 python main.py --long
 ```
 
+## コード修正時の手順（重要）
+
+投稿ロジック（auto_publish.py / sheets.py 等）を修正するときは、**必ずジョブを停止してから修正する**。
+ジョブ稼働中に修正すると、旧コードで動くジョブと新コードが混在して不整合が起きる（2026-03-11 障害の原因）。
+
+```bash
+# 1. 投稿ジョブを一時停止
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-youtube-morning.plist
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-youtube-evening.plist
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-x-morning.plist
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-x-evening.plist
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-instagram-noon.plist
+launchctl unload ~/Library/LaunchAgents/com.youtube-auto.publish-instagram-evening.plist
+
+# 2. コード修正・テスト
+#    python auto_publish.py --dry-run で動作確認
+
+# 3. ジョブを再開
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-youtube-morning.plist
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-youtube-evening.plist
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-x-morning.plist
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-x-evening.plist
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-instagram-noon.plist
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.publish-instagram-evening.plist
+```
+
+一括停止・再開用（コピペ用）:
+```bash
+# 一括停止
+for f in ~/Library/LaunchAgents/com.youtube-auto.publish-*.plist; do launchctl unload "$f"; done
+
+# 一括再開
+for f in ~/Library/LaunchAgents/com.youtube-auto.publish-*.plist; do launchctl load "$f"; done
+```
+
 ## トラブルシューティング
 
-### cron が動かない
-1. cron 登録を確認: `crontab -l`
-2. ログを確認: `cat logs/auto_publish.log`
-3. 手動実行でエラーを確認: `cd ~/youtube-auto && ./run_with_notify.sh auto_publish venv/bin/python auto_publish.py --platforms youtube instagram x`
+### launchd ジョブが動かない
+1. ジョブ登録を確認: `launchctl list | grep youtube-auto`
+2. ログを確認: `cat logs/auto_publish_youtube.log`
+3. 手動実行でエラーを確認: `bin/auto-publish-youtube`
 
 ### トークン期限切れ
 各プラットフォームのトークンは有効期限がある：
