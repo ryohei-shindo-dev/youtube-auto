@@ -53,6 +53,10 @@ HOOK_CATEGORIES: dict[str, list[str]] = {
     "増えてない系": ["増え", "待て", "続かない", "続け"],
     "積立疲れ系": ["積立", "つらい", "やめ", "疲れ", "向いてな"],
     "不安系": ["不安", "怖い", "円高", "不確実"],
+    "後悔系": ["使った", "売った", "やめた", "待った", "比べた", "できなかった"],
+    "出口不安系": ["いつ売る", "取り崩し", "老後", "65歳"],
+    "制度金額系": ["1800万", "新NISA", "100万", "iDeCo"],
+    "機会損失系": ["買っておけば", "待ちすぎ", "現金のまま", "乗り遅れ"],
 }
 
 # hookステム一覧（カテゴリキーワードをフラット化）
@@ -67,10 +71,10 @@ for _cat_name, _kws in HOOK_CATEGORIES.items():
     for _kw in _kws:
         STEM_TO_CATEGORY[_kw] = _cat_name
 
-# 近接制約: 同じステムは直近N本以内に出さない
-_STEM_PROXIMITY = 5
+# 近接制約: 同じステムは直近N本以内に出さない（売りたい系は特に多いため広めに）
+_STEM_PROXIMITY = 8
 # 近接制約: 同じカテゴリは直近N本以内に出さない
-_CATEGORY_PROXIMITY = 4
+_CATEGORY_PROXIMITY = 5
 
 
 def _read_hook_text(folder_name: str) -> str:

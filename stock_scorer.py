@@ -194,12 +194,74 @@ def score_videos(
 
 # ── 公開順最適化（制約付き並べ替え） ──
 
+def triage(scored: list[dict]) -> dict[str, list[dict]]:
+    """Cランク動画を 残す/後回し/捨てる に仕分ける。
+
+    ChatGPT提案（2026-03-12）に基づく基準:
+    - 残す: タイトルに具体性がある or 同じhook群でも論点が違う
+    - 後回し: 中身は悪くないが今出すと似る
+    - 捨てる: hookも結論も同じ、タイトルが抽象的、類似タイトルあり
+
+    戻り値: {"keep": [...], "delay": [...], "discard": [...]}
+    """
+    keep = []
+    delay = []
+    discard = []
+
+    # 同一ステムの出現回数をカウント（scored 内）
+    stem_counts: Counter = Counter(v["hook_stem"] for v in scored)
+
+    # 同一ステムで何本目かを追跡
+    stem_seen: Counter = Counter()
+
+    for v in scored:
+        rank = classify(v["score"])
+
+        # A/Bランクは無条件で残す
+        if rank != "C":
+            keep.append(v)
+            continue
+
+        stem = v["hook_stem"]
+        stem_seen[stem] += 1
+        total_in_stem = stem_counts[stem]
+        has_specific_title = bool(_RE_NUMBER.search(v["title"])) or any(
+            kw in v["title"] for kw in _SPECIFIC_KEYWORDS
+        )
+        has_similar = any("類似" in r for r in v["reasons"])
+
+        # 捨てる条件: 同一ステムが多すぎ + タイトル抽象的 + 類似あり
+        if total_in_stem >= 10 and not has_specific_title:
+            # 同一ステム10本超で抽象的 → 大半は捨てる（最初の3本だけ残す）
+            if stem_seen[stem] <= 3:
+                delay.append(v)
+            else:
+                discard.append(v)
+        elif has_similar and not has_specific_title:
+            # 類似タイトルあり＋抽象的 → 捨てる
+            discard.append(v)
+        elif total_in_stem >= 5 and not has_specific_title:
+            # ステム5本超で抽象的 → 後回し（最初の2本だけ残す）
+            if stem_seen[stem] <= 2:
+                delay.append(v)
+            else:
+                discard.append(v)
+        elif has_specific_title:
+            # 具体的なタイトルがあるCランクは残す
+            keep.append(v)
+        else:
+            # それ以外は後回し
+            delay.append(v)
+
+    return {"keep": keep, "delay": delay, "discard": discard}
+
+
 def reorder_with_constraints(scored: list[dict]) -> list[dict]:
     """スコア順をベースに、hookの偏りを制約で分散させる。
 
     制約:
-    - 同一hookステムは5連続以内に再出現しない
-    - 同一hookカテゴリは4連続以内に再出現しない
+    - 同一hookステムは8連続以内に再出現しない
+    - 同一hookカテゴリは5連続以内に再出現しない
     """
     result: list[dict] = []
     remaining = list(scored)  # スコア降順のコピー
@@ -208,8 +270,8 @@ def reorder_with_constraints(scored: list[dict]) -> list[dict]:
         placed = False
         for i, candidate in enumerate(remaining):
             # 制約チェック: 直近N本の stem/category を確認
-            recent_stems = [r["hook_stem"] for r in result[-5:]]
-            recent_cats = [r["hook_category"] for r in result[-4:]]
+            recent_stems = [r["hook_stem"] for r in result[-8:]]
+            recent_cats = [r["hook_category"] for r in result[-5:]]
 
             stem_ok = candidate["hook_stem"] not in recent_stems
             cat_ok = candidate["hook_category"] not in recent_cats
@@ -288,8 +350,24 @@ def main() -> None:
     print("\nスコアリング中...")
     scored = score_videos(all_scripts, unpublished)
 
-    # 5. 制約付き並べ替え
-    reordered = reorder_with_constraints(scored)
+    # 5. トリアージ（Cランクを仕分け）
+    tri = triage(scored)
+    publishable = tri["keep"] + tri["delay"]  # 捨てる分は除外
+    # スコア降順でソートし直す
+    publishable.sort(key=lambda x: x["score"], reverse=True)
+
+    print(f"\n  トリアージ結果:")
+    print(f"    残す: {len(tri['keep'])}本（A/B + 具体的C）")
+    print(f"    後回し: {len(tri['delay'])}本（弱いが最低限の価値あり）")
+    print(f"    捨てる: {len(tri['discard'])}本（同質化・抽象的）")
+
+    if tri["discard"]:
+        print(f"\n  [捨てる {len(tri['discard'])}本]")
+        for v in tri["discard"]:
+            print(f"    ✗ {v['title']}  [stem={v['hook_stem']}]")
+
+    # 6. 制約付き並べ替え（捨てる分を除外して並べ替え）
+    reordered = reorder_with_constraints(publishable)
 
     # 6. 結果表示
     rank_counts: Counter = Counter()
