@@ -67,7 +67,7 @@ case "$num" in
     ld_count=$(launchctl list 2>/dev/null | grep -c "com.youtube-auto")
     if [ "$ld_count" -gt 0 ]; then
       echo "  │  登録済み: ${ld_count}件"
-      launchctl list 2>/dev/null | grep "com.youtube-auto" | while read -r pid status label; do
+      launchctl list 2>/dev/null | grep "com.youtube-auto" | while read -r pid sts label; do
         echo "  │    $label"
       done
     else
