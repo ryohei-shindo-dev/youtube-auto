@@ -37,37 +37,41 @@ case "$num" in
   0)
     echo ""
     echo "========================================="
-    echo "  定期実行タスク一覧"
+    echo "  定期実行タスク一覧（launchd）"
     echo "========================================="
     echo ""
-    echo "  ┌─ 毎日 ─────────────────────────────────"
-    echo "  │  07:00  auto_publish（朝）"
-    echo "  │  19:00  auto_publish（夜）"
-    echo "  │         YouTube / Instagram / X に動画を自動投稿"
-    echo "  │"
-    echo "  │  21:30  note_x_announce（--x-only）"
-    echo "  │         Xにスタンドアロン投稿を自動ポスト"
-    echo "  │"
-    echo "  │  22:00  analytics_collect"
-    echo "  │         YouTube / Instagram / X の再生数・エンゲージメントを収集"
+    echo "  ┌─ 毎日（朝） ────────────────────────────"
+    echo "  │  07:00  YouTube 投稿"
+    echo "  │  07:30  X 投稿"
+    echo "  └──────────────────────────────────────────"
+    echo ""
+    echo "  ┌─ 毎日（昼） ────────────────────────────"
+    echo "  │  12:00  Instagram 投稿"
+    echo "  └──────────────────────────────────────────"
+    echo ""
+    echo "  ┌─ 毎日（夜） ────────────────────────────"
+    echo "  │  19:00  YouTube 投稿"
+    echo "  │  19:30  X 投稿"
+    echo "  │  21:00  Instagram 投稿"
+    echo "  │  21:30  note_x_announce（Xスタンドアロン投稿）"
+    echo "  │  22:00  analytics_collect（再生数・エンゲージメント収集）"
     echo "  └──────────────────────────────────────────"
     echo ""
     echo "  ┌─ 毎週 ─────────────────────────────────"
-    echo "  │  月曜 23:00  analytics_analyze"
-    echo "  │              週次分析レポートを生成 → script_genに自動反映"
+    echo "  │  月曜 23:00  analytics_analyze（週次分析 → script_genに反映）"
     echo "  └──────────────────────────────────────────"
     echo ""
 
-    # cron登録状況を実際に確認
-    echo "  ┌─ cron登録状況 ──────────────────────────"
-    cron_lines=$(crontab -l 2>/dev/null | grep -c "youtube-auto\|auto_publish\|analytics_\|note_x_announce")
-    if [ "$cron_lines" -gt 0 ]; then
-      echo "  │  登録済み: ${cron_lines}件"
-      crontab -l 2>/dev/null | grep "youtube-auto\|auto_publish\|analytics_\|note_x_announce" | while read -r line; do
-        echo "  │    $line"
+    # launchd登録状況を実際に確認
+    echo "  ┌─ launchd登録状況 ─────────────────────"
+    ld_count=$(launchctl list 2>/dev/null | grep -c "com.youtube-auto")
+    if [ "$ld_count" -gt 0 ]; then
+      echo "  │  登録済み: ${ld_count}件"
+      launchctl list 2>/dev/null | grep "com.youtube-auto" | while read -r pid status label; do
+        echo "  │    $label"
       done
     else
-      echo "  │  ⚠ cronにタスクが登録されていません"
+      echo "  │  ⚠ launchdにタスクが登録されていません"
     fi
     echo "  └──────────────────────────────────────────"
     echo ""

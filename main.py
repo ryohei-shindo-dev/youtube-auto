@@ -35,6 +35,7 @@ import thumbnail_gen
 import subtitle_gen
 import note_gen
 import social_gen
+import dedupe_check
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 PENDING_DIR = SCRIPT_DIR / "pending"
@@ -111,6 +112,14 @@ def main():
     if not script_data:
         print("\n[失敗] 台本生成に失敗しました。終了します。")
         sys.exit(1)
+
+    # 重複チェック（Shorts のみ。通常動画は対象外）
+    if not is_long:
+        dup = dedupe_check.check_duplicate(script_data)
+        print(dedupe_check.format_report(dup))
+        if dup["is_duplicate"]:
+            print("\n[中止] 類似動画が既に存在します。別のトピックで再実行してください。")
+            sys.exit(1)
 
     scenes = script_data["scenes"]
     print(f"  タイトル: {script_data['title']}")

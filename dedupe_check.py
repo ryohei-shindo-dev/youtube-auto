@@ -31,6 +31,21 @@ COMBINED_HOOK_THRESHOLD = 0.60
 _cache: list[dict] | None = None
 
 
+def _extract_hook_and_data(script_data: dict) -> tuple[str, str]:
+    """scenes から hook テキストと data/fact テキストを抽出する。"""
+    hook = ""
+    data_text = ""
+    for s in script_data.get("scenes", []):
+        role = s.get("role")
+        if role == "hook" and not hook:
+            hook = s.get("text", "").rstrip("。？！ ")
+        elif role in ("data", "fact") and not data_text:
+            data_text = s.get("text", "")
+        if hook and data_text:
+            break
+    return hook, data_text
+
+
 def _load_existing_scripts() -> list[dict]:
     """done/ 内の全 transcript.json を読み込む（キャッシュあり）。"""
     global _cache
@@ -50,16 +65,7 @@ def _load_existing_scripts() -> list[dict]:
         try:
             data = json.loads(transcript.read_text(encoding="utf-8"))
             title = data.get("title", "")
-            hook = ""
-            data_text = ""
-            for s in data.get("scenes", []):
-                role = s.get("role")
-                if role == "hook" and not hook:
-                    hook = s.get("text", "").rstrip("。？！ ")
-                elif role in ("data", "fact") and not data_text:
-                    data_text = s.get("text", "")
-                if hook and data_text:
-                    break
+            hook, data_text = _extract_hook_and_data(data)
             scripts.append({
                 "folder": folder.name,
                 "title": title,
@@ -104,16 +110,7 @@ def check_duplicate(script_data: dict) -> dict:
         return no_dup
 
     new_title = script_data.get("title", "")
-    new_hook = ""
-    new_data = ""
-    for s in script_data.get("scenes", []):
-        role = s.get("role")
-        if role == "hook" and not new_hook:
-            new_hook = s.get("text", "").rstrip("。？！ ")
-        elif role == "data" and not new_data:
-            new_data = s.get("text", "")
-        if new_hook and new_data:
-            break
+    new_hook, new_data = _extract_hook_and_data(script_data)
 
     max_title_sim = 0.0
     max_hook_sim = 0.0
@@ -180,6 +177,23 @@ def check_duplicate(script_data: dict) -> dict:
     no_dup["title_similarity"] = max_title_sim
     no_dup["hook_similarity"] = max_hook_sim
     return no_dup
+
+
+def register_accepted(script_data: dict) -> None:
+    """採用した台本をキャッシュに追加する（バッチ内の重複検知用）。
+
+    batch_gen で1本採用するたびに呼ぶことで、
+    同じバッチ内で生成した動画同士の重複を検知できる。
+    """
+    existing = _load_existing_scripts()
+    title = script_data.get("title", "")
+    hook, data_text = _extract_hook_and_data(script_data)
+    existing.append({
+        "folder": "(pending)",
+        "title": title,
+        "hook": hook,
+        "data": data_text,
+    })
 
 
 def format_report(result: dict) -> str:

@@ -200,9 +200,9 @@ def _row_to_entry(row: list, sheet_row: int) -> dict:
 def get_next_publishable(rows: list | None = None, platforms: list | None = None) -> dict | None:
     """シートから次に投稿すべき動画を取得する。
 
-    1. G=生成済み（まだどこにも投稿していない）を優先
-    2. 該当がなければ、指定プラットフォームのURLが空の動画を探す
-       （プラットフォーム別に時間をずらして投稿する運用に対応）
+    1. 部分投稿済み（G=公開済みだが指定プラットフォームのURLが空）を優先
+       → 同じ動画が全プラットフォームに揃ってから次の動画に進む
+    2. 該当がなければ、G=生成済み（まだどこにも投稿していない）を選択
     """
     import sheets
     if rows is None:
@@ -224,12 +224,14 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
             if missing:
                 partial.append(entry)
 
-    if generated:
-        generated.sort(key=lambda c: c["gen_date"])
-        return generated[0]
+    # 部分投稿済み（他プラットフォームは済みだが指定プラットフォームが未投稿）を優先。
+    # これにより YouTube→X→Instagram の時間差投稿で同じ動画が順番に全プラットフォームに投稿される。
     if partial:
         partial.sort(key=lambda c: c["gen_date"])
         return partial[0]
+    if generated:
+        generated.sort(key=lambda c: c["gen_date"])
+        return generated[0]
     return None
 
 

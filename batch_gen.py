@@ -69,6 +69,7 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
             print(dedupe_check.format_report(dup))
             if not dup["is_duplicate"]:
                 script_data = candidate
+                dedupe_check.register_accepted(candidate)
                 break
             # 重複あり → リトライ扱い
             if attempt <= MAX_SCRIPT_RETRIES:
@@ -76,17 +77,24 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
                 time.sleep(1)
                 continue
             else:
-                print(f"  [採用] リトライ上限到達。重複あるが採用")
-                script_data = candidate
-                break
+                # 重複のまま採用しない → スキップ
+                raise RuntimeError(
+                    f"リトライ上限到達。類似動画あり: {dup['reason']}"
+                )
 
         if attempt <= MAX_SCRIPT_RETRIES:
             print(f"  [再生成] スコア不足（{result['total_score']}/{result['max_score']}）→ リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
             time.sleep(1)
         else:
-            # リトライ上限 → 最後の候補をそのまま採用
+            # リトライ上限 → 最後の候補をそのまま採用（スコア不足は許容、重複は不可）
+            dup = dedupe_check.check_duplicate(candidate)
+            if dup["is_duplicate"]:
+                raise RuntimeError(
+                    f"リトライ上限到達。スコア不足かつ類似動画あり: {dup['reason']}"
+                )
             print(f"  [採用] リトライ上限到達。最終候補を採用（{result['total_score']}/{result['max_score']}）")
             script_data = candidate
+            dedupe_check.register_accepted(candidate)
             break
 
     scenes = script_data["scenes"]
