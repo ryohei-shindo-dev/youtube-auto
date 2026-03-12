@@ -39,7 +39,44 @@ DONE_DIR = SCRIPT_DIR / "done"
 MAX_SCRIPT_RETRIES = 2
 
 
-def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
+def _get_scene_text(script_data: dict, role: str) -> str:
+    """台本から指定ロールのテキストを取り出す。"""
+    for s in script_data.get("scenes", []):
+        if s.get("role") == role:
+            return s.get("text", "")
+    return ""
+
+
+def _get_data_text(script_data: dict) -> str:
+    """台本からdataシーンのテキストを取り出す。"""
+    return _get_scene_text(script_data, "data")
+
+
+def _normalize(text: str) -> str:
+    """比較用にテキストを正規化（句読点・スペース除去）。"""
+    import re
+    return re.sub(r"[。、！？\s]", "", text)
+
+
+def _is_batch_duplicate(text: str, existing_list: list) -> bool:
+    """テキストが既存リストと重複していないかチェック。"""
+    if not existing_list or not text:
+        return False
+    norm = _normalize(text)
+    return any(_normalize(e) == norm for e in existing_list)
+
+
+def _is_batch_data_duplicate(script_data: dict, batch_data_texts: list) -> bool:
+    """同一バッチ内でdataテキストが重複していないかチェック。"""
+    return _is_batch_duplicate(_get_data_text(script_data), batch_data_texts)
+
+
+def generate_one(
+    topic: str, theme: str, index: int, total: int,
+    batch_data_texts: list = None,
+    batch_hook_texts: list = None,
+    batch_resolve_texts: list = None,
+) -> dict:
     """1本のShortsを生成する。成功時はファイル情報を返す。"""
     print(f"\n{'='*60}")
     print(f"  [{index}/{total}] テーマ: {theme}")
@@ -52,10 +89,25 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
         if f.is_file():
             f.unlink()
 
+    # Step 0: 事前枯渇度チェック（APIを叩く前にローカルで判定）
+    exhaustion = dedupe_check.check_exhaustion(
+        topic, script_gen.DATA_POOL, script_gen._TOPIC_TO_CATEGORY,
+    )
+    effective_retries = MAX_SCRIPT_RETRIES
+    if exhaustion["is_exhausted"]:
+        raise RuntimeError(
+            f"事前判定: APIスキップ（{exhaustion['reason']}）"
+        )
+    if exhaustion["max_retries"] >= 0:
+        effective_retries = exhaustion["max_retries"]
+        if exhaustion["reason"]:
+            print(f"  [事前判定] {exhaustion['reason']} → リトライ{effective_retries}回に制限")
+
     # Step 1: 台本生成 + スコアリング（閾値未満は再生成）
     print("\n  [1/5] 台本生成...")
     script_data = None
-    for attempt in range(1, MAX_SCRIPT_RETRIES + 2):
+    last_fail_reason = ""  # 同じ理由で連続失敗したら即スキップ
+    for attempt in range(1, effective_retries + 2):
         candidate = script_gen.generate_shorts_script(topic, theme=theme)
         if not candidate:
             raise RuntimeError("台本生成に失敗")
@@ -73,8 +125,8 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
                 if topic_result["score"] <= -2:
                     print(f"  [トピック不一致] スコア={topic_result['score']}、"
                           f"トピックKW: {topic_result['topic_keywords']}")
-                    if attempt <= MAX_SCRIPT_RETRIES:
-                        print(f"  [再生成] トピック不一致 → リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+                    if attempt <= effective_retries:
+                        print(f"  [再生成] トピック不一致 → リトライ {attempt}/{effective_retries}")
                         time.sleep(1)
                         continue
                     else:
@@ -82,12 +134,33 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
                             f"リトライ上限到達。タイトルがトピックと無関係: "
                             f"「{candidate.get('title', '')}」"
                         )
+                # バッチ内重複チェック（data / hook / resolve）
+                batch_dup_reason = ""
+                if _is_batch_data_duplicate(candidate, batch_data_texts):
+                    batch_dup_reason = f"data重複:「{_get_data_text(candidate)}」"
+                elif _is_batch_duplicate(_get_scene_text(candidate, "hook"), batch_hook_texts):
+                    batch_dup_reason = f"hook重複:「{_get_scene_text(candidate, 'hook')}」"
+                elif _is_batch_duplicate(_get_scene_text(candidate, "resolve"), batch_resolve_texts):
+                    batch_dup_reason = f"resolve重複:「{_get_scene_text(candidate, 'resolve')}」"
+                if batch_dup_reason:
+                    print(f"  [バッチ内重複] {batch_dup_reason}")
+                    if attempt <= effective_retries:
+                        print(f"  [再生成] バッチ内重複 → リトライ {attempt}/{effective_retries}")
+                        time.sleep(1)
+                        continue
                 script_data = candidate
                 dedupe_check.register_accepted(candidate)
                 break
             # 重複あり → リトライ扱い
-            if attempt <= MAX_SCRIPT_RETRIES:
-                print(f"  [再生成] 類似動画あり → リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+            # 同じ理由で連続失敗 → APIの無駄なので即スキップ
+            current_reason = dup.get("reason", "")
+            if last_fail_reason and current_reason == last_fail_reason:
+                raise RuntimeError(
+                    f"同一理由で連続失敗（API節約のためスキップ）: {current_reason}"
+                )
+            last_fail_reason = current_reason
+            if attempt <= effective_retries:
+                print(f"  [再生成] 類似動画あり → リトライ {attempt}/{effective_retries}")
                 time.sleep(1)
                 continue
             else:
@@ -96,8 +169,8 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
                     f"リトライ上限到達。類似動画あり: {dup['reason']}"
                 )
 
-        if attempt <= MAX_SCRIPT_RETRIES:
-            print(f"  [再生成] スコア不足（{result['total_score']}/{result['max_score']}）→ リトライ {attempt}/{MAX_SCRIPT_RETRIES}")
+        if attempt <= effective_retries:
+            print(f"  [再生成] スコア不足（{result['total_score']}/{result['max_score']}）→ リトライ {attempt}/{effective_retries}")
             time.sleep(1)
         else:
             # リトライ上限 → 最後の候補をそのまま採用（スコア不足は許容、重複は不可）
@@ -112,6 +185,8 @@ def generate_one(topic: str, theme: str, index: int, total: int) -> dict:
                     f"リトライ上限到達。タイトルがトピックと無関係: "
                     f"「{candidate.get('title', '')}」"
                 )
+            if _is_batch_data_duplicate(candidate, batch_data_texts):
+                print(f"  [警告] バッチ内data重複あり（リトライ上限のためそのまま採用）:「{_get_data_text(candidate)}」")
             print(f"  [採用] リトライ上限到達。最終候補を採用（{result['total_score']}/{result['max_score']}）")
             script_data = candidate
             dedupe_check.register_accepted(candidate)
@@ -201,6 +276,9 @@ def main():
     success = 0
     fail = 0
     results = []
+    batch_data_texts = []     # 同一バッチ内のdataテキスト（重複防止用）
+    batch_hook_texts = []     # 同一バッチ内のhookテキスト
+    batch_resolve_texts = []  # 同一バッチ内のresolveテキスト
 
     print(f"\n{'#'*60}")
     print(f"  量産開始: {target}本")
@@ -209,6 +287,7 @@ def main():
     print(f"{'#'*60}")
 
     for i in range(1, target + 1):
+        sheet_row = None
         try:
             # シートから次のトピックを取得
             next_item = sheets.get_next_topic(
@@ -227,7 +306,10 @@ def main():
             theme = row_type.split("/")[1] if "/" in row_type else "ガチホモチベ"
 
             # 生成
-            script_data = generate_one(topic, theme, i, target)
+            script_data = generate_one(
+                topic, theme, i, target,
+                batch_data_texts, batch_hook_texts, batch_resolve_texts,
+            )
 
             # アーカイブ（フォルダ名確定）
             archive_path = archive_files(script_data["title"])
@@ -242,6 +324,11 @@ def main():
             )
 
             success += 1
+            # バッチ内重複防止用にテキストを記録
+            for role, lst in [("data", batch_data_texts), ("hook", batch_hook_texts), ("resolve", batch_resolve_texts)]:
+                t = _get_scene_text(script_data, role)
+                if t:
+                    lst.append(t)
             results.append({
                 "no": i,
                 "status": "OK",
@@ -260,6 +347,20 @@ def main():
             })
             print(f"\n  ✗ [{i}/{target}] 失敗 — {e}")
             traceback.print_exc()
+
+            # 生成失敗をシートに記録（同じトピックの無限ループを防止）
+            if sheet_row:
+                try:
+                    svc = sheets.get_service()
+                    svc.spreadsheets().values().update(
+                        spreadsheetId=sheet_id,
+                        range=f"{sheets.SHEET_NAME}!G{sheet_row}",
+                        valueInputOption="RAW",
+                        body={"values": [[sheets.STATUS_GEN_FAILED]]},
+                    ).execute()
+                    print(f"  シート行{sheet_row}を「生成失敗」に更新")
+                except Exception:
+                    pass
 
         # API レート制限対策（1秒待つ）
         if i < target:

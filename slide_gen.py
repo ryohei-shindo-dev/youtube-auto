@@ -82,6 +82,41 @@ THEME_IMAGE_MAP = {
         "resolve": "06_person_happy.png",
         "closing": "12_sunrise.png",
     },
+    "後悔系": {
+        "hook": "04_person_down.png",
+        "empathy": "02_phone_anxious.png",
+        "data": "08_long_term_chart.png",
+        "resolve": "03_person_thinking.png",
+        "closing": "05_person_relieved.png",
+    },
+    "具体数字系": {
+        "hook": "01_chart_worried.png",
+        "empathy": "03_person_thinking.png",
+        "data": "09_growth_graph.png",
+        "resolve": "06_person_happy.png",
+        "closing": "12_sunrise.png",
+    },
+    "積立疲れ系": {
+        "hook": "02_phone_anxious.png",
+        "empathy": "04_person_down.png",
+        "data": "08_long_term_chart.png",
+        "resolve": "05_person_relieved.png",
+        "closing": "11_calm_ocean.png",
+    },
+    "比較焦り系": {
+        "hook": "02_phone_anxious.png",
+        "empathy": "01_chart_worried.png",
+        "data": "08_long_term_chart.png",
+        "resolve": "03_person_thinking.png",
+        "closing": "06_person_happy.png",
+    },
+    "継続モチベ系": {
+        "hook": "03_person_thinking.png",
+        "empathy": "05_person_relieved.png",
+        "data": "09_growth_graph.png",
+        "resolve": "06_person_happy.png",
+        "closing": "12_sunrise.png",
+    },
 }
 
 # 通常動画用のロール→画像マッピング

@@ -214,11 +214,15 @@ def generate_note_from_topic(
 # ── 共通関数 ──
 
 def _call_claude(api_key: str, prompt: str) -> Optional[str]:
-    """Claude APIを呼び出して記事テキストを返す。"""
+    """Claude APIを呼び出して記事テキストを返す。
+
+    note記事はShortsほど感情曲線の精度が不要なため、
+    コスト削減のためHaikuを使用（Sonnetの約1/12のコスト）。
+    """
     try:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )

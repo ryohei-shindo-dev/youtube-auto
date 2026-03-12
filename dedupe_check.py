@@ -196,6 +196,149 @@ def register_accepted(script_data: dict) -> None:
     })
 
 
+def check_exhaustion(topic: str, data_pool: dict, topic_to_category: dict) -> dict:
+    """APIを叩く前に、このトピックで新しいhook×data組み合わせが出せるか判定する。
+
+    重複判定のルール（check_duplicate の判定3）を再現:
+      hook類似度 >= 80% かつ data類似度 >= 50% → 重複
+    つまり、同じhookでも異なるdataなら通る。
+    ここでは「このトピックが生成しそうなhook」ごとに、
+    dataプールの候補がブロックされているかを調べる。
+
+    戻り値:
+        {
+            "is_exhausted": bool,       # True=スキップ推奨
+            "reason": str,              # 判定理由
+            "exhaustion_score": float,  # 0.0(余裕)〜1.0(完全枯渇)
+            "blocked_combos": int,      # ブロックされた hook×data 組み合わせ数
+            "total_combos": int,        # 候補 hook×data 組み合わせ数
+            "max_retries": int,         # 推奨リトライ回数（0/1/通常）
+        }
+    """
+    existing = _load_existing_scripts()
+    if not existing:
+        return {
+            "is_exhausted": False, "reason": "",
+            "exhaustion_score": 0.0, "blocked_combos": 0,
+            "total_combos": 0, "max_retries": -1,
+        }
+
+    # 1. このトピックで使われそうなdataカテゴリを特定
+    category = "長期"  # デフォルト
+    for kw, cat in topic_to_category.items():
+        if kw in topic:
+            category = cat
+            break
+    pool = data_pool.get(category, data_pool.get("長期", []))
+
+    # 2. このトピックが生成しそうなhookを推定
+    #    トピック内のキーワードから、よく生成されるhookパターンを列挙
+    likely_hooks = _estimate_likely_hooks(topic)
+
+    # 3. 既存動画の hook→data マッピングを構築
+    #    同じhookを持つ既存動画のdataリストを集める
+    blocked_combos = 0
+    total_combos = len(likely_hooks) * len(pool)
+
+    if total_combos == 0:
+        return {
+            "is_exhausted": False, "reason": "",
+            "exhaustion_score": 0.0, "blocked_combos": 0,
+            "total_combos": 0, "max_retries": -1,
+        }
+
+    for hook_candidate in likely_hooks:
+        # このhookに類似する既存動画を探す
+        similar_existing_data = []
+        for ex in existing:
+            if _similarity(hook_candidate, ex["hook"]) >= HOOK_SIMILARITY_THRESHOLD:
+                similar_existing_data.append(ex["data"])
+
+        # このhookとペアになった既存dataで、プール内の候補がブロックされるか
+        for data_candidate in pool:
+            for ex_data in similar_existing_data:
+                if _similarity(data_candidate, ex_data) >= 0.50:
+                    blocked_combos += 1
+                    break
+
+    # 4. 枯渇度を計算
+    available_combos = total_combos - blocked_combos
+    exhaustion_score = blocked_combos / total_combos if total_combos > 0 else 0.0
+
+    # 5. 判定
+    if available_combos == 0:
+        return {
+            "is_exhausted": True,
+            "reason": (f"hook×data完全枯渇: {category}カテゴリで"
+                       f"{total_combos}組み合わせが全てブロック済み"),
+            "exhaustion_score": exhaustion_score,
+            "blocked_combos": blocked_combos,
+            "total_combos": total_combos,
+            "max_retries": 0,
+        }
+    if available_combos <= 2 and exhaustion_score >= 0.8:
+        return {
+            "is_exhausted": True,
+            "reason": (f"枯渇度{exhaustion_score:.0%}: {category}カテゴリで"
+                       f"未ブロック組み合わせ残り{available_combos}/{total_combos}"),
+            "exhaustion_score": exhaustion_score,
+            "blocked_combos": blocked_combos,
+            "total_combos": total_combos,
+            "max_retries": 0,
+        }
+    if available_combos <= 5 and exhaustion_score >= 0.5:
+        return {
+            "is_exhausted": False,
+            "reason": (f"枯渇注意: {category}カテゴリで"
+                       f"未ブロック組み合わせ残り{available_combos}/{total_combos}"),
+            "exhaustion_score": exhaustion_score,
+            "blocked_combos": blocked_combos,
+            "total_combos": total_combos,
+            "max_retries": 1,  # リトライ1回に制限
+        }
+
+    return {
+        "is_exhausted": False, "reason": "",
+        "exhaustion_score": exhaustion_score,
+        "blocked_combos": blocked_combos,
+        "total_combos": total_combos,
+        "max_retries": -1,  # 通常（制限なし）
+    }
+
+
+# トピックキーワード → 生成されやすいhookパターン
+_TOPIC_HOOK_MAP = {
+    "焦": ["焦り", "焦る"],
+    "SNS": ["焦り", "焦る"],
+    "比較": ["焦り", "焦る", "見たくない"],
+    "含み損": ["含み損", "つらい", "マイナス"],
+    "暴落": ["暴落", "怖い", "また下がった"],
+    "下落": ["暴落", "怖い", "また下がった"],
+    "積立": ["つらい", "増えない", "しんどい"],
+    "配当": ["損してる", "後悔"],
+    "退場": ["退場", "やめたい"],
+    "不安": ["不安", "眠れない"],
+    "売り": ["売りたい", "怖い"],
+    "後悔": ["後悔", "つらい"],
+    "NISA": ["不安", "焦る"],
+    "iDeCo": ["不安", "焦る"],
+    "損": ["損した", "つらい"],
+    "疲れ": ["しんどい", "つらい", "増えない"],
+}
+
+
+def _estimate_likely_hooks(topic: str) -> list[str]:
+    """トピックから、Claudeが生成しそうなhookパターンを推定する。"""
+    hooks = set()
+    for kw, patterns in _TOPIC_HOOK_MAP.items():
+        if kw in topic:
+            hooks.update(patterns)
+    # マッチしなければ汎用hookを返す（判定を緩くする）
+    if not hooks:
+        hooks = {"不安", "つらい", "後悔"}
+    return list(hooks)
+
+
 def format_report(result: dict) -> str:
     """重複チェック結果を人間が読める文字列にする。"""
     if result["is_duplicate"]:

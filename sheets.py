@@ -71,6 +71,7 @@ NOTE_SHEET_NAME = "note管理"
 STATUS_PENDING = "未生成"
 STATUS_GENERATED = "生成済み"
 STATUS_FAILED = "投稿失敗"
+STATUS_GEN_FAILED = "生成失敗"
 
 
 def get_cell(row: list, idx: int, default: str = "") -> str:
