@@ -29,7 +29,8 @@
 │
 ├── sheets.py            # Google Sheets / YouTube / Drive API ラッパー
 ├── main.py              # CLI エントリポイント（--dry-run, --long, --theme）
-├── batch_gen.py         # Shorts 一括生成（N 本連続）
+├── batch_gen.py         # Shorts 一括生成（N 本連続、3候補一括生成）
+├── batch_api_gen.py     # Batch API 一括生成（50%割引、非同期）
 ├── batch_note_gen.py    # note 記事一括生成
 ├── review_gen.py        # ChatGPT レビュー用プロンプト生成
 ├── error_notify.py      # cron 失敗時 Gmail 通知
@@ -87,8 +88,15 @@ source venv/bin/activate
 # Shorts 1 本生成
 python main.py
 
-# バッチ生成
+# バッチ生成（逐次、3候補一括生成）
 python batch_gen.py --count 10
+
+# Batch API 生成（非同期、50%割引）
+python batch_api_gen.py run --count 30
+# または段階的に: submit → status → fetch
+python batch_api_gen.py submit --count 30
+python batch_api_gen.py status --batch-id msgbatch_xxx
+python batch_api_gen.py fetch --batch-id msgbatch_xxx
 
 # 手動投稿
 python auto_publish.py --platforms youtube instagram x
