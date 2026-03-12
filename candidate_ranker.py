@@ -27,6 +27,12 @@ ACCEPT_THRESHOLD = 5
 # 感情重視テーマ: タイトル数字を1点ボーナスに変更、共感自然さ2点を追加
 _EMOTION_THEMES = {"継続モチベ系", "積立疲れ系", "比較焦り系", "あるある"}
 
+# 共感フレーズ検出用キーワード（感情テーマのempathyシーン評価に使用）
+_EMPATHY_KEYWORDS = [
+    "あなた", "だけじゃない", "わかる", "つらい", "不安",
+    "怖い", "焦る", "迷う", "疲れ", "しんどい",
+]
+
 # --- 禁止表現（AGENTS.md由来の基本チェック） ---
 BANNED_PHRASES = [
     "絶対に儲かる", "必ず上がる", "損しない", "元本保証",
@@ -181,10 +187,7 @@ def score_script(script_data: dict) -> dict:
         empathy_score = 0
         empathy_reason = "empathyシーンなし"
         if empathy_text:
-            # 共感フレーズ: 「あなた」「だけじゃない」「わかる」「つらい」系
-            empathy_words = ["あなた", "だけじゃない", "わかる", "つらい", "不安",
-                             "怖い", "焦る", "迷う", "疲れ", "しんどい"]
-            has_empathy = any(w in empathy_text for w in empathy_words)
+            has_empathy = any(w in empathy_text for w in _EMPATHY_KEYWORDS)
             if has_empathy:
                 empathy_score = 2
                 empathy_reason = f"共感フレーズあり:「{empathy_text[:20]}…」"

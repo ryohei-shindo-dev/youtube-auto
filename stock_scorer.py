@@ -279,6 +279,22 @@ def triage(scored: list[dict]) -> dict[str, list[dict]]:
     return {"keep": keep, "delay": delay, "discard": discard}
 
 
+def _check_hard_constraints(candidate: dict, result: list[dict]) -> tuple[bool, bool, bool]:
+    """stem/category/tone のハード制約をチェックする。"""
+    recent_stems = [r["hook_stem"] for r in result[-8:]]
+    recent_cats = [r["hook_category"] for r in result[-5:]]
+    recent_tones = [r.get("tone", "mid_pain") for r in result[-3:]]
+
+    stem_ok = candidate["hook_stem"] not in recent_stems
+    cat_ok = candidate["hook_category"] not in recent_cats
+    candidate_tone = candidate.get("tone", "mid_pain")
+    tone_ok = not (
+        len(recent_tones) >= 2
+        and all(t == candidate_tone for t in recent_tones[-2:])
+    )
+    return stem_ok, cat_ok, tone_ok
+
+
 def reorder_with_constraints(scored: list[dict]) -> list[dict]:
     """スコア順をベースに、hookの偏りと感情トーンを制約で分散させる。
 
@@ -290,65 +306,42 @@ def reorder_with_constraints(scored: list[dict]) -> list[dict]:
     """
     result: list[dict] = []
     remaining = list(scored)  # スコア降順のコピー
+    pain_streak = 0  # インクリメンタルに管理
 
     while remaining:
         placed = False
         for i, candidate in enumerate(remaining):
-            # 制約チェック: 直近N本の stem/category/tone を確認
-            recent_stems = [r["hook_stem"] for r in result[-8:]]
-            recent_cats = [r["hook_category"] for r in result[-5:]]
-            recent_tones = [r.get("tone", "mid_pain") for r in result[-3:]]
+            stem_ok, cat_ok, tone_ok = _check_hard_constraints(candidate, result)
 
-            stem_ok = candidate["hook_stem"] not in recent_stems
-            cat_ok = candidate["hook_category"] not in recent_cats
-
-            # 感情トーン制約: 同一トーン3連続禁止
+            # 痛み系2連続の後は回復系を優先（ソフト制約）
             candidate_tone = candidate.get("tone", "mid_pain")
-            tone_ok = not (
-                len(recent_tones) >= 2
-                and all(t == candidate_tone for t in recent_tones[-2:])
-            )
-
-            # 痛み系2連続の後は回復系を優先（ソフト制約: 候補があれば）
-            pain_streak = 0
-            for r in reversed(result):
-                if r.get("tone") in ("high_pain", "mid_pain"):
-                    pain_streak += 1
-                else:
-                    break
             pain_needs_recovery = pain_streak >= 2 and candidate_tone != "recovery"
-            # pain_needs_recovery はソフト制約なので、他に候補がなければ無視
 
             if stem_ok and cat_ok and tone_ok and not pain_needs_recovery:
                 result.append(candidate)
                 remaining.pop(i)
+                pain_streak = pain_streak + 1 if candidate_tone in ("high_pain", "mid_pain") else 0
                 placed = True
                 break
 
         if not placed:
             # ソフト制約(pain_needs_recovery)を緩和して再試行
             for i, candidate in enumerate(remaining):
-                recent_stems = [r["hook_stem"] for r in result[-8:]]
-                recent_cats = [r["hook_category"] for r in result[-5:]]
-                recent_tones = [r.get("tone", "mid_pain") for r in result[-3:]]
-
-                stem_ok = candidate["hook_stem"] not in recent_stems
-                cat_ok = candidate["hook_category"] not in recent_cats
-                candidate_tone = candidate.get("tone", "mid_pain")
-                tone_ok = not (
-                    len(recent_tones) >= 2
-                    and all(t == candidate_tone for t in recent_tones[-2:])
-                )
-
+                stem_ok, cat_ok, tone_ok = _check_hard_constraints(candidate, result)
                 if stem_ok and cat_ok and tone_ok:
+                    candidate_tone = candidate.get("tone", "mid_pain")
                     result.append(candidate)
                     remaining.pop(i)
+                    pain_streak = pain_streak + 1 if candidate_tone in ("high_pain", "mid_pain") else 0
                     placed = True
                     break
 
         if not placed:
             # すべての制約を満たせない場合、スコア最上位をそのまま配置
-            result.append(remaining.pop(0))
+            fallback = remaining.pop(0)
+            result.append(fallback)
+            fallback_tone = fallback.get("tone", "mid_pain")
+            pain_streak = pain_streak + 1 if fallback_tone in ("high_pain", "mid_pain") else 0
 
     return result
 
