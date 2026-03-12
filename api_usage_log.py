@@ -26,7 +26,7 @@ _PRICING = {
     "claude-sonnet-4-6": {"input": 3.0, "output": 15.0, "cache_read": 0.3},
     "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0, "cache_read": 0.1},
 }
-_DEFAULT_PRICING = {"input": 3.0, "output": 15.0, "cache_read": 0.3}
+_DEFAULT_PRICING = _PRICING["claude-sonnet-4-6"]
 
 
 def _estimate_cost(model: str, input_tokens: int, output_tokens: int,

@@ -222,13 +222,14 @@ def _call_claude(api_key: str, prompt: str) -> Optional[str]:
     """
     try:
         client = anthropic.Anthropic(api_key=api_key)
+        model = script_gen._MODEL_HAIKU
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=model,
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
         api_usage_log.log_usage(
-            message, model="claude-haiku-4-5-20251001",
+            message, model=model,
             endpoint="note_gen",
         )
         return message.content[0].text.strip()
