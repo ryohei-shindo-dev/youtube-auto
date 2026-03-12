@@ -22,6 +22,11 @@ from script_gen import STRONG_HOOKS, WEAK_HOOKS, load_insights
 # 12点満点中、この点数以上なら採用
 ACCEPT_THRESHOLD = 5
 
+# --- テーマ別配点プロファイル ---
+# 数字重視テーマ: タイトル数字3点、hook3点、data具体性2点（デフォルト）
+# 感情重視テーマ: タイトル数字を1点ボーナスに変更、共感自然さ2点を追加
+_EMOTION_THEMES = {"継続モチベ系", "積立疲れ系", "比較焦り系", "あるある"}
+
 # --- 禁止表現（AGENTS.md由来の基本チェック） ---
 BANNED_PHRASES = [
     "絶対に儲かる", "必ず上がる", "損しない", "元本保証",
@@ -126,6 +131,8 @@ def score_script(script_data: dict) -> dict:
 
     title = script_data.get("title", "")
     scenes = script_data.get("scenes", [])
+    theme_name = script_data.get("theme_name", "")
+    is_emotion_theme = theme_name in _EMOTION_THEMES
 
     # シーンをroleで引く
     scene_by_role = {}
@@ -136,34 +143,59 @@ def score_script(script_data: dict) -> dict:
 
     hook_text = scene_by_role.get("hook", {}).get("text", "")
     data_text = scene_by_role.get("data", {}).get("text", "")
+    empathy_text = scene_by_role.get("empathy", {}).get("text", "")
 
     checks = []
     warnings = []
 
-    # ── チェック1: タイトルに具体的な数字があるか（3点） ──
+    # ── チェック1: タイトルに具体的な数字があるか ──
+    # 感情テーマ: max=1（ボーナス扱い）、数字テーマ: max=3（必須）
+    title_num_max = 1 if is_emotion_theme else 3
     has_number = bool(_RE_NUMBER.search(title))
     prefer_numeric = title_rules.get("prefer_numeric_titles", True)
     if has_number:
         checks.append({
             "name": "タイトル数字",
-            "score": 3,
-            "max": 3,
-            "reason": "タイトルに具体的な数字あり",
+            "score": title_num_max,
+            "max": title_num_max,
+            "reason": f"タイトルに具体的な数字あり{'（ボーナス）' if is_emotion_theme else ''}",
         })
-    elif prefer_numeric:
+    elif prefer_numeric and not is_emotion_theme:
         checks.append({
             "name": "タイトル数字",
             "score": 0,
-            "max": 3,
+            "max": title_num_max,
             "reason": "タイトルに数字なし（insights: 数字入りが推奨）",
         })
         warnings.append(f"タイトルに数字がありません:「{title}」")
     else:
         checks.append({
             "name": "タイトル数字",
-            "score": 1,
-            "max": 3,
-            "reason": "タイトルに数字なし（insights: 数字推奨なし）",
+            "score": 0,
+            "max": title_num_max,
+            "reason": f"タイトルに数字なし{'（感情テーマのため減点なし）' if is_emotion_theme else ''}",
+        })
+
+    # ── 感情テーマ追加: 共感自然さチェック（2点） ──
+    if is_emotion_theme:
+        empathy_score = 0
+        empathy_reason = "empathyシーンなし"
+        if empathy_text:
+            # 共感フレーズ: 「あなた」「だけじゃない」「わかる」「つらい」系
+            empathy_words = ["あなた", "だけじゃない", "わかる", "つらい", "不安",
+                             "怖い", "焦る", "迷う", "疲れ", "しんどい"]
+            has_empathy = any(w in empathy_text for w in empathy_words)
+            if has_empathy:
+                empathy_score = 2
+                empathy_reason = f"共感フレーズあり:「{empathy_text[:20]}…」"
+            else:
+                empathy_score = 1
+                empathy_reason = f"empathyあるが共感フレーズ弱:「{empathy_text[:20]}…」"
+        checks.append({
+            "name": "共感自然さ",
+            "score": empathy_score,
+            "max": 2,
+            "reason": empathy_reason,
         })
 
     # ── チェック2: hookの強さ（3点） ──
@@ -198,20 +230,29 @@ def score_script(script_data: dict) -> dict:
             "reason": f"hookの強弱不明:「{hook_clean}」",
         })
 
-    # ── チェック3: dataに具体的な数字があるか（2点） ──
+    # ── チェック3: dataに具体的な数字があるか ──
+    # 感情テーマ: max=1（ボーナス）、数字テーマ: max=2（必須）
+    data_num_max = 1 if is_emotion_theme else 2
     has_data_number = bool(_RE_NUMBER.search(data_text))
     if has_data_number:
         checks.append({
             "name": "data具体性",
-            "score": 2,
-            "max": 2,
-            "reason": "dataに具体的な数字あり",
+            "score": data_num_max,
+            "max": data_num_max,
+            "reason": f"dataに具体的な数字あり{'（ボーナス）' if is_emotion_theme else ''}",
+        })
+    elif is_emotion_theme:
+        checks.append({
+            "name": "data具体性",
+            "score": 0,
+            "max": data_num_max,
+            "reason": "dataに数字なし（感情テーマのため軽微）",
         })
     else:
         checks.append({
             "name": "data具体性",
             "score": 0,
-            "max": 2,
+            "max": data_num_max,
             "reason": f"dataに数字なし:「{data_text}」",
         })
         warnings.append(f"dataに具体的な数字がありません:「{data_text}」")

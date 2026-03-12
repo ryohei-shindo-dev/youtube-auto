@@ -39,6 +39,22 @@ from auto_publish import (
 )
 from candidate_ranker import _RE_NUMBER
 
+# ── 感情トーン分類 ──
+# テーマ→感情トーンのマッピング
+_THEME_TONE_MAP = {
+    "後悔系": "high_pain",
+    "比較焦り系": "high_pain",
+    "積立疲れ系": "mid_pain",
+    "あるある": "mid_pain",
+    "歴史データ": "mid_pain",
+    "継続モチベ系": "recovery",
+    "メリット": "recovery",
+    "格言": "recovery",
+    "ガチホモチベ": "recovery",
+    "具体数字系": "mid_pain",
+}
+
+
 # 具体的なキーワード（数字以外でも具体性の高いワード）
 _SPECIFIC_KEYWORDS = [
     "1800万", "72", "3年", "S&P500", "オルカン", "NISA", "iDeCo",
@@ -94,7 +110,7 @@ def _read_sheet_rows() -> list[list[str]]:
 def _build_sheet_status_map(rows: list[list[str]]) -> dict[str, dict]:
     """シート行をフォルダ名でインデックス化。
 
-    戻り値: {folder_name: {"status": str, "title": str}}
+    戻り値: {folder_name: {"status": str, "title": str, "theme": str, "tone": str}}
     """
     import sheets
     C = sheets.COL
@@ -103,9 +119,14 @@ def _build_sheet_status_map(rows: list[list[str]]) -> dict[str, dict]:
         folder = sheets.get_cell(row, C["folder"])
         if not folder:
             continue
+        kind = sheets.get_cell(row, C["type"])
+        theme = kind.replace("Shorts/", "") if kind.startswith("Shorts/") else ""
+        tone = _THEME_TONE_MAP.get(theme, "mid_pain")
         status_map[folder] = {
             "status": sheets.get_cell(row, C["status"]),
             "title": sheets.get_cell(row, C["title"]),
+            "theme": theme,
+            "tone": tone,
         }
     return status_map
 
@@ -177,12 +198,14 @@ def score_videos(
             reasons.append(f"hookユニーク({hook_count}本): +2")
 
         category = extract_hook_category(video["hook"])
+        tone = video.get("tone", "mid_pain")
         scored.append({
             "folder": video["folder"],
             "title": title,
             "hook": video["hook"],
             "hook_stem": stem,
             "hook_category": category,
+            "tone": tone,
             "score": score,
             "reasons": reasons,
         })
@@ -257,11 +280,13 @@ def triage(scored: list[dict]) -> dict[str, list[dict]]:
 
 
 def reorder_with_constraints(scored: list[dict]) -> list[dict]:
-    """スコア順をベースに、hookの偏りを制約で分散させる。
+    """スコア順をベースに、hookの偏りと感情トーンを制約で分散させる。
 
     制約:
     - 同一hookステムは8連続以内に再出現しない
     - 同一hookカテゴリは5連続以内に再出現しない
+    - 同一感情トーンは3連続以内に再出現しない
+    - 痛み系（high_pain）2本の後は回復系（recovery）を優先
     """
     result: list[dict] = []
     remaining = list(scored)  # スコア降順のコピー
@@ -269,21 +294,60 @@ def reorder_with_constraints(scored: list[dict]) -> list[dict]:
     while remaining:
         placed = False
         for i, candidate in enumerate(remaining):
-            # 制約チェック: 直近N本の stem/category を確認
+            # 制約チェック: 直近N本の stem/category/tone を確認
             recent_stems = [r["hook_stem"] for r in result[-8:]]
             recent_cats = [r["hook_category"] for r in result[-5:]]
+            recent_tones = [r.get("tone", "mid_pain") for r in result[-3:]]
 
             stem_ok = candidate["hook_stem"] not in recent_stems
             cat_ok = candidate["hook_category"] not in recent_cats
 
-            if stem_ok and cat_ok:
+            # 感情トーン制約: 同一トーン3連続禁止
+            candidate_tone = candidate.get("tone", "mid_pain")
+            tone_ok = not (
+                len(recent_tones) >= 2
+                and all(t == candidate_tone for t in recent_tones[-2:])
+            )
+
+            # 痛み系2連続の後は回復系を優先（ソフト制約: 候補があれば）
+            pain_streak = 0
+            for r in reversed(result):
+                if r.get("tone") in ("high_pain", "mid_pain"):
+                    pain_streak += 1
+                else:
+                    break
+            pain_needs_recovery = pain_streak >= 2 and candidate_tone != "recovery"
+            # pain_needs_recovery はソフト制約なので、他に候補がなければ無視
+
+            if stem_ok and cat_ok and tone_ok and not pain_needs_recovery:
                 result.append(candidate)
                 remaining.pop(i)
                 placed = True
                 break
 
         if not placed:
-            # 制約を満たせない場合、スコア最上位をそのまま配置
+            # ソフト制約(pain_needs_recovery)を緩和して再試行
+            for i, candidate in enumerate(remaining):
+                recent_stems = [r["hook_stem"] for r in result[-8:]]
+                recent_cats = [r["hook_category"] for r in result[-5:]]
+                recent_tones = [r.get("tone", "mid_pain") for r in result[-3:]]
+
+                stem_ok = candidate["hook_stem"] not in recent_stems
+                cat_ok = candidate["hook_category"] not in recent_cats
+                candidate_tone = candidate.get("tone", "mid_pain")
+                tone_ok = not (
+                    len(recent_tones) >= 2
+                    and all(t == candidate_tone for t in recent_tones[-2:])
+                )
+
+                if stem_ok and cat_ok and tone_ok:
+                    result.append(candidate)
+                    remaining.pop(i)
+                    placed = True
+                    break
+
+        if not placed:
+            # すべての制約を満たせない場合、スコア最上位をそのまま配置
             result.append(remaining.pop(0))
 
     return result
@@ -335,6 +399,7 @@ def main() -> None:
             published_count += 1
             continue
         if info["status"] == sheets.STATUS_GENERATED:
+            script["tone"] = info.get("tone", "mid_pain")
             unpublished.append(script)
 
     print(f"  公開済み: {published_count}本")
@@ -381,7 +446,7 @@ def main() -> None:
         rank_counts[rank] += 1
         print(f"\n{i:3d}. [{rank}] スコア {v['score']:+3d}  {v['folder']}")
         print(f"     タイトル: {v['title']}")
-        print(f"     hook: {v['hook']}  [stem={v['hook_stem']}, cat={v['hook_category']}]")
+        print(f"     hook: {v['hook']}  [stem={v['hook_stem']}, cat={v['hook_category']}, tone={v.get('tone', '?')}]")
         if v["reasons"]:
             for r in v["reasons"]:
                 print(f"       - {r}")
@@ -412,6 +477,26 @@ def main() -> None:
     print("\nカテゴリ分布（未公開のみ）:")
     for cat, count in cat_dist.most_common():
         print(f"  {cat}: {count}本")
+
+    # 感情トーン分布
+    tone_dist: Counter = Counter()
+    for v in reordered:
+        tone_dist[v.get("tone", "?")] += 1
+    tone_labels = {"high_pain": "高痛み", "mid_pain": "中痛み→安心", "recovery": "回復・肯定"}
+    print("\n感情トーン分布（未公開のみ）:")
+    for tone, count in tone_dist.most_common():
+        label = tone_labels.get(tone, tone)
+        print(f"  {label}({tone}): {count}本")
+
+    # 感情トーン3連続チェック
+    tone_violations = 0
+    for i in range(2, len(reordered)):
+        if (reordered[i].get("tone") == reordered[i-1].get("tone") == reordered[i-2].get("tone")):
+            tone_violations += 1
+    if tone_violations:
+        print(f"\n  [警告] 感情トーン3連続: {tone_violations}箇所")
+    else:
+        print("\n  感情トーン3連続: なし（OK）")
 
     # 8. publish_queue.json 書き出し
     queue = [v["folder"] for v in reordered]

@@ -130,9 +130,12 @@ def _select_best_candidate(
     1回のAPI呼び出しで3候補を取得し、合格する最良のものを返す。
     全候補が不合格の場合のみ、従来の1候補リトライを行う。
     """
-    # Phase 1: 3候補を1回のAPIで生成
+    # Phase 1: 3候補を1回のAPIで生成（使用済みhookを禁止リストとして注入）
     print("  [Phase1] 3候補を一括生成...")
-    candidates = script_gen.generate_shorts_candidates(topic, theme=theme, count=3)
+    candidates = script_gen.generate_shorts_candidates(
+        topic, theme=theme, count=3,
+        prohibited_hooks=batch_hook_texts,
+    )
     if not candidates:
         raise RuntimeError("台本生成に失敗（候補が0件）")
 

@@ -57,6 +57,11 @@ _THEME_MODEL_MAP = {
     "あるある": _MODEL_SONNET,      # 比較焦り系 → ニュアンス重要
     "歴史データ": _MODEL_HAIKU,     # 数字系 → Haikuで十分
     "ガチホモチベ": _MODEL_SONNET,  # 継続モチベ系 → 意外性重要
+    "後悔系": _MODEL_SONNET,        # 感情ニュアンス重要
+    "具体数字系": _MODEL_HAIKU,     # 数字フォーマット準拠で十分
+    "積立疲れ系": _MODEL_SONNET,    # 心理的共感が核
+    "比較焦り系": _MODEL_SONNET,    # ニュアンス重要
+    "継続モチベ系": _MODEL_SONNET,  # 意外性重要
 }
 
 
@@ -189,19 +194,57 @@ def _apply_loop_closing(scenes: list, hook_word: str, theme_name: str = "") -> t
             break
     return closing, closing_slide
 
-# 結論フレーズ（10パターンからランダム選択）
-CONCLUSION_PHRASES = [
-    "やっぱり、長期投資しかないですね。",
-    "市場に残る人だけが勝ちます。",
-    "暴落は、長期投資家の味方です。",
-    "時間が、最大の武器です。",
-    "退場しない人だけが勝つ。",
+# 結論フレーズ（3群25パターン）
+# A群: 継続肯定系 — 「今のままでいい」系（継続モチベ系・積立疲れ系向き）
+_RESOLVE_CONTINUE = [
     "今日もそのままでいい。",
     "何もしない日にも、意味があります。",
     "変えなかったことも、積み上がっています。",
-    "焦らない日が、長期では効いてきます。",
     "続いているなら、それで十分です。",
+    "淡々と続けた人が、最後に笑います。",
+    "地味な日こそ、複利が効いている。",
+    "動かなかった勇気が、資産を守っている。",
+    "退屈な投資が、一番強い。",
+    "今日も積み立てた。それだけで正解です。",
 ]
+# B群: 時間肯定系 — 「時間は味方」系（歴史データ系・具体数字系向き）
+_RESOLVE_TIME = [
+    "時間が、最大の武器です。",
+    "やっぱり、長期投資しかないですね。",
+    "時間は静かに味方してくれます。",
+    "10年後の自分が、今日に感謝する。",
+    "市場にいた時間が、全てを決めます。",
+    "長く持った人だけが見える景色がある。",
+    "1年では見えない。10年なら見える。",
+    "数字は嘘をつかない。時間も裏切らない。",
+]
+# C群: 不安鎮静系 — 「焦らなくて大丈夫」系（後悔系・比較焦り系向き）
+_RESOLVE_CALM = [
+    "市場に残る人だけが勝ちます。",
+    "暴落は、長期投資家の味方です。",
+    "退場しない人だけが勝つ。",
+    "焦らない日が、長期では効いてきます。",
+    "売らなかった日が、一番の判断だった。",
+    "怖い時こそ、何もしないのが最適解。",
+    "不安は通り過ぎる。積み立ては残る。",
+    "暴落の翌年に、最大のリターンが来る。",
+]
+# 全パターン統合（ランダム選択用の後方互換）
+CONCLUSION_PHRASES = _RESOLVE_CONTINUE + _RESOLVE_TIME + _RESOLVE_CALM
+
+# テーマ → resolveカテゴリのマッピング
+_THEME_RESOLVE_MAP = {
+    "継続モチベ系": _RESOLVE_CONTINUE,
+    "積立疲れ系": _RESOLVE_CONTINUE,
+    "メリット": _RESOLVE_TIME,
+    "歴史データ": _RESOLVE_TIME,
+    "具体数字系": _RESOLVE_TIME,
+    "格言": _RESOLVE_TIME,
+    "後悔系": _RESOLVE_CALM,
+    "比較焦り系": _RESOLVE_CALM,
+    "あるある": _RESOLVE_CALM,
+    "ガチホモチベ": _RESOLVE_CALM,
+}
 
 # Shortsテーマ定義（曜日ローテーション）
 SHORTS_THEMES = {
@@ -210,6 +253,11 @@ SHORTS_THEMES = {
     "あるある": "長期投資あるある（暴落で不安、短期トレードに目移り、含み損で眠れない、SNSに焦るなど共感系）",
     "歴史データ": "歴史データ（過去の暴落と回復、市場の長期成長、具体的な数字やデータ）",
     "ガチホモチベ": "ガチホモチベーション（長期投資を続ける理由、市場にい続ける大切さ、感情に負けない投資）",
+    "後悔系": "投資をやめた・配当を使った・暴落で売った人の後悔（具体金額で機会損失を示し、ガチホの正しさを再確認させる）",
+    "具体数字系": "具体的な金額・利回り・年数で投資の威力を示す（月○万円×○年=○万円、非課税効果○万円などシミュレーション系）",
+    "積立疲れ系": "積立が辛くなった人への共感と応援（増えない不安、やめたい気持ち、退屈さへの寄り添い）",
+    "比較焦り系": "他人と比べて焦る気持ちへの共感（SNS爆益、友人の仮想通貨、投資系YouTuberの含み益など）",
+    "継続モチベ系": "静かに続けている人を肯定する（何もしない日の意味、口座を閉じなかった日、退屈な投資の正しさ）",
 }
 
 # 曜日→テーマのマッピング（0=月曜, 4=金曜）
@@ -527,54 +575,21 @@ def _trim_to_first_sentence(text: str, max_len: int) -> str:
 
 
 def _select_conclusion_and_connector(data_text: str, theme_name: str = "") -> tuple:
-    """dataの内容に最も合う結論フレーズと接続詞を選択する。"""
-    # テーマ主導: 継続モチベ系なら継続肯定resolveを最優先固定
-    is_continue_theme = theme_name == "継続モチベ系"
-    if is_continue_theme:
-        conclusion = random.choice([
-            "今日もそのままでいい。",
-            "何もしない日にも、意味があります。",
-            "変えなかったことも、積み上がっています。",
-            "焦らない日が、長期では効いてきます。",
-            "続いているなら、それで十分です。",
-        ])
-        connector = "そう、"
-        return conclusion, connector
+    """dataの内容とテーマに最も合う結論フレーズと接続詞を選択する。
 
+    テーマ → resolveカテゴリ（_THEME_RESOLVE_MAP）を優先し、
+    data内容でさらに接続詞を調整する。
+    """
+    # テーマに対応するresolveカテゴリから選択
+    resolve_pool = _THEME_RESOLVE_MAP.get(theme_name, CONCLUSION_PHRASES)
+    conclusion = random.choice(resolve_pool)
+
+    # 接続詞: data内容から判定
     is_crash = any(w in data_text for w in _CRASH_WORDS)
     is_exit = any(w in data_text for w in _EXIT_WORDS)
     is_negative = is_crash or is_exit
     is_surprise = any(w in data_text for w in _SURPRISE_WORDS) and not is_negative
 
-    # 結論フレーズ選択
-    if is_crash:
-        conclusion = random.choice([
-            "暴落は、長期投資家の味方です。",
-            "市場に残る人だけが勝ちます。",
-        ])
-    elif is_exit:
-        conclusion = random.choice([
-            "市場に残る人だけが勝ちます。",
-            "退場しない人だけが勝つ。",
-        ])
-    elif any(w in data_text for w in _TIME_WORDS):
-        conclusion = random.choice([
-            "時間が、最大の武器です。",
-            "やっぱり、長期投資しかないですね。",
-            "退場しない人だけが勝つ。",
-        ])
-    elif any(w in data_text for w in _PSYCH_WORDS):
-        conclusion = random.choice([
-            "退場しない人だけが勝つ。",
-            "市場に残る人だけが勝ちます。",
-        ])
-    else:
-        conclusion = random.choice([
-            "やっぱり、長期投資しかないですね。",
-            "時間が、最大の武器です。",
-        ])
-
-    # 接続詞選択
     if is_negative:
         connector = "でも、"
     elif is_surprise:
@@ -633,11 +648,15 @@ def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dic
 
 def generate_shorts_candidates(
     topic: str, theme: str = "ガチホモチベ", count: int = 3,
+    prohibited_hooks: list = None,
 ) -> list:
     """1回のAPI呼び出しでcount個のShorts台本候補を生成する。
 
     コスト削減用: 従来は1候補ずつAPI呼び出し→リトライだったが、
     1回のAPI呼び出しで複数候補を取得し、ローカルでスコアリングして最良を選ぶ。
+
+    prohibited_hooks: 同一バッチで既に使用済みのhookテキスト一覧。
+                      プロンプトに「これらのhookは使用禁止」として注入する。
 
     戻り値: list[dict]（各要素は generate_shorts_script と同じ形式の台本）
     """
@@ -647,6 +666,7 @@ def generate_shorts_candidates(
         expected_scenes=5,
         extra_vars=_build_shorts_vars(theme),
         num_candidates=count,
+        prohibited_hooks=prohibited_hooks,
     )
     if isinstance(result, dict):
         # 単一候補が返った場合（パース失敗時のフォールバック）
@@ -672,6 +692,7 @@ def _generate_script(
     expected_scenes: int,
     extra_vars: dict = None,
     num_candidates: int = 1,
+    prohibited_hooks: list = None,
 ) -> dict | list:
     """Claude API で台本を生成する共通関数。
 
@@ -711,13 +732,23 @@ def _generate_script(
         # プロンプトキャッシュ: 固定テンプレート部分を system に分離
         system_text = prompt
         if num_candidates > 1:
+            # 禁止hookステム注入
+            prohibited_block = ""
+            if prohibited_hooks:
+                stems = list(dict.fromkeys(prohibited_hooks))[:15]  # 最大15個
+                prohibited_block = (
+                    f"\n【禁止hookワード（同一バッチで使用済み。これらと同じ・類似のhookは絶対に使わないこと）】\n"
+                    + "\n".join(f"- 「{h}」" for h in stems)
+                    + "\n"
+                )
             user_text = (
                 f"トピック「{topic}」の台本を{num_candidates}パターン生成してください。\n"
                 f"それぞれ異なるhookワードとdataを使うこと（同じhookやdataの使い回し禁止）。\n\n"
                 f"【重要: 各候補の切り口を明確に変えること】\n"
                 f"- 候補A: 数字先頭型（hookの1語目に具体的な数字を置く。例:「1800万円」「20年」）\n"
                 f"- 候補B: 感情先頭型（hookの1語目に感情・痛みワードを置く。例:「含み損」「不安」）\n"
-                f"- 候補C: 後悔先頭型（hookの1語目に後悔・行動ワードを置く。例:「売った人」「やめた人」）\n\n"
+                f"- 候補C: 後悔先頭型（hookの1語目に後悔・行動ワードを置く。例:「売った人」「やめた人」）\n"
+                f"{prohibited_block}\n"
                 f"JSON配列で出力: [{num_candidates}個のJSON]"
             )
             max_tokens = 1500 * num_candidates
@@ -748,11 +779,14 @@ def _generate_script(
             num_candidates=num_candidates,
         )
         raw = message.content[0].text.strip()
+        # マークダウンのコードブロック装飾を除去
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```\s*$", "", raw)
 
         # JSON を抽出
         if num_candidates > 1:
-            # JSON配列を探す
-            m = re.search(r"\[\s*\{[\s\S]*?\}\s*\]", raw)
+            # JSON配列を探す（貪欲マッチで配列全体をキャプチャ）
+            m = re.search(r"\[\s*\{[\s\S]*\}\s*\]", raw)
             if not m:
                 # 配列が見つからなければ単一JSONとして処理
                 m = re.search(r"\{[\s\S]*\}", raw)
