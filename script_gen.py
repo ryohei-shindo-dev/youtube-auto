@@ -393,19 +393,12 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    D: 「時間が、最大の武器です。」← 複利・積立・長期保有系データに合う
    E: 「退場しない人だけが勝つ。」← 損失・失敗・心理系データに合う
 
-   接続詞の選択:
-   ■ dataが失敗・損失の話 →「でも、」（逆接: 失敗→でも希望がある）
-     例: 「売った人の9割が回復を逃した。でも、市場に残る人だけが勝ちます。」✓
-   ■ dataが成功・実績の話 →「だから、」（順接: 実績→だから続けよう）
-     例: 「20年続けた人、元本割れゼロ。だから、時間が最大の武器です。」✓
-   ■ dataが意外な事実 →「そう、」（肯定: 事実→そうなんです）
-     例: 「バフェットの資産99%は50歳以降。そう、時間が最大の武器です。」✓
-
-   ★チェック: dataを読んだ直後にresolveを読み、「だから何？」と思ったらNG。書き直せ。
-   悪い組み合わせ（絶対禁止）:
-   ✗ 「年7%で2倍。だから、暴落は味方。」← 複利と暴落は無関係。
-   ✗ 「配当再投資で2倍。だから、暴落は味方。」← 配当と暴落は無関係。
-   ✗ 「月3万で6000万。でも、退場しない人だけが勝つ。」← ポジティブに逆接は不自然。
+   ★重要: resolveに接続詞（「だから」「でも」「そう」）を付けるな。
+   シーン切替で間があるので、結論フレーズだけで十分自然に聞こえる。
+     例: 「売った人の9割が回復を逃した。」→「市場に残る人だけが勝ちます。」✓
+     例: 「20年続けた人、元本割れゼロ。」→「時間が最大の武器です。」✓
+   ✗ 「だから、時間が最大の武器です。」← 接続詞が唐突。禁止。
+   ✗ 「でも、市場に残る人だけが勝ちます。」← 接続詞が唐突。禁止。
 
 5. closing（2秒）: 固定。textは「{closing}」のみ。
 
@@ -584,18 +577,8 @@ def _select_conclusion_and_connector(data_text: str, theme_name: str = "") -> tu
     resolve_pool = _THEME_RESOLVE_MAP.get(theme_name, CONCLUSION_PHRASES)
     conclusion = random.choice(resolve_pool)
 
-    # 接続詞: data内容から判定
-    is_crash = any(w in data_text for w in _CRASH_WORDS)
-    is_exit = any(w in data_text for w in _EXIT_WORDS)
-    is_negative = is_crash or is_exit
-    is_surprise = any(w in data_text for w in _SURPRISE_WORDS) and not is_negative
-
-    if is_negative:
-        connector = "でも、"
-    elif is_surprise:
-        connector = "そう、"
-    else:
-        connector = "だから、"
+    # 接続詞は付けない（シーン切替で間があるため、接続詞なしが自然）
+    connector = ""
 
     return conclusion, connector
 

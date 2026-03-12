@@ -37,6 +37,7 @@ _READING_FIXES = [
     ("信託報酬", "しんたくほうしゅう"),
     ("投資信託", "とうししんたく"),
     ("分散投資", "ぶんさんとうし"),
+    ("長期投資家", "ちょうきとうしか"),
     ("長期投資", "ちょうきとうし"),
     ("短期投資", "たんきとうし"),
     ("積立投資", "つみたてとうし"),
@@ -274,7 +275,7 @@ def generate_voice_for_scenes(
         text = _format_for_tts(raw_text)
 
         print(f"  シーン{idx}（{role}）の音声を生成中...")
-        success = _text_to_speech(api_key, voice_id, text, output_path)
+        success = _text_to_speech(api_key, voice_id, text, output_path, role=role)
 
         if success:
             duration = _get_audio_duration(output_path)
@@ -338,6 +339,7 @@ def _text_to_speech(
     voice_id: str,
     text: str,
     output_path: pathlib.Path,
+    role: str = "",
 ) -> bool:
     """ElevenLabs API で1シーン分の音声を生成する。失敗時は False。"""
     url = ELEVENLABS_TTS_URL.format(voice_id=voice_id)
@@ -345,11 +347,13 @@ def _text_to_speech(
         "xi-api-key": api_key,
         "Content-Type": "application/json",
     }
+    # closingはノイズが出やすいためstabilityを高めに設定
+    stability = 0.65 if role == "closing" else 0.4
     payload = {
         "text": text,
         "model_id": ELEVENLABS_MODEL,
         "voice_settings": {
-            "stability": 0.4,
+            "stability": stability,
             "similarity_boost": 0.75,
             "style": 0.2,
             "use_speaker_boost": True,
