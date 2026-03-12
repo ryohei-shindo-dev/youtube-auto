@@ -30,6 +30,8 @@ Claude API で YouTube 用の台本を生成するモジュール。
   月: メリット / 火: 格言 / 水: あるある / 木: 歴史データ / 金: ガチホモチベ
 """
 
+from __future__ import annotations
+
 import json
 import os
 import pathlib
