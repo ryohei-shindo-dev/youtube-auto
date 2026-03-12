@@ -572,8 +572,8 @@ def extract_scene_texts(script_data: dict, *roles: str) -> dict:
     return result
 
 
-def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
-    """Shorts用台本（5シーン、16〜18秒）を生成する。"""
+def _build_shorts_vars(theme: str) -> dict:
+    """Shorts生成用の固定変数（opening, conclusion, closing等）をセットアップする。"""
     theme_desc = SHORTS_THEMES.get(theme, SHORTS_THEMES["ガチホモチベ"])
     # 語りかけフレーズ: 約3本に1本だけ入れる（尺圧迫を避ける）
     if random.random() < _SHORTS_OPENING_RATIO:
@@ -583,21 +583,47 @@ def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dic
         opening = ""
     conclusion = random.choice(CONCLUSION_PHRASES)  # 初期値（ポスプロで上書き）
     closing_idx = random.randrange(len(CLOSING_PHRASES_LIST))
-    closing = CLOSING_PHRASES_LIST[closing_idx]
-    closing_slide = CLOSING_SLIDE_TEXTS[closing_idx]
+    return {
+        "theme_name": theme,
+        "theme_desc": theme_desc,
+        "opening": opening,
+        "conclusion": conclusion,
+        "closing": CLOSING_PHRASES_LIST[closing_idx],
+        "closing_slide": CLOSING_SLIDE_TEXTS[closing_idx],
+    }
+
+
+def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dict:
+    """Shorts用台本（5シーン、16〜18秒）を生成する。"""
     return _generate_script(
         topic,
         SHORTS_TEMPLATE,
         expected_scenes=5,
-        extra_vars={
-            "theme_name": theme,
-            "theme_desc": theme_desc,
-            "opening": opening,
-            "conclusion": conclusion,
-            "closing": closing,
-            "closing_slide": closing_slide,
-        },
+        extra_vars=_build_shorts_vars(theme),
     )
+
+
+def generate_shorts_candidates(
+    topic: str, theme: str = "ガチホモチベ", count: int = 3,
+) -> list:
+    """1回のAPI呼び出しでcount個のShorts台本候補を生成する。
+
+    コスト削減用: 従来は1候補ずつAPI呼び出し→リトライだったが、
+    1回のAPI呼び出しで複数候補を取得し、ローカルでスコアリングして最良を選ぶ。
+
+    戻り値: list[dict]（各要素は generate_shorts_script と同じ形式の台本）
+    """
+    result = _generate_script(
+        topic,
+        SHORTS_TEMPLATE,
+        expected_scenes=5,
+        extra_vars=_build_shorts_vars(theme),
+        num_candidates=count,
+    )
+    if isinstance(result, dict):
+        # 単一候補が返った場合（パース失敗時のフォールバック）
+        return [result] if result else []
+    return result
 
 
 def generate_long_script(topic: str) -> dict:
@@ -617,12 +643,17 @@ def _generate_script(
     template: str,
     expected_scenes: int,
     extra_vars: dict = None,
-) -> dict:
-    """Claude API で台本を生成する共通関数。"""
+    num_candidates: int = 1,
+) -> dict | list:
+    """Claude API で台本を生成する共通関数。
+
+    num_candidates=1: 従来通り dict を返す
+    num_candidates>1: 候補リスト list[dict] を返す（1回のAPIで複数生成）
+    """
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         print("  [エラー] ANTHROPIC_API_KEY が設定されていません。")
-        return {}
+        return {} if num_candidates == 1 else []
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -650,16 +681,23 @@ def _generate_script(
             print(f"  [insights] 分析結果を差し込み（{insights.get('meta', {}).get('sample_size', 0)}本）")
 
         # プロンプトキャッシュ: 固定テンプレート部分を system に分離
-        # system 部分はバッチ内で使い回され、2回目以降はキャッシュヒットでトークン節約
-        # user 部分はトピック固有の可変テキストのみ
-        system_text = prompt  # テンプレート全体を system に入れる
-        user_text = f"トピック「{topic}」の台本をJSON形式で生成してください。"
+        system_text = prompt
+        if num_candidates > 1:
+            user_text = (
+                f"トピック「{topic}」の台本を{num_candidates}パターン生成してください。\n"
+                f"それぞれ異なるhookワードとdataを使うこと（同じhookやdataの使い回し禁止）。\n"
+                f"JSON配列で出力: [{num_candidates}個のJSON]"
+            )
+            max_tokens = 1500 * num_candidates
+        else:
+            user_text = f"トピック「{topic}」の台本をJSON形式で生成してください。"
+            max_tokens = 2000
 
-        print(f"  Claude API で台本を生成中（トピック: {topic}）...")
+        print(f"  Claude API で台本を生成中（トピック: {topic}、候補数: {num_candidates}）...")
         print(f"  挨拶: {opening} / 結論: {conclusion}")
         message = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=2000,
+            max_tokens=max_tokens,
             system=[{
                 "type": "text",
                 "text": system_text,
@@ -670,188 +708,234 @@ def _generate_script(
         raw = message.content[0].text.strip()
 
         # JSON を抽出
-        m = re.search(r"\{[\s\S]*\}", raw)
-        if not m:
-            print("  [エラー] JSON形式のレスポンスが見つかりませんでした。")
-            _save_debug("script_raw_response.txt", raw)
-            return {}
+        if num_candidates > 1:
+            # JSON配列を探す
+            m = re.search(r"\[\s*\{[\s\S]*?\}\s*\]", raw)
+            if not m:
+                # 配列が見つからなければ単一JSONとして処理
+                m = re.search(r"\{[\s\S]*\}", raw)
+                if not m:
+                    print("  [エラー] JSON形式のレスポンスが見つかりませんでした。")
+                    _save_debug("script_raw_response.txt", raw)
+                    return []
+                candidates_raw = [json.loads(m.group())]
+            else:
+                candidates_raw = json.loads(m.group())
+                if not isinstance(candidates_raw, list):
+                    candidates_raw = [candidates_raw]
+        else:
+            m = re.search(r"\{[\s\S]*\}", raw)
+            if not m:
+                print("  [エラー] JSON形式のレスポンスが見つかりませんでした。")
+                _save_debug("script_raw_response.txt", raw)
+                return {}
+            candidates_raw = [json.loads(m.group())]
 
-        data = json.loads(m.group())
+        # 各候補をポスト処理
+        results = []
+        for ci, data in enumerate(candidates_raw):
+            if num_candidates > 1:
+                print(f"\n  --- 候補 {ci+1}/{len(candidates_raw)} ---")
+            result = _postprocess_script(
+                data, topic, fmt_vars, expected_scenes,
+            )
+            if result:
+                results.append(result)
 
-        # 固定テキストを強制適用（Claudeが指示に従わなくても上書き）
-        scenes = data.get("scenes", [])
-
-        # ── ループ再生: hookワードを取得してclosingに埋め込む ──
-        hook_word = ""
-        for s in scenes:
-            if s.get("role") == "hook":
-                hook_word = s.get("text", "").rstrip("。？！ ")
-                break
-        if hook_word:
-            closing, closing_slide = _apply_loop_closing(scenes, hook_word, fmt_vars.get("theme_name", ""))
-            print(f"  [ループ再生] closing にhookワード埋め込み:「{closing_slide}」")
-
-        for s in scenes:
-            role = s.get("role", "")
-            if role == "empathy":
-                if opening:
-                    # 語りかけフレーズあり → slide_textに表示、ナレーションにも含める
-                    s["slide_text"] = opening
-                    if opening not in s.get("text", ""):
-                        s["text"] = s.get("text", "").rstrip("。") + "。" + opening
-                else:
-                    # 語りかけなし → ナレーションからslide_textを生成（絵文字防止）
-                    s["slide_text"] = s.get("text", "").rstrip("。？！ ")[:10]
-            elif role == "opening":
-                # 通常動画用: openingのslide_textを固定
-                s["slide_text"] = OPENING_PHRASE
-            elif role == "resolve":
-                # resolveの整形は文字数制限ループ内で実施（data内容を見て結論を選択）
-                pass
-            elif role == "closing":
-                s["slide_text"] = closing_slide
-                s["text"] = closing
-
-            if "slide_text" in s:
-                s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
-
-        # 文字数制限チェック
-        # 固定フレーズを保護しながら AI生成部分を切り詰める
-        strict_limits = {"hook": 8, "data": 22}
-        # data_text をループ前に1回だけ取得（resolve等で使用）
-        data_text = next((s.get("text", "") for s in scenes if s.get("role") == "data"), "")
-        for s in scenes:
-            role = s.get("role", "")
-            text = s.get("text", "")
-
-            if role == "hook":
-                # hookの痛みワードチェック: 弱いhookを検出して警告
-                hook_text = text.rstrip("。？！ ")
-                if any(w in hook_text for w in WEAK_HOOKS) and not any(w in hook_text for w in STRONG_HOOKS):
-                    replaced = False
-                    for kw, replacement in _TOPIC_PAIN_MAP.items():
-                        if kw in topic:
-                            print(f"  [修正] hookが弱い「{hook_text}」→「{replacement}」に変更")
-                            s["text"] = replacement
-                            s["slide_text"] = _strip_terminal_punctuation(replacement)
-                            text = replacement
-                            replaced = True
-                            break
-                    if not replaced:
-                        print(f"  [警告] hookが弱い可能性:「{hook_text}」")
-                # ループ再生: hook修正後のワードでclosingを再更新
-                new_hook = text.rstrip("。？！ ")
-                if new_hook and new_hook != hook_word:
-                    hook_word = new_hook
-                    closing, closing_slide = _apply_loop_closing(scenes, hook_word)
-                    print(f"  [ループ再生] hook修正に合わせてclosing更新:「{closing_slide}」")
-
-            if role == "data":
-                # 誇張表現を正確な表現に自動置換
-                for bad, good in _EXAGGERATION_FIXES.items():
-                    if bad in text:
-                        old_text = text
-                        text = text.replace(bad, good)
-                        s["text"] = text
-                        s["slide_text"] = _strip_terminal_punctuation(good[:14])
-                        print(f"  [修正] data誇張表現を修正:「{old_text.rstrip('。')}」→「{text.rstrip('。')}」")
-                        data_text = text  # resolve用に更新
-                        break
-
-            if role == "data" and len(text) > 22:
-                # dataが22文字超 → データプールからフォールバック選択
-                # まずトピックからカテゴリを特定
-                category = "長期"  # デフォルト
-                for kw, cat in _TOPIC_TO_CATEGORY.items():
-                    if kw in topic:
-                        category = cat
-                        break
-                pool = DATA_POOL.get(category, DATA_POOL["長期"])
-                # Claudeの生成文とキーワードが重なるものを優先選択
-                best = pool[0]
-                best_score = 0
-                for candidate in pool:
-                    score = sum(1 for w in candidate if w in text)
-                    if score > best_score:
-                        best_score = score
-                        best = candidate
-                print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
-                s["text"] = best
-                s["slide_text"] = _strip_terminal_punctuation(best[:14])
-                text = best
-                data_text = best  # resolve用に更新
-
-            elif role in strict_limits:
-                limit = strict_limits[role]
-                if len(text) > limit:
-                    print(f"  [警告] {role}が{len(text)}文字（制限{limit}文字）→ 切り詰めます")
-                    parts = re.split(r"(?<=[。？！])", text)
-                    trimmed = ""
-                    for part in parts:
-                        if len(trimmed + part) <= limit:
-                            trimmed += part
-                        else:
-                            break
-                    s["text"] = trimmed if trimmed else text[:limit]
-
-            elif role == "empathy":
-                # AI生成部分の間延び防止
-                if opening and opening in text:
-                    raw_ai_part = text.replace(opening, "").strip().rstrip("。、 ")
-                    ai_part = _trim_to_first_sentence(raw_ai_part, 12)
-                    if ai_part != raw_ai_part:
-                        print(f"  [調整] empathyのAI部分を切り詰めました")
-                    s["text"] = (ai_part + "。" + opening) if ai_part else opening
-                elif not opening:
-                    # 語りかけなし → AI生成の共感テキストを10文字以内に制限
-                    # ただし最低4文字は確保（「あなたも。」等の短すぎ防止）
-                    if len(text) > 10:
-                        trimmed = _trim_to_first_sentence(text, 10)
-                        if len(trimmed) >= 4:
-                            s["text"] = trimmed + "。"
-                            print(f"  [調整] empathy（語りかけなし）を切り詰めました")
-                        else:
-                            print(f"  [維持] empathy切り詰め結果が短すぎるため元テキストを維持")
-
-            elif role == "resolve":
-                # dataの内容に最も合う結論フレーズと接続詞を一括選択
-                theme_name = fmt_vars.get("theme_name", "")
-                best_conclusion, connector = _select_conclusion_and_connector(data_text, theme_name)
-                if best_conclusion != conclusion:
-                    print(f"  [修正] 結論フレーズを変更: 「{conclusion}」→「{best_conclusion}」")
-                    conclusion = best_conclusion
-
-                s["text"] = connector + conclusion
-                short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
-                s["slide_text"] = _strip_terminal_punctuation(short_conclusion)
-
-            if "slide_text" in s:
-                s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
-
-        # バリデーション
-        title = data.get("title", "").strip()
-        if not title or len(scenes) != expected_scenes:
-            print(f"  [エラー] 台本の形式が不正です（タイトル: {bool(title)}, シーン数: {len(scenes)}/{expected_scenes}）")
-            _save_debug("script_invalid.json", json.dumps(data, ensure_ascii=False, indent=2))
-            return {}
-
-        total_sec = sum(s.get("duration_sec", 0) for s in scenes)
-        total_chars = sum(len(s.get("text", "")) for s in scenes)
-        print(f"  台本生成完了（タイトル: {title}）")
-        print(f"  シーン数: {len(scenes)} / 想定尺: {total_sec}秒 / 文字数: {total_chars}文字")
-
-        # トピックを返り値に含める（transcript.json への保存・dedupe等で使用）
-        data["topic"] = topic
-
-        return data
+        if num_candidates == 1:
+            return results[0] if results else {}
+        return results
 
     except json.JSONDecodeError as e:
         print(f"  [エラー] JSONパースに失敗しました: {e}")
         _save_debug("script_json_error.txt", raw)
-        return {}
+        return {} if num_candidates == 1 else []
     except Exception as e:
         print(f"  [エラー] 台本生成中にエラーが発生しました: {e}")
+        return {} if num_candidates == 1 else []
+
+
+def _postprocess_script(
+    data: dict,
+    topic: str,
+    fmt_vars: dict,
+    expected_scenes: int,
+) -> dict:
+    """Claude が返した生JSON を整形・修正・バリデーションして完成台本にする。
+
+    戻り値: 整形済み台本 dict。失敗時は空の {}。
+    """
+    opening = fmt_vars.get("opening", "")
+    conclusion = fmt_vars.get("conclusion", CONCLUSION_PHRASES[0])
+    closing = fmt_vars.get("closing", CLOSING_PHRASE)
+    closing_slide = fmt_vars.get("closing_slide", "明日もガチホしたい人はフォロー")
+
+    # 固定テキストを強制適用（Claudeが指示に従わなくても上書き）
+    scenes = data.get("scenes", [])
+
+    # ── ループ再生: hookワードを取得してclosingに埋め込む ──
+    hook_word = ""
+    for s in scenes:
+        if s.get("role") == "hook":
+            hook_word = s.get("text", "").rstrip("。？！ ")
+            break
+    if hook_word:
+        closing, closing_slide = _apply_loop_closing(scenes, hook_word, fmt_vars.get("theme_name", ""))
+        print(f"  [ループ再生] closing にhookワード埋め込み:「{closing_slide}」")
+
+    for s in scenes:
+        role = s.get("role", "")
+        if role == "empathy":
+            if opening:
+                # 語りかけフレーズあり → slide_textに表示、ナレーションにも含める
+                s["slide_text"] = opening
+                if opening not in s.get("text", ""):
+                    s["text"] = s.get("text", "").rstrip("。") + "。" + opening
+            else:
+                # 語りかけなし → ナレーションからslide_textを生成（絵文字防止）
+                s["slide_text"] = s.get("text", "").rstrip("。？！ ")[:10]
+        elif role == "opening":
+            # 通常動画用: openingのslide_textを固定
+            s["slide_text"] = OPENING_PHRASE
+        elif role == "resolve":
+            # resolveの整形は文字数制限ループ内で実施（data内容を見て結論を選択）
+            pass
+        elif role == "closing":
+            s["slide_text"] = closing_slide
+            s["text"] = closing
+
+        if "slide_text" in s:
+            s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
+
+    # 文字数制限チェック
+    # 固定フレーズを保護しながら AI生成部分を切り詰める
+    strict_limits = {"hook": 8, "data": 22}
+    # data_text をループ前に1回だけ取得（resolve等で使用）
+    data_text = next((s.get("text", "") for s in scenes if s.get("role") == "data"), "")
+    for s in scenes:
+        role = s.get("role", "")
+        text = s.get("text", "")
+
+        if role == "hook":
+            # hookの痛みワードチェック: 弱いhookを検出して警告
+            hook_text = text.rstrip("。？！ ")
+            if any(w in hook_text for w in WEAK_HOOKS) and not any(w in hook_text for w in STRONG_HOOKS):
+                replaced = False
+                for kw, replacement in _TOPIC_PAIN_MAP.items():
+                    if kw in topic:
+                        print(f"  [修正] hookが弱い「{hook_text}」→「{replacement}」に変更")
+                        s["text"] = replacement
+                        s["slide_text"] = _strip_terminal_punctuation(replacement)
+                        text = replacement
+                        replaced = True
+                        break
+                if not replaced:
+                    print(f"  [警告] hookが弱い可能性:「{hook_text}」")
+            # ループ再生: hook修正後のワードでclosingを再更新
+            new_hook = text.rstrip("。？！ ")
+            if new_hook and new_hook != hook_word:
+                hook_word = new_hook
+                closing, closing_slide = _apply_loop_closing(scenes, hook_word)
+                print(f"  [ループ再生] hook修正に合わせてclosing更新:「{closing_slide}」")
+
+        if role == "data":
+            # 誇張表現を正確な表現に自動置換
+            for bad, good in _EXAGGERATION_FIXES.items():
+                if bad in text:
+                    old_text = text
+                    text = text.replace(bad, good)
+                    s["text"] = text
+                    s["slide_text"] = _strip_terminal_punctuation(good[:14])
+                    print(f"  [修正] data誇張表現を修正:「{old_text.rstrip('。')}」→「{text.rstrip('。')}」")
+                    data_text = text  # resolve用に更新
+                    break
+
+        if role == "data" and len(text) > 22:
+            # dataが22文字超 → データプールからフォールバック選択
+            # まずトピックからカテゴリを特定
+            category = "長期"  # デフォルト
+            for kw, cat in _TOPIC_TO_CATEGORY.items():
+                if kw in topic:
+                    category = cat
+                    break
+            pool = DATA_POOL.get(category, DATA_POOL["長期"])
+            # Claudeの生成文とキーワードが重なるものを優先選択
+            best = pool[0]
+            best_score = 0
+            for candidate in pool:
+                score = sum(1 for w in candidate if w in text)
+                if score > best_score:
+                    best_score = score
+                    best = candidate
+            print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
+            s["text"] = best
+            s["slide_text"] = _strip_terminal_punctuation(best[:14])
+            text = best
+            data_text = best  # resolve用に更新
+
+        elif role in strict_limits:
+            limit = strict_limits[role]
+            if len(text) > limit:
+                print(f"  [警告] {role}が{len(text)}文字（制限{limit}文字）→ 切り詰めます")
+                parts = re.split(r"(?<=[。？！])", text)
+                trimmed = ""
+                for part in parts:
+                    if len(trimmed + part) <= limit:
+                        trimmed += part
+                    else:
+                        break
+                s["text"] = trimmed if trimmed else text[:limit]
+
+        elif role == "empathy":
+            # AI生成部分の間延び防止
+            if opening and opening in text:
+                raw_ai_part = text.replace(opening, "").strip().rstrip("。、 ")
+                ai_part = _trim_to_first_sentence(raw_ai_part, 12)
+                if ai_part != raw_ai_part:
+                    print(f"  [調整] empathyのAI部分を切り詰めました")
+                s["text"] = (ai_part + "。" + opening) if ai_part else opening
+            elif not opening:
+                # 語りかけなし → AI生成の共感テキストを10文字以内に制限
+                # ただし最低4文字は確保（「あなたも。」等の短すぎ防止）
+                if len(text) > 10:
+                    trimmed = _trim_to_first_sentence(text, 10)
+                    if len(trimmed) >= 4:
+                        s["text"] = trimmed + "。"
+                        print(f"  [調整] empathy（語りかけなし）を切り詰めました")
+                    else:
+                        print(f"  [維持] empathy切り詰め結果が短すぎるため元テキストを維持")
+
+        elif role == "resolve":
+            # dataの内容に最も合う結論フレーズと接続詞を一括選択
+            theme_name = fmt_vars.get("theme_name", "")
+            best_conclusion, connector = _select_conclusion_and_connector(data_text, theme_name)
+            if best_conclusion != conclusion:
+                print(f"  [修正] 結論フレーズを変更: 「{conclusion}」→「{best_conclusion}」")
+                conclusion = best_conclusion
+
+            s["text"] = connector + conclusion
+            short_conclusion = conclusion.rstrip("。").replace("やっぱり、", "").replace("、", "")
+            s["slide_text"] = _strip_terminal_punctuation(short_conclusion)
+
+        if "slide_text" in s:
+            s["slide_text"] = _clean_slide_text(s.get("slide_text", ""))
+
+    # バリデーション
+    title = data.get("title", "").strip()
+    if not title or len(scenes) != expected_scenes:
+        print(f"  [エラー] 台本の形式が不正です（タイトル: {bool(title)}, シーン数: {len(scenes)}/{expected_scenes}）")
+        _save_debug("script_invalid.json", json.dumps(data, ensure_ascii=False, indent=2))
         return {}
+
+    total_sec = sum(s.get("duration_sec", 0) for s in scenes)
+    total_chars = sum(len(s.get("text", "")) for s in scenes)
+    print(f"  台本生成完了（タイトル: {title}）")
+    print(f"  シーン数: {len(scenes)} / 想定尺: {total_sec}秒 / 文字数: {total_chars}文字")
+
+    # トピックを返り値に含める（transcript.json への保存・dedupe等で使用）
+    data["topic"] = topic
+
+    return data
 
 
 def _save_debug(filename: str, content: str):

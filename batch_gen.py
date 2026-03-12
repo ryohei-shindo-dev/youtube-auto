@@ -71,6 +71,146 @@ def _is_batch_data_duplicate(script_data: dict, batch_data_texts: list) -> bool:
     return _is_batch_duplicate(_get_data_text(script_data), batch_data_texts)
 
 
+def _check_candidate(
+    candidate: dict, topic: str,
+    batch_data_texts: list, batch_hook_texts: list, batch_resolve_texts: list,
+) -> dict:
+    """1つの候補をスコアリング・重複・トピック一致チェックする。
+
+    戻り値: {"ok": bool, "reason_type": str, "reason": str,
+             "score_result": dict, "candidate": dict}
+    reason_type: "score_low" / "duplicate" / "topic_mismatch" /
+                 "batch_duplicate" / "" (合格時)
+    """
+    result = candidate_ranker.score_script(candidate)
+    print(candidate_ranker.format_report(result))
+
+    if not candidate_ranker.is_acceptable(result):
+        return {"ok": False, "reason_type": "score_low",
+                "reason": f"スコア不足（{result['total_score']}/{result['max_score']}）",
+                "score_result": result, "candidate": candidate}
+
+    dup = dedupe_check.check_duplicate(candidate)
+    print(dedupe_check.format_report(dup))
+    if dup["is_duplicate"]:
+        return {"ok": False, "reason_type": "duplicate",
+                "reason": f"重複: {dup['reason']}",
+                "score_result": result, "candidate": candidate}
+
+    topic_result = candidate_ranker.check_topic_match(candidate)
+    if topic_result["score"] <= -2:
+        return {"ok": False, "reason_type": "topic_mismatch",
+                "reason": f"トピック不一致（スコア={topic_result['score']}）",
+                "score_result": result, "candidate": candidate}
+
+    # バッチ内重複チェック
+    if _is_batch_data_duplicate(candidate, batch_data_texts):
+        return {"ok": False, "reason_type": "batch_duplicate",
+                "reason": f"バッチ内data重複:「{_get_data_text(candidate)}」",
+                "score_result": result, "candidate": candidate}
+    if _is_batch_duplicate(_get_scene_text(candidate, "hook"), batch_hook_texts):
+        return {"ok": False, "reason_type": "batch_duplicate",
+                "reason": f"バッチ内hook重複:「{_get_scene_text(candidate, 'hook')}」",
+                "score_result": result, "candidate": candidate}
+    if _is_batch_duplicate(_get_scene_text(candidate, "resolve"), batch_resolve_texts):
+        return {"ok": False, "reason_type": "batch_duplicate",
+                "reason": f"バッチ内resolve重複:「{_get_scene_text(candidate, 'resolve')}」",
+                "score_result": result, "candidate": candidate}
+
+    return {"ok": True, "reason_type": "", "reason": "",
+            "score_result": result, "candidate": candidate}
+
+
+def _select_best_candidate(
+    topic: str, theme: str, effective_retries: int,
+    batch_data_texts: list, batch_hook_texts: list, batch_resolve_texts: list,
+) -> dict:
+    """3候補一括生成 → ローカル選別 → フォールバックリトライ。
+
+    1回のAPI呼び出しで3候補を取得し、合格する最良のものを返す。
+    全候補が不合格の場合のみ、従来の1候補リトライを行う。
+    """
+    # Phase 1: 3候補を1回のAPIで生成
+    print("  [Phase1] 3候補を一括生成...")
+    candidates = script_gen.generate_shorts_candidates(topic, theme=theme, count=3)
+    if not candidates:
+        raise RuntimeError("台本生成に失敗（候補が0件）")
+
+    # 各候補をチェックし、スコア順にソート
+    checked = []
+    for ci, cand in enumerate(candidates):
+        if not cand:
+            continue
+        print(f"\n  --- 候補 {ci+1}/{len(candidates)} チェック ---")
+        check = _check_candidate(
+            cand, topic, batch_data_texts, batch_hook_texts, batch_resolve_texts,
+        )
+        checked.append(check)
+
+    # 合格候補をスコア順で選択
+    passed = [c for c in checked if c["ok"]]
+    if passed:
+        # スコアが最も高い候補を採用
+        best = max(passed, key=lambda c: c["score_result"]["total_score"])
+        print(f"\n  [Phase1] {len(passed)}/{len(checked)}候補が合格 → 最高スコアを採用"
+              f"（{best['score_result']['total_score']}/{best['score_result']['max_score']}）")
+        dedupe_check.register_accepted(best["candidate"])
+        return best["candidate"]
+
+    # 全候補不合格の理由を表示
+    print(f"\n  [Phase1] 全{len(checked)}候補が不合格:")
+    for ci, c in enumerate(checked):
+        print(f"    候補{ci+1}: {c['reason']}")
+
+    # Phase 2: 従来の1候補リトライ（effective_retries回まで）
+    if effective_retries <= 0:
+        raise RuntimeError(
+            f"全候補不合格かつリトライ不可: {checked[0]['reason'] if checked else '候補なし'}"
+        )
+
+    print(f"\n  [Phase2] 1候補ずつリトライ（最大{effective_retries}回）...")
+    last_fail_reason = ""
+    for attempt in range(1, effective_retries + 1):
+        candidate = script_gen.generate_shorts_script(topic, theme=theme)
+        if not candidate:
+            raise RuntimeError("台本生成に失敗")
+
+        check = _check_candidate(
+            candidate, topic, batch_data_texts, batch_hook_texts, batch_resolve_texts,
+        )
+        if check["ok"]:
+            print(f"  [Phase2] リトライ{attempt}回目で合格")
+            dedupe_check.register_accepted(candidate)
+            return candidate
+
+        # 同じ理由で連続失敗 → API節約のため即スキップ
+        current_reason = check["reason"]
+        if last_fail_reason and current_reason == last_fail_reason:
+            raise RuntimeError(
+                f"同一理由で連続失敗（API節約のためスキップ）: {current_reason}"
+            )
+        last_fail_reason = current_reason
+        print(f"  [Phase2] リトライ {attempt}/{effective_retries} 不合格: {current_reason}")
+        time.sleep(1)
+
+    # リトライ上限 → スコア不足は許容だが重複・トピック不一致は不可
+    # Phase1の候補からスコア不足だけのものを探す
+    score_only_fails = [
+        c for c in checked
+        if not c["ok"] and c["reason_type"] == "score_low"
+    ]
+    if score_only_fails:
+        best_fallback = max(score_only_fails, key=lambda c: c["score_result"]["total_score"])
+        print(f"  [採用] リトライ上限。Phase1のスコア不足候補を採用"
+              f"（{best_fallback['score_result']['total_score']}/{best_fallback['score_result']['max_score']}）")
+        dedupe_check.register_accepted(best_fallback["candidate"])
+        return best_fallback["candidate"]
+
+    raise RuntimeError(
+        f"リトライ上限到達。全候補不合格: {checked[-1]['reason'] if checked else '候補なし'}"
+    )
+
+
 def generate_one(
     topic: str, theme: str, index: int, total: int,
     batch_data_texts: list = None,
@@ -103,94 +243,14 @@ def generate_one(
         if exhaustion["reason"]:
             print(f"  [事前判定] {exhaustion['reason']} → リトライ{effective_retries}回に制限")
 
-    # Step 1: 台本生成 + スコアリング（閾値未満は再生成）
+    # Step 1: 台本生成 + スコアリング
+    # まず3候補を1回のAPI呼び出しで生成し、ローカルで選別する（コスト削減）
+    # 全候補が不合格なら従来の1候補リトライにフォールバック
     print("\n  [1/5] 台本生成...")
-    script_data = None
-    last_fail_reason = ""  # 同じ理由で連続失敗したら即スキップ
-    for attempt in range(1, effective_retries + 2):
-        candidate = script_gen.generate_shorts_script(topic, theme=theme)
-        if not candidate:
-            raise RuntimeError("台本生成に失敗")
-
-        result = candidate_ranker.score_script(candidate)
-        print(candidate_ranker.format_report(result))
-
-        if candidate_ranker.is_acceptable(result):
-            # 重複チェック
-            dup = dedupe_check.check_duplicate(candidate)
-            print(dedupe_check.format_report(dup))
-            if not dup["is_duplicate"]:
-                # トピック−タイトル一致チェック
-                topic_result = candidate_ranker.check_topic_match(candidate)
-                if topic_result["score"] <= -2:
-                    print(f"  [トピック不一致] スコア={topic_result['score']}、"
-                          f"トピックKW: {topic_result['topic_keywords']}")
-                    if attempt <= effective_retries:
-                        print(f"  [再生成] トピック不一致 → リトライ {attempt}/{effective_retries}")
-                        time.sleep(1)
-                        continue
-                    else:
-                        raise RuntimeError(
-                            f"リトライ上限到達。タイトルがトピックと無関係: "
-                            f"「{candidate.get('title', '')}」"
-                        )
-                # バッチ内重複チェック（data / hook / resolve）
-                batch_dup_reason = ""
-                if _is_batch_data_duplicate(candidate, batch_data_texts):
-                    batch_dup_reason = f"data重複:「{_get_data_text(candidate)}」"
-                elif _is_batch_duplicate(_get_scene_text(candidate, "hook"), batch_hook_texts):
-                    batch_dup_reason = f"hook重複:「{_get_scene_text(candidate, 'hook')}」"
-                elif _is_batch_duplicate(_get_scene_text(candidate, "resolve"), batch_resolve_texts):
-                    batch_dup_reason = f"resolve重複:「{_get_scene_text(candidate, 'resolve')}」"
-                if batch_dup_reason:
-                    print(f"  [バッチ内重複] {batch_dup_reason}")
-                    if attempt <= effective_retries:
-                        print(f"  [再生成] バッチ内重複 → リトライ {attempt}/{effective_retries}")
-                        time.sleep(1)
-                        continue
-                script_data = candidate
-                dedupe_check.register_accepted(candidate)
-                break
-            # 重複あり → リトライ扱い
-            # 同じ理由で連続失敗 → APIの無駄なので即スキップ
-            current_reason = dup.get("reason", "")
-            if last_fail_reason and current_reason == last_fail_reason:
-                raise RuntimeError(
-                    f"同一理由で連続失敗（API節約のためスキップ）: {current_reason}"
-                )
-            last_fail_reason = current_reason
-            if attempt <= effective_retries:
-                print(f"  [再生成] 類似動画あり → リトライ {attempt}/{effective_retries}")
-                time.sleep(1)
-                continue
-            else:
-                # 重複のまま採用しない → スキップ
-                raise RuntimeError(
-                    f"リトライ上限到達。類似動画あり: {dup['reason']}"
-                )
-
-        if attempt <= effective_retries:
-            print(f"  [再生成] スコア不足（{result['total_score']}/{result['max_score']}）→ リトライ {attempt}/{effective_retries}")
-            time.sleep(1)
-        else:
-            # リトライ上限 → 最後の候補をそのまま採用（スコア不足は許容、重複は不可）
-            dup = dedupe_check.check_duplicate(candidate)
-            if dup["is_duplicate"]:
-                raise RuntimeError(
-                    f"リトライ上限到達。スコア不足かつ類似動画あり: {dup['reason']}"
-                )
-            topic_result = candidate_ranker.check_topic_match(candidate)
-            if topic_result["score"] <= -2:
-                raise RuntimeError(
-                    f"リトライ上限到達。タイトルがトピックと無関係: "
-                    f"「{candidate.get('title', '')}」"
-                )
-            if _is_batch_data_duplicate(candidate, batch_data_texts):
-                print(f"  [警告] バッチ内data重複あり（リトライ上限のためそのまま採用）:「{_get_data_text(candidate)}」")
-            print(f"  [採用] リトライ上限到達。最終候補を採用（{result['total_score']}/{result['max_score']}）")
-            script_data = candidate
-            dedupe_check.register_accepted(candidate)
-            break
+    script_data = _select_best_candidate(
+        topic, theme, effective_retries,
+        batch_data_texts, batch_hook_texts, batch_resolve_texts,
+    )
 
     scenes = script_data["scenes"]
     print(f"    タイトル: {script_data['title']}")
