@@ -275,6 +275,30 @@ def _row_to_entry(row: list, sheet_row: int) -> dict:
     }
 
 
+def _sort_by_score(entries: list) -> list:
+    """台本スコア降順（高スコア優先）でソートする。スコア不明は末尾に回す。"""
+    import candidate_ranker
+
+    scored = []
+    for entry in entries:
+        transcript_path = DONE_DIR / entry["folder"] / "transcript.json"
+        try:
+            script_data = json.loads(transcript_path.read_text(encoding="utf-8"))
+            result = candidate_ranker.score_script(script_data)
+            score = result.get("total_score", 0)
+        except (FileNotFoundError, json.JSONDecodeError, OSError, KeyError):
+            score = -1  # スコア不明は最後尾
+        entry["_score"] = score
+        scored.append(entry)
+
+    scored.sort(key=lambda c: (-c["_score"], c["gen_date"]))
+    if scored and scored[0]["_score"] >= 0:
+        print(f"  [公開順] スコア順を使用（最高: {scored[0]['_score']}点）")
+    else:
+        print(f"  [公開順] 生成日順を使用（スコア情報なし）")
+    return scored
+
+
 def get_next_publishable(rows: list | None = None, platforms: list | None = None) -> dict | None:
     """シートから次に投稿すべき動画を取得する。
 
@@ -310,7 +334,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     if not generated:
         return None
 
-    # publish_queue.json があればその順序を優先、なければ生成日順
+    # publish_queue.json があればその順序を優先、なければスコア順
     queue_path = SCRIPT_DIR / "publish_queue.json"
     try:
         queue_order = json.loads(queue_path.read_text(encoding="utf-8"))
@@ -318,7 +342,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         generated.sort(key=lambda c: queue_index.get(c["folder"], 999999))
         print(f"  [公開順] publish_queue.json の最適順を使用（{len(queue_order)}本）")
     except (FileNotFoundError, json.JSONDecodeError, OSError):
-        generated.sort(key=lambda c: c["gen_date"])
+        generated = _sort_by_score(generated)
 
     # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
     recent_hooks = _get_recent_published_hooks(rows)

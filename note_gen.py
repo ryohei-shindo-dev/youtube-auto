@@ -15,6 +15,7 @@ from typing import Optional
 
 import anthropic
 
+import api_usage_log
 import script_gen
 
 # note記事生成プロンプト
@@ -225,6 +226,10 @@ def _call_claude(api_key: str, prompt: str) -> Optional[str]:
             model="claude-haiku-4-5-20251001",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
+        )
+        api_usage_log.log_usage(
+            message, model="claude-haiku-4-5-20251001",
+            endpoint="note_gen",
         )
         return message.content[0].text.strip()
     except Exception as e:

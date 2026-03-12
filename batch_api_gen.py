@@ -138,7 +138,7 @@ def _build_batch_requests(topics: list) -> list:
         request = Request(
             custom_id=custom_id,
             params=MessageCreateParamsNonStreaming(
-                model=script_gen.SCRIPT_MODEL,
+                model=script_gen.get_model_for_theme(theme),
                 max_tokens=2000,
                 system=[{
                     "type": "text",

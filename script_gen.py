@@ -40,10 +40,31 @@ import re
 
 import anthropic
 
-# 台本生成に使うモデル（環境変数で切替可能）
-# Haiku: 低コスト（デフォルト。テストでSonnetと同等以上のスコア）
-# Sonnet に戻す場合: SCRIPT_MODEL=claude-sonnet-4-6
-SCRIPT_MODEL = os.getenv("SCRIPT_MODEL", "claude-haiku-4-5-20251001")
+import api_usage_log
+
+# 台本生成に使うモデル
+# デフォルトはHaiku（テストでSonnetと同等以上のスコア）
+# 環境変数 SCRIPT_MODEL で全テーマ一括上書き可能
+_MODEL_HAIKU = "claude-haiku-4-5-20251001"
+_MODEL_SONNET = "claude-sonnet-4-6"
+SCRIPT_MODEL = os.getenv("SCRIPT_MODEL", _MODEL_HAIKU)
+
+# テーマ別モデルルーティング（ChatGPTレビュー 2026-03-12）
+# ニュアンス・意外性が重要なテーマはSonnet、フォーマット準拠で十分なテーマはHaiku
+_THEME_MODEL_MAP = {
+    "メリット": _MODEL_HAIKU,       # 具体数字系 → Haikuで十分
+    "格言": _MODEL_HAIKU,           # 名言ストーリー → Haikuで十分
+    "あるある": _MODEL_SONNET,      # 比較焦り系 → ニュアンス重要
+    "歴史データ": _MODEL_HAIKU,     # 数字系 → Haikuで十分
+    "ガチホモチベ": _MODEL_SONNET,  # 継続モチベ系 → 意外性重要
+}
+
+
+def get_model_for_theme(theme: str) -> str:
+    """テーマに応じたモデルを返す。環境変数で上書きされている場合はそちらを優先。"""
+    if os.getenv("SCRIPT_MODEL"):
+        return SCRIPT_MODEL
+    return _THEME_MODEL_MAP.get(theme, SCRIPT_MODEL)
 
 # --- 分析結果の読み込み ---
 INSIGHTS_FILE = pathlib.Path(__file__).parent / "analytics_insights.json"
@@ -692,7 +713,11 @@ def _generate_script(
         if num_candidates > 1:
             user_text = (
                 f"トピック「{topic}」の台本を{num_candidates}パターン生成してください。\n"
-                f"それぞれ異なるhookワードとdataを使うこと（同じhookやdataの使い回し禁止）。\n"
+                f"それぞれ異なるhookワードとdataを使うこと（同じhookやdataの使い回し禁止）。\n\n"
+                f"【重要: 各候補の切り口を明確に変えること】\n"
+                f"- 候補A: 数字先頭型（hookの1語目に具体的な数字を置く。例:「1800万円」「20年」）\n"
+                f"- 候補B: 感情先頭型（hookの1語目に感情・痛みワードを置く。例:「含み損」「不安」）\n"
+                f"- 候補C: 後悔先頭型（hookの1語目に後悔・行動ワードを置く。例:「売った人」「やめた人」）\n\n"
                 f"JSON配列で出力: [{num_candidates}個のJSON]"
             )
             max_tokens = 1500 * num_candidates
@@ -700,11 +725,15 @@ def _generate_script(
             user_text = f"トピック「{topic}」の台本をJSON形式で生成してください。"
             max_tokens = 2000
 
+        # テーマ別モデルルーティング
+        theme_name = fmt_vars.get("theme_name", "")
+        model = get_model_for_theme(theme_name)
+
         print(f"  Claude API で台本を生成中（トピック: {topic}、候補数: {num_candidates}）...")
         print(f"  挨拶: {opening} / 結論: {conclusion}")
-        print(f"  モデル: {SCRIPT_MODEL}")
+        print(f"  モデル: {model}（テーマ: {theme_name}）")
         message = client.messages.create(
-            model=SCRIPT_MODEL,
+            model=model,
             max_tokens=max_tokens,
             system=[{
                 "type": "text",
@@ -712,6 +741,11 @@ def _generate_script(
                 "cache_control": {"type": "ephemeral"},
             }],
             messages=[{"role": "user", "content": user_text}],
+        )
+        api_usage_log.log_usage(
+            message, model=model, endpoint="script_gen",
+            topic=topic, theme=theme_name,
+            num_candidates=num_candidates,
         )
         raw = message.content[0].text.strip()
 
