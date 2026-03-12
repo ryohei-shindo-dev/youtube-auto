@@ -138,7 +138,7 @@ def _build_batch_requests(topics: list) -> list:
         request = Request(
             custom_id=custom_id,
             params=MessageCreateParamsNonStreaming(
-                model="claude-sonnet-4-6",
+                model=script_gen.SCRIPT_MODEL,
                 max_tokens=2000,
                 system=[{
                     "type": "text",

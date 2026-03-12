@@ -40,6 +40,11 @@ import re
 
 import anthropic
 
+# 台本生成に使うモデル（環境変数で切替可能）
+# Haiku: 低コスト（デフォルト。テストでSonnetと同等以上のスコア）
+# Sonnet に戻す場合: SCRIPT_MODEL=claude-sonnet-4-6
+SCRIPT_MODEL = os.getenv("SCRIPT_MODEL", "claude-haiku-4-5-20251001")
+
 # --- 分析結果の読み込み ---
 INSIGHTS_FILE = pathlib.Path(__file__).parent / "analytics_insights.json"
 
@@ -697,8 +702,9 @@ def _generate_script(
 
         print(f"  Claude API で台本を生成中（トピック: {topic}、候補数: {num_candidates}）...")
         print(f"  挨拶: {opening} / 結論: {conclusion}")
+        print(f"  モデル: {SCRIPT_MODEL}")
         message = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=SCRIPT_MODEL,
             max_tokens=max_tokens,
             system=[{
                 "type": "text",
