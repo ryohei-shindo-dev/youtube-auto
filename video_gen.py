@@ -66,18 +66,20 @@ def compose_shorts_video(
             audio_path = scene.get("audio_path", "")
             duration = scene.get("actual_duration_sec", 5)
 
-            # resolve の前に0.5秒の無音（間）を挿入
+            # resolve の前に0.7秒の無音（間）を挿入
+            # 別クリップではなく音声の先頭に無音を付加（concat境界ノイズ防止）
+            actual_audio = audio_path
             if role == "resolve" and i > 0:
-                prev_slide = valid_scenes[i - 1].get("slide_path", slide_path)
-                pause_path = tmp / f"pause_{idx:02d}.mp4"
-                if _make_silence_clip(prev_slide, 0.7, pause_path):
-                    clip_paths.append(pause_path)
-                    print(f"  断言前の間（0.7秒）を挿入...")
+                padded = tmp / f"padded_{idx:02d}.mp3"
+                if _prepend_silence(audio_path, 0.7, padded):
+                    actual_audio = str(padded)
+                    duration += 0.7
+                    print(f"  断言前の間（0.7秒）を音声に付加...")
 
             subtitle_text = scene.get("text", "")
             print(f"  クリップ{idx}を生成中（{duration:.1f}秒）...")
             success = _make_scene_clip(
-                slide_path, audio_path, duration, clip_path,
+                slide_path, actual_audio, duration, clip_path,
                 subtitle_text=subtitle_text, tmp_dir=tmp,
                 use_photo=use_photo,
             )
@@ -109,7 +111,7 @@ def compose_shorts_video(
             "-c:v", "libx264",
             "-preset", "medium",
             "-crf", "23",
-            "-c:a", "copy",  # 各クリップで既にAAC済み。再エンコードしない
+            "-c:a", "aac", "-b:a", "128k",  # 再エンコードで結合境界ノイズを解消
             "-movflags", "+faststart",
             str(concat_output),
         ]
@@ -272,6 +274,28 @@ def _mix_bgm(
         return output_path.exists()
     except Exception as e:
         print(f"    BGMミキシングエラー: {e}")
+        return False
+
+
+def _prepend_silence(
+    audio_path: str,
+    silence_sec: float,
+    output_path: pathlib.Path,
+) -> bool:
+    """音声ファイルの先頭に無音を付加する（concat境界ノイズ防止）。"""
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-t", str(silence_sec),
+        "-i", f"anullsrc=r=44100:cl=stereo",
+        "-i", str(audio_path),
+        "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[out]",
+        "-map", "[out]",
+        str(output_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return result.returncode == 0 and output_path.exists()
+    except Exception:
         return False
 
 
