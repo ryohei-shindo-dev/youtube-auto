@@ -72,7 +72,7 @@ def _regen_one(folder: pathlib.Path) -> bool:
         scene["slide_path"] = str(sp)
         # 音声の実尺を設定
         audio_p = pathlib.Path(scene["audio_path"])
-        scene["actual_duration_sec"] = video_gen._get_duration(audio_p)
+        scene["actual_duration_sec"] = video_gen.get_duration(audio_p)
 
     # Step 2: 動画再生成
     output_mp4 = folder / "output.mp4"

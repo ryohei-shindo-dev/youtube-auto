@@ -280,6 +280,17 @@ def _is_portrait(img: Image.Image) -> bool:
     return img.size[1] > img.size[0]
 
 
+def _apply_photo_correction(img: Image.Image) -> Image.Image:
+    """写真に色補正+ネイビーオーバーレイを適用する（portrait/landscape共通）。"""
+    img = ImageEnhance.Brightness(img).enhance(V2_PHOTO_BRIGHTNESS)
+    img = ImageEnhance.Color(img).enhance(V2_PHOTO_SATURATION)
+    if V2_PHOTO_BLUR > 0:
+        img = img.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
+    img = img.convert("RGBA")
+    overlay = Image.new("RGBA", img.size, V2_PHOTO_OVERLAY)
+    return Image.alpha_composite(img, overlay).convert("RGB")
+
+
 def _generate_slide_v2(
     text: str,
     role: str,
@@ -306,36 +317,15 @@ def _generate_slide_v2_portrait(
     """v2 縦型: 写真を全画面に配置し、下部にグラデーション+テキストを重ねる。"""
     canvas = Image.new("RGB", (SHORTS_WIDTH, SHORTS_HEIGHT), (15, 15, 30))
 
-    # 写真を全画面にフィット
+    # 写真を全画面にフィット + 色補正
     photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, SHORTS_HEIGHT)
-
-    # 色補正
-    photo_area = ImageEnhance.Brightness(photo_area).enhance(V2_PHOTO_BRIGHTNESS)
-    photo_area = ImageEnhance.Color(photo_area).enhance(V2_PHOTO_SATURATION)
-    if V2_PHOTO_BLUR > 0:
-        photo_area = photo_area.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
-
-    # ネイビーオーバーレイ
-    photo_area = photo_area.convert("RGBA")
-    overlay = Image.new("RGBA", photo_area.size, V2_PHOTO_OVERLAY)
-    photo_area = Image.alpha_composite(photo_area, overlay).convert("RGB")
-
+    photo_area = _apply_photo_correction(photo_area)
     canvas.paste(photo_area, (0, 0))
 
-    # 下部40%にグラデーション（透明→暗色）でテキスト読みやすく
+    # 下部45%にグラデーション（透明→暗色）でテキスト読みやすく
     bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
-    grad_top = int(SHORTS_HEIGHT * 0.55)  # グラデーション開始位置
-    grad_h = SHORTS_HEIGHT - grad_top
-    for y in range(grad_h):
-        alpha = (y / grad_h) ** 1.5  # 下に行くほど急に暗くなる
-        y_pos = grad_top + y
-        for x in range(SHORTS_WIDTH):
-            pr, pg, pb = canvas.getpixel((x, y_pos))
-            canvas.putpixel((x, y_pos), (
-                int(pr * (1 - alpha) + bg_color[0] * alpha),
-                int(pg * (1 - alpha) + bg_color[1] * alpha),
-                int(pb * (1 - alpha) + bg_color[2] * alpha),
-            ))
+    _blend_gradient(canvas, start_y=int(SHORTS_HEIGHT * 0.55),
+                    bg_color=bg_color, exponent=1.5)
 
     draw = ImageDraw.Draw(canvas)
 
@@ -370,18 +360,7 @@ def _generate_slide_v2_landscape(
     # ── 上部: 写真エリア ──
     if photo:
         photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, PHOTO_HEIGHT)
-
-        # 色補正
-        photo_area = ImageEnhance.Brightness(photo_area).enhance(V2_PHOTO_BRIGHTNESS)
-        photo_area = ImageEnhance.Color(photo_area).enhance(V2_PHOTO_SATURATION)
-        if V2_PHOTO_BLUR > 0:
-            photo_area = photo_area.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
-
-        # ネイビーオーバーレイ
-        photo_area = photo_area.convert("RGBA")
-        overlay = Image.new("RGBA", photo_area.size, V2_PHOTO_OVERLAY)
-        photo_area = Image.alpha_composite(photo_area, overlay).convert("RGB")
-
+        photo_area = _apply_photo_correction(photo_area)
         canvas.paste(photo_area, (0, 0))
 
         # 写真下端にグラデーション
@@ -442,50 +421,49 @@ def _get_photo(role: str) -> Image.Image | None:
 def _fit_photo_to_area(
     img: Image.Image, target_w: int, target_h: int
 ) -> Image.Image:
-    """横長写真を指定エリアにフィットさせる（横幅合わせ → 上部クロップ）。"""
+    """写真を指定エリアにフィットさせる（1回のリサイズ + クロップ）。"""
     src_w, src_h = img.size
 
-    # 横幅に合わせてリサイズ
-    scale = target_w / src_w
-    new_w = target_w
+    # 幅・高さ両方をカバーする最小スケールを選択（1回で済む）
+    scale = max(target_w / src_w, target_h / src_h)
+    new_w = int(src_w * scale)
     new_h = int(src_h * scale)
     img = img.resize((new_w, new_h), Image.LANCZOS)
 
-    # 高さが足りない場合は高さに合わせてリサイズし直す
-    if new_h < target_h:
-        scale = target_h / src_h
-        new_w = int(src_w * scale)
-        new_h = target_h
-        img = img.resize((new_w, new_h), Image.LANCZOS)
-        # 中央クロップ
-        left = (new_w - target_w) // 2
-        img = img.crop((left, 0, left + target_w, target_h))
-    else:
-        # 上部からクロップ（人物の顔が上部にあることが多い）
-        img = img.crop((0, 0, target_w, target_h))
+    # はみ出し分をクロップ（横は中央、縦は上部優先）
+    left = (new_w - target_w) // 2
+    img = img.crop((left, 0, left + target_w, target_h))
 
     return img
+
+
+def _blend_gradient(
+    canvas: Image.Image, start_y: int, bg_color: tuple, exponent: float = 1.0,
+):
+    """canvas の start_y〜底辺にグラデーション合成する（alpha composite方式、高速）。"""
+    w = canvas.size[0]
+    h = canvas.size[1] - start_y
+    if h <= 0:
+        return
+
+    # グラデーションマスク（上が透明、下が不透明）
+    grad_mask = Image.new("L", (1, h))
+    for y in range(h):
+        alpha = int(((y / h) ** exponent) * 255)
+        grad_mask.putpixel((0, y), alpha)
+    grad_mask = grad_mask.resize((w, h), Image.NEAREST)
+
+    # 暗色レイヤーをマスク付きで合成
+    dark_layer = Image.new("RGB", (w, h), bg_color)
+    region = canvas.crop((0, start_y, w, start_y + h))
+    blended = Image.composite(dark_layer, region, grad_mask)
+    canvas.paste(blended, (0, start_y))
 
 
 def _draw_gradient_border(canvas: Image.Image, role: str):
     """写真下端にグラデーションを描画して、テキストエリアと滑らかに接続する。"""
     bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
-    gradient_h = 80  # グラデーションの高さ
-
-    for y in range(gradient_h):
-        alpha = y / gradient_h  # 0.0(透明) → 1.0(不透明)
-        r = int(bg_color[0] * alpha)
-        g = int(bg_color[1] * alpha)
-        b = int(bg_color[2] * alpha)
-        # 写真の下端にブレンド
-        y_pos = PHOTO_HEIGHT - gradient_h + y
-        for x in range(SHORTS_WIDTH):
-            pr, pg, pb = canvas.getpixel((x, y_pos))
-            canvas.putpixel((x, y_pos), (
-                int(pr * (1 - alpha) + r),
-                int(pg * (1 - alpha) + g),
-                int(pb * (1 - alpha) + b),
-            ))
+    _blend_gradient(canvas, start_y=PHOTO_HEIGHT - 80, bg_color=bg_color)
 
 
 def _draw_text_in_area(

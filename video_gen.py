@@ -32,6 +32,7 @@ BGM_VOLUME = 0.08  # ナレーション対比のBGM音量（0.08 ≈ -22dB、か
 def compose_shorts_video(
     scenes: list,
     output_path: pathlib.Path,
+    use_photo: bool = False,
 ) -> Optional[pathlib.Path]:
     """
     各シーンの画像+音声を結合して Shorts 動画を生成する。
@@ -39,6 +40,7 @@ def compose_shorts_video(
     Args:
         scenes: audio_path と slide 情報を含む scenes リスト
         output_path: 出力する動画ファイルパス
+        use_photo: True で v2（写真型）レイアウト。字幕を写真エリア内に配置。
 
     Returns:
         動画パス。失敗時は None。
@@ -77,6 +79,7 @@ def compose_shorts_video(
             success = _make_scene_clip(
                 slide_path, audio_path, duration, clip_path,
                 subtitle_text=subtitle_text, tmp_dir=tmp,
+                use_photo=use_photo,
             )
             if success:
                 clip_paths.append(clip_path)
@@ -130,7 +133,7 @@ def compose_shorts_video(
                 shutil.move(str(concat_output), str(output_path))
 
     # 結果確認
-    duration = _get_duration(output_path)
+    duration = get_duration(output_path)
     size_mb = output_path.stat().st_size / (1024 * 1024)
     print(f"  動画生成完了: {output_path.name}（{duration:.1f}秒 / {size_mb:.1f}MB）")
     return output_path
@@ -143,13 +146,17 @@ def _make_scene_clip(
     output_path: pathlib.Path,
     subtitle_text: str = "",
     tmp_dir: pathlib.Path = None,
+    use_photo: bool = False,
 ) -> bool:
     """1シーンのクリップを生成する（静止画 + 音声 + 字幕焼き込み）。"""
 
     # 字幕テキストがあれば Pillow でスライド画像に焼き込む
+    # v2（写真型）ではメインテキストが下部にあるため字幕は不要
     actual_slide = slide_path
-    if subtitle_text and tmp_dir:
-        sub_slide = _burn_subtitle(slide_path, subtitle_text, tmp_dir, output_path.stem)
+    if subtitle_text and tmp_dir and not use_photo:
+        sub_slide = _burn_subtitle(
+            slide_path, subtitle_text, tmp_dir, output_path.stem,
+        )
         if sub_slide:
             actual_slide = str(sub_slide)
 
@@ -189,6 +196,7 @@ def _burn_subtitle(
     text: str,
     tmp_dir: pathlib.Path,
     stem: str,
+    use_photo: bool = False,
 ) -> pathlib.Path:
     """Pillow でスライド画像に字幕テキストを焼き込む。"""
     try:
@@ -205,12 +213,19 @@ def _burn_subtitle(
         # 15文字で改行
         wrapped = "\n".join(textwrap.wrap(text, width=15))
 
-        # テキストサイズを計測して中央下に配置
+        # テキストサイズを計測
         bbox = draw.multiline_textbbox((0, 0), wrapped, font=font, spacing=12)
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
         x = (img.width - text_w) // 2
-        y = img.height - text_h - 420
+
+        if use_photo:
+            # v2: 字幕を写真エリアの中央に配置（上部55%の真ん中）
+            from slide_gen import PHOTO_HEIGHT
+            y = (PHOTO_HEIGHT - text_h) // 2
+        else:
+            # v1: 従来の位置（下端から420px上）
+            y = img.height - text_h - 420
 
         # 黒縁（ストローク）+ 白文字
         draw.multiline_text(
@@ -287,8 +302,8 @@ def _make_silence_clip(
         return False
 
 
-def _get_duration(video_path: pathlib.Path) -> float:
-    """FFprobe で動画の長さ（秒）を取得する。"""
+def get_duration(video_path: pathlib.Path) -> float:
+    """FFprobe で動画/音声の長さ（秒）を取得する。"""
     try:
         result = subprocess.run(
             [
