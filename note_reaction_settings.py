@@ -20,10 +20,10 @@ import sys
 import time
 from pathlib import Path
 
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page
 
-# ── note_publish.py と同じブラウザプロファイル ──
-USER_DATA_DIR = Path(".note_browser")
+from note_publish import _launch_browser
+
 OVERVIEW_URL = "https://note.com/settings/reactions"
 
 # ── 設定するメッセージ ──
@@ -44,19 +44,6 @@ REACTION_MESSAGES: dict[str, tuple[str, str]] = {
 
 
 # ── ブラウザ操作 ──
-
-
-def _launch_browser():
-    """永続化されたブラウザコンテキストを起動する。"""
-    pw = sync_playwright().start()
-    context = pw.chromium.launch_persistent_context(
-        user_data_dir=str(USER_DATA_DIR),
-        headless=False,
-        viewport={"width": 1280, "height": 900},
-        locale="ja-JP",
-    )
-    page = context.pages[0] if context.pages else context.new_page()
-    return pw, context, page
 
 
 def _find_change_links(page: Page) -> list[dict]:
