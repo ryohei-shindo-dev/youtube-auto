@@ -3,9 +3,14 @@ note_image_gen.py
 note記事のトップ画像（見出し画像）を Pillow で生成するモジュール。
 
 【設計】
-  背景: AI生成の基幹ビジュアル（5〜8枚）を暗くぼかして使い回す
-  テキスト: 見出し1行 + 補足1行（左寄せ）
+  背景: AI生成の基幹ビジュアル（5枚）— 光の1点を残して暗くする
+  テキスト: 短い見出し + 補足（レイアウト3型で単調さ回避）
   サイズ: 1280×670px（note推奨）
+
+【レイアウト3型】
+  left:     左寄せ大見出し（デフォルト）
+  left_sub: 左寄せ + 下補足
+  center:   中央寄せ短句
 
 【テーマ分類】
   不安系 → night_thinking  積立系 → lamp_room  行動系 → door_light
@@ -29,35 +34,38 @@ FONT_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 
 # ---------- 色 ----------
 COLOR_TITLE = (255, 255, 255)          # 白
-COLOR_SUBTITLE = (200, 200, 200)       # 薄グレー
+COLOR_SUBTITLE = (220, 220, 220)       # 薄グレー（少し明るく）
 COLOR_ACCENT = (255, 210, 100)         # 落ち着いた黄
-COLOR_OVERLAY = (10, 10, 30, 180)      # 紺〜黒の半透明
+COLOR_OVERLAY = (15, 20, 45, 100)      # 薄いネイビー半透明（写真を活かす）
 
-# ---------- 背景画像 ----------
+# ---------- レイアウト型 ----------
+LAYOUT_LEFT = "left"           # 左寄せ大見出し
+LAYOUT_LEFT_SUB = "left_sub"   # 左寄せ + 下補足
+LAYOUT_CENTER = "center"       # 中央寄せ短句
+
+# ---------- 背景写真 ----------
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
+PHOTOS_DIR = ASSETS_DIR / "photos"
 
-# テーマ → 背景ファイル名のマッピング
-BG_MAP: dict[str, str] = {
-    "不安":   "long_night_thinking.png",
-    "暴落":   "long_night_thinking.png",
-    "含み損": "long_night_thinking.png",
-    "積立":   "long_lamp_room.png",
-    "複利":   "long_lamp_room.png",
-    "継続":   "long_lamp_room.png",
-    "行動":   "long_door_light.png",
-    "利確":   "long_door_light.png",
-    "売却":   "long_door_light.png",
-    "比較":   "long_waiting_person.png",
-    "SNS":    "long_waiting_person.png",
-    "退場":   "long_waiting_person.png",
-    "余韻":   "long_dawn_road.png",
-    "希望":   "long_dawn_road.png",
-    "長期":   "long_dawn_road.png",
+# テーマ → 写真カテゴリ（photos/カテゴリ名/ 内からランダム選択）
+THEME_TO_PHOTO_CAT: dict[str, str] = {
+    "不安":   "anxiety",
+    "暴落":   "anxiety",
+    "含み損": "anxiety",
+    "積立":   "steady",
+    "複利":   "data",
+    "継続":   "steady",
+    "行動":   "comparison",
+    "利確":   "comparison",
+    "売却":   "comparison",
+    "比較":   "comparison",
+    "SNS":    "comparison",
+    "退場":   "anxiety",
+    "余韻":   "recovery",
+    "希望":   "recovery",
+    "長期":   "data",
 }
-DEFAULT_BG = "long_night_thinking.png"
-
-# ---------- チャンネル名 ----------
-CHANNEL_NAME = "ガチホのモチベ"
+DEFAULT_PHOTO_CAT = "anxiety"
 
 
 def generate_note_image(
@@ -66,16 +74,18 @@ def generate_note_image(
     output_path: pathlib.Path,
     bg_keyword: str = "",
     bg_path: Optional[pathlib.Path] = None,
+    layout: str = LAYOUT_LEFT_SUB,
 ) -> Optional[pathlib.Path]:
     """
     note記事のトップ画像を生成する。
 
     Args:
-        title: 見出し（1行、短く）
+        title: 見出し（短く、8〜14字目安）
         subtitle: 補足テキスト（1行）
         output_path: 保存先パス
         bg_keyword: 背景選択キーワード（BG_MAPのキー）
         bg_path: 背景画像を直接指定する場合のパス
+        layout: レイアウト型（LAYOUT_LEFT / LAYOUT_LEFT_SUB / LAYOUT_CENTER）
 
     Returns:
         保存したファイルパス。失敗時は None。
@@ -86,9 +96,10 @@ def generate_note_image(
         # --- 背景画像 ---
         bg = _load_background(bg_keyword, bg_path)
 
-        # --- 暗くぼかす ---
-        bg = bg.filter(ImageFilter.GaussianBlur(radius=3))
-        bg = ImageEnhance.Brightness(bg).enhance(0.35)
+        # --- 写真を活かす処理（暗くしすぎない） ---
+        bg = bg.filter(ImageFilter.GaussianBlur(radius=1))
+        bg = ImageEnhance.Color(bg).enhance(0.85)        # 彩度を少し落とす
+        bg = ImageEnhance.Brightness(bg).enhance(0.75)    # 暗さ控えめ
 
         # --- 半透明オーバーレイ ---
         canvas = bg.convert("RGBA")
@@ -98,15 +109,13 @@ def generate_note_image(
 
         draw = ImageDraw.Draw(canvas)
 
-        # --- アクセントライン（左端） ---
-        draw.rectangle([(60, 220), (64, 450)], fill=COLOR_ACCENT)
-
-        # --- テキスト描画 ---
-        _draw_title(draw, title)
-        _draw_subtitle(draw, subtitle)
-
-        # --- チャンネル名（右下） ---
-        _draw_channel_name(draw)
+        # --- レイアウト別描画 ---
+        if layout == LAYOUT_CENTER:
+            _draw_center_layout(draw, title, subtitle)
+        elif layout == LAYOUT_LEFT:
+            _draw_left_layout(draw, title)
+        else:
+            _draw_left_sub_layout(draw, title, subtitle)
 
         canvas.save(str(output_path), "PNG", optimize=True)
         size_kb = output_path.stat().st_size // 1024
@@ -119,17 +128,33 @@ def generate_note_image(
 
 
 _bg_cache: dict[str, Image.Image] = {}
+_cat_index: dict[str, int] = {}  # カテゴリごとの次に使うインデックス
+
+
+def _pick_photo(category: str) -> pathlib.Path:
+    """カテゴリフォルダから写真をローテーション選択する。"""
+    cat_dir = PHOTOS_DIR / category
+    if not cat_dir.exists():
+        cat_dir = PHOTOS_DIR / DEFAULT_PHOTO_CAT
+    photos = sorted(cat_dir.glob("*.jpg")) + sorted(cat_dir.glob("*.png"))
+    if not photos:
+        # フォールバック: 旧背景画像
+        return ASSETS_DIR / "long_night_thinking.png"
+    idx = _cat_index.get(category, 0)
+    path = photos[idx % len(photos)]
+    _cat_index[category] = idx + 1
+    return path
 
 
 def _load_background(
     keyword: str, explicit_path: Optional[pathlib.Path]
 ) -> Image.Image:
-    """背景画像を読み込み、1280×670にクロップ＆リサイズする（キャッシュ付き）。"""
+    """背景写真を読み込み、1280×670にクロップ＆リサイズする（キャッシュ付き）。"""
     if explicit_path and explicit_path.exists():
         path = explicit_path
     else:
-        filename = BG_MAP.get(keyword, DEFAULT_BG)
-        path = ASSETS_DIR / filename
+        category = THEME_TO_PHOTO_CAT.get(keyword, DEFAULT_PHOTO_CAT)
+        path = _pick_photo(category)
 
     cache_key = str(path)
     if cache_key in _bg_cache:
@@ -157,65 +182,134 @@ def _load_background(
     return img.copy()
 
 
-def _draw_title(draw: ImageDraw.Draw, text: str):
-    """見出しテキストを左寄せで描画する。"""
-    font = _load_font(FONT_HEAVY, 52)
-    lines = _wrap_lines(text, font, draw, max_width=1060)
-    y = 260
+def _draw_accent_band(draw: ImageDraw.Draw, y_start: int, y_end: int, x: int = 40):
+    """左端に黄色の太いアクセント帯を描画する。"""
+    draw.rectangle([(x, y_start), (x + 20, y_end)], fill=COLOR_ACCENT)
+
+
+def _draw_left_sub_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
+    """左寄せ + 下補足型（デフォルト）。"""
+    # アクセント帯
+    _draw_accent_band(draw, 200, 460)
+
+    # 見出し（大きく、太く）
+    font_title = _load_font(FONT_HEAVY, 58)
+    lines = _wrap_lines(title, font_title, draw, max_width=1040)
+    y = 240
     for line in lines:
         draw.text(
-            (90, y), line, font=font, fill=COLOR_TITLE,
+            (90, y), line, font=font_title, fill=COLOR_TITLE,
             stroke_width=2, stroke_fill=(0, 0, 0),
         )
-        bbox = draw.textbbox((0, 0), line, font=font)
-        y += (bbox[3] - bbox[1]) + 16
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        y += (bbox[3] - bbox[1]) + 18
+
+    # 補足テキスト
+    if subtitle:
+        font_sub = _load_font(FONT_REGULAR, 28)
+        draw.text(
+            (90, y + 24), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
+            stroke_width=1, stroke_fill=(0, 0, 0),
+        )
 
 
-def _draw_subtitle(draw: ImageDraw.Draw, text: str):
-    """補足テキストを左寄せで描画する。"""
-    if not text:
-        return
-    font = _load_font(FONT_REGULAR, 28)
-    draw.text(
-        (90, 420), text, font=font, fill=COLOR_SUBTITLE,
-        stroke_width=1, stroke_fill=(0, 0, 0),
+def _draw_left_layout(draw: ImageDraw.Draw, title: str):
+    """左寄せ大見出し型（補足なし、タイトルだけ大きく）。"""
+    # アクセント帯
+    _draw_accent_band(draw, 220, 440)
+
+    font_title = _load_font(FONT_HEAVY, 64)
+    lines = _wrap_lines(title, font_title, draw, max_width=1040)
+    # 垂直中央寄せ
+    line_heights = []
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        line_heights.append(bbox[3] - bbox[1])
+    total_h = sum(line_heights) + 20 * (len(lines) - 1) if lines else 0
+    y = (NOTE_HEIGHT - total_h) // 2
+
+    for i, line in enumerate(lines):
+        draw.text(
+            (90, y), line, font=font_title, fill=COLOR_TITLE,
+            stroke_width=3, stroke_fill=(0, 0, 0),
+        )
+        y += line_heights[i] + 20
+
+
+def _draw_center_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
+    """中央寄せ短句型。"""
+    # アクセント帯なし（中央配置では左帯が邪魔）
+    # 代わりに見出しの下に短い黄色ライン
+    font_title = _load_font(FONT_HEAVY, 62)
+    lines = _wrap_lines(title, font_title, draw, max_width=1000)
+
+    # 垂直中央寄せ
+    line_heights = []
+    line_widths = []
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        line_heights.append(bbox[3] - bbox[1])
+        line_widths.append(bbox[2] - bbox[0])
+    total_h = sum(line_heights) + 20 * (len(lines) - 1) if lines else 0
+    y = (NOTE_HEIGHT - total_h) // 2 - 30
+
+    for i, line in enumerate(lines):
+        x = (NOTE_WIDTH - line_widths[i]) // 2
+        draw.text(
+            (x, y), line, font=font_title, fill=COLOR_TITLE,
+            stroke_width=3, stroke_fill=(0, 0, 0),
+        )
+        y += line_heights[i] + 20
+
+    # 中央の短い黄色アクセントライン
+    line_y = y + 10
+    draw.rectangle(
+        [(NOTE_WIDTH // 2 - 40, line_y), (NOTE_WIDTH // 2 + 40, line_y + 4)],
+        fill=COLOR_ACCENT,
     )
 
-
-def _draw_channel_name(draw: ImageDraw.Draw):
-    """右下にチャンネル名を控えめに表示する。"""
-    font = _load_font(FONT_REGULAR, 20)
-    bbox = draw.textbbox((0, 0), CHANNEL_NAME, font=font)
-    tw = bbox[2] - bbox[0]
-    x = NOTE_WIDTH - tw - 30
-    y = NOTE_HEIGHT - 40
-    draw.text((x, y), CHANNEL_NAME, font=font, fill=(120, 120, 120))
+    # 補足テキスト（中央寄せ）
+    if subtitle:
+        font_sub = _load_font(FONT_REGULAR, 26)
+        bbox = draw.textbbox((0, 0), subtitle, font=font_sub)
+        sw = bbox[2] - bbox[0]
+        sx = (NOTE_WIDTH - sw) // 2
+        draw.text(
+            (sx, line_y + 24), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
+            stroke_width=1, stroke_fill=(0, 0, 0),
+        )
 
 
 def _wrap_lines(
     text: str, font, draw: ImageDraw.Draw, max_width: int
 ) -> list[str]:
-    """テキストを最大幅に収まるように折り返す。"""
+    """テキストを最大幅に収まるように折り返す。明示的な改行(\n)も尊重する。"""
     if not text:
         return []
-    bbox = draw.textbbox((0, 0), text, font=font)
-    if (bbox[2] - bbox[0]) <= max_width:
-        return [text]
 
-    # 1文字ずつ追加して折り返し位置を決定
-    lines = []
-    current = ""
-    for ch in text:
-        test = current + ch
-        bbox = draw.textbbox((0, 0), test, font=font)
-        if (bbox[2] - bbox[0]) > max_width:
-            lines.append(current)
-            current = ch
+    # 明示的な改行を先に分割
+    result: list[str] = []
+    for segment in text.split("\n"):
+        segment = segment.strip()
+        if not segment:
+            continue
+        bbox = draw.textbbox((0, 0), segment, font=font)
+        if (bbox[2] - bbox[0]) <= max_width:
+            result.append(segment)
         else:
-            current = test
-    if current:
-        lines.append(current)
-    return lines
+            # 1文字ずつ追加して折り返し位置を決定
+            current = ""
+            for ch in segment:
+                test = current + ch
+                bbox = draw.textbbox((0, 0), test, font=font)
+                if (bbox[2] - bbox[0]) > max_width:
+                    result.append(current)
+                    current = ch
+                else:
+                    current = test
+            if current:
+                result.append(current)
+    return result
 
 
 _font_cache: dict[tuple[str, int], ImageFont.FreeTypeFont] = {}
@@ -234,28 +328,51 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return font
 
 
-# ---------- 15記事分の一括生成 ----------
-NOTE_ARTICLES = [
-    {"id": "01", "title": "含み損の夜、\n確認回数を減らす",         "subtitle": "見る回数を減らすだけで、眠れる夜が増える", "bg": "含み損"},
-    {"id": "02", "title": "積立3年目が\nしんどい理由",              "subtitle": "期待とのズレが、一番地味な時期を作る",     "bg": "積立"},
-    {"id": "03", "title": "暴落ニュースの夜、\n思い出す数字",       "subtitle": "15年以上持ち続けた人の過去データ",         "bg": "暴落"},
-    {"id": "04", "title": "SNSの爆益を見て\n焦る夜に",              "subtitle": "比較をやめるための、1つの視点",            "bg": "比較"},
-    {"id": "05", "title": "利確したい気持ちと、\n複利が止まる感覚", "subtitle": "売った後に何が起きているか",               "bg": "利確"},
-    {"id": "06", "title": "毎日口座を\n見てしまう人へ",             "subtitle": "確認するたびに不安が増える理由",           "bg": "不安"},
-    {"id": "07", "title": "積立をやめたくなる\n瞬間",               "subtitle": "やめた人がよく口にする後悔",               "bg": "積立"},
-    {"id": "08", "title": "暴落から1年、\n売らなかった人の数字",    "subtitle": "底値で持ち続けた人が受け取った回復",       "bg": "暴落"},
-    {"id": "09", "title": "20年続けた場合の\n元本割れ確率",         "subtitle": "含み損で眠れない夜に思い出す数字",         "bg": "長期"},
-    {"id": "10", "title": "初めての暴落で\n売りたくなった夜",       "subtitle": "その気持ちは、正常です",                   "bg": "不安"},
-    {"id": "11", "title": "下がった時こそ\n多く買える",             "subtitle": "ドルコスト平均法の「安く買える期間」",     "bg": "積立"},
-    {"id": "12", "title": "「増えてない」と感じる\n10年間",         "subtitle": "複利は静かに動いている",                   "bg": "複利"},
-    {"id": "13", "title": "退場しない人が\nやっていること",         "subtitle": "特別なことは、たぶん何もない",             "bg": "退場"},
-    {"id": "14", "title": "つい売ってしまった人の\n共通点",         "subtitle": "直前にやっていたこと",                     "bg": "売却"},
-    {"id": "15", "title": "バフェットの「退潮時」\nという言葉",     "subtitle": "含み損の夜に読む意味",                     "bg": "余韻"},
+# ---------- 全27記事分の一括生成 ----------
+# 見出しは8〜14字目安（短く、止める力を優先）
+# layout: left / left_sub / center をローテーションして一覧の単調さを回避
+
+# 第1弾（note_01〜15）
+NOTE_ARTICLES_BATCH1 = [
+    {"id": "01", "title": "含み損の夜に",               "subtitle": "確認回数を減らすだけで変わること",     "bg": "含み損", "layout": LAYOUT_LEFT_SUB},
+    {"id": "02", "title": "積立3年目の壁",              "subtitle": "一番地味な時期をどう越えるか",         "bg": "積立",   "layout": LAYOUT_CENTER},
+    {"id": "03", "title": "暴落の夜に\n思い出す数字",   "subtitle": "15年持ち続けた人のデータ",             "bg": "暴落",   "layout": LAYOUT_LEFT},
+    {"id": "04", "title": "爆益を見て焦る夜",           "subtitle": "比較をやめるための1つの視点",          "bg": "比較",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "05", "title": "利確と複利の境目",           "subtitle": "売った後に起きていること",             "bg": "利確",   "layout": LAYOUT_CENTER},
+    {"id": "06", "title": "毎日口座を見る人へ",         "subtitle": "確認するたび不安が増える理由",         "bg": "不安",   "layout": LAYOUT_LEFT},
+    {"id": "07", "title": "積立をやめたくなる瞬間",     "subtitle": "やめた人が口にする後悔",               "bg": "積立",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "08", "title": "暴落から1年後",              "subtitle": "売らなかった人が受け取った数字",       "bg": "暴落",   "layout": LAYOUT_CENTER},
+    {"id": "09", "title": "20年と元本割れ",             "subtitle": "眠れない夜に思い出す数字",             "bg": "長期",   "layout": LAYOUT_LEFT},
+    {"id": "10", "title": "初めての暴落の夜",           "subtitle": "売りたくなるのは正常です",             "bg": "不安",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "11", "title": "下がった時こそ",             "subtitle": "ドルコスト平均法の安く買える期間",     "bg": "積立",   "layout": LAYOUT_CENTER},
+    {"id": "12", "title": "増えない10年間",             "subtitle": "複利は静かに動いている",               "bg": "複利",   "layout": LAYOUT_LEFT},
+    {"id": "13", "title": "退場しない人の共通点",       "subtitle": "特別なことは何もない",                 "bg": "退場",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "14", "title": "つい売った人へ",             "subtitle": "直前にやっていたこと",                 "bg": "売却",   "layout": LAYOUT_CENTER},
+    {"id": "15", "title": "バフェットの退潮時",         "subtitle": "含み損の夜に読む意味",                 "bg": "余韻",   "layout": LAYOUT_LEFT},
 ]
+
+# 第2弾（note_16〜27）
+NOTE_ARTICLES_BATCH2 = [
+    {"id": "16", "title": "新NISAをやめたい夜",         "subtitle": "1〜2年目の離脱が一番多い傾向",         "bg": "不安",   "layout": LAYOUT_CENTER},
+    {"id": "17", "title": "含み益なのに不安",           "subtitle": "利益が出ている状態ほど揺れやすい",     "bg": "含み損", "layout": LAYOUT_LEFT},
+    {"id": "18", "title": "始めるのが遅かった夜",       "subtitle": "遅れたと感じるときの整理法",           "bg": "長期",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "19", "title": "老後資金が不安な夜",         "subtitle": "間に合わない気がするときの数字",       "bg": "不安",   "layout": LAYOUT_CENTER},
+    {"id": "20", "title": "一括投資が怖い理由",         "subtitle": "怖さの中身を分けると整理しやすい",     "bg": "行動",   "layout": LAYOUT_LEFT},
+    {"id": "21", "title": "今買って大丈夫か",           "subtitle": "積立なのに不安になる構造",             "bg": "積立",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "22", "title": "買っておけばの夜",           "subtitle": "機会損失の痛みは含み損より深い",       "bg": "含み損", "layout": LAYOUT_CENTER},
+    {"id": "23", "title": "円高が怖い夜に",             "subtitle": "20年で見れば薄まりやすい傾向",        "bg": "暴落",   "layout": LAYOUT_LEFT},
+    {"id": "24", "title": "一括か積立か",               "subtitle": "迷う人が見落としやすい前提",           "bg": "行動",   "layout": LAYOUT_LEFT_SUB},
+    {"id": "25", "title": "現金のままだと",             "subtitle": "何が起きやすいかを数字で見る",         "bg": "長期",   "layout": LAYOUT_CENTER},
+    {"id": "26", "title": "積立を止めない意味",         "subtitle": "下がっている時期にこそ効く仕組み",     "bg": "積立",   "layout": LAYOUT_LEFT},
+    {"id": "27", "title": "何もしなかった日",           "subtitle": "動かないことは戦略の実行",             "bg": "希望",   "layout": LAYOUT_LEFT_SUB},
+]
+
+# 全記事結合
+NOTE_ARTICLES = NOTE_ARTICLES_BATCH1 + NOTE_ARTICLES_BATCH2
 
 
 def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib.Path]:
-    """15記事分のnoteトップ画像を一括生成する。"""
+    """全27記事分のnoteトップ画像を一括生成する。"""
     out = pathlib.Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     results = []
@@ -266,6 +383,7 @@ def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib
             subtitle=art["subtitle"],
             output_path=path,
             bg_keyword=art["bg"],
+            layout=art.get("layout", LAYOUT_LEFT_SUB),
         )
         if result:
             results.append(result)

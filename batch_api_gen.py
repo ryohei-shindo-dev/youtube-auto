@@ -373,14 +373,14 @@ def _run_video_pipeline(script_data: dict, theme: str) -> None:
 
     # スライド画像生成
     print("  [3/7] スライド画像生成...")
-    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme)
+    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
     for i, scene in enumerate(scenes):
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
     # 動画合成
     print("  [4/7] 動画合成...")
-    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4")
+    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4", use_photo=True)
     if not video_path:
         raise RuntimeError("動画合成に失敗")
 

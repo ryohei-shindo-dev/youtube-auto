@@ -134,14 +134,14 @@ def main():
 
     # ── Step 3: スライド画像生成 ──
     print("\n[Step 3/9] スライド画像生成")
-    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme)
+    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
     for i, scene in enumerate(scenes):
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
     # ── Step 4: 動画合成 ──
     print("\n[Step 4/9] 動画合成")
-    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4")
+    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4", use_photo=True)
     if not video_path:
         print("\n[失敗] 動画合成に失敗しました。終了します。")
         sys.exit(1)
