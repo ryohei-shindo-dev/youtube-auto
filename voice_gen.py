@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 voice_gen.py
 ElevenLabs REST API で各シーンのナレーション音声を生成するモジュール。
@@ -38,6 +39,7 @@ _READING_FIXES = [
     ("投資信託", "とうししんたく"),
     ("分散投資", "ぶんさんとうし"),
     ("長期投資家", "ちょうきとうしか"),
+    ("投資家", "とうしか"),
     ("長期投資", "ちょうきとうし"),
     ("短期投資", "たんきとうし"),
     ("積立投資", "つみたてとうし"),
@@ -273,6 +275,9 @@ def generate_voice_for_scenes(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    prev_text = ""
+    prev_request_ids: list[str] = []
+
     for i, scene in enumerate(scenes):
         idx = i + 1
         output_path = output_dir / f"audio_{idx:02d}.mp3"
@@ -283,14 +288,26 @@ def generate_voice_for_scenes(
         text = _format_for_tts(raw_text)
 
         print(f"  シーン{idx}（{role}）の音声を生成中...")
-        success = _text_to_speech(api_key, voice_id, text, output_path, role=role)
+        # closingには前シーンのコンテキストを渡してノイズ軽減
+        success, request_id = _text_to_speech(
+            api_key, voice_id, text, output_path, role=role,
+            previous_text=prev_text if role == "closing" else "",
+            previous_request_ids=prev_request_ids if role == "closing" else None,
+        )
 
         if success:
+            # 冒頭の無音をトリミング（ElevenLabsの音声は先頭に無音が入ることがある）
+            trimmed = _trim_leading_silence(output_path)
+            if trimmed:
+                print(f"    冒頭無音をトリミングしました")
             duration = _get_audio_duration(output_path)
             scene["audio_path"] = str(output_path)
             scene["actual_duration_sec"] = duration
             size_kb = output_path.stat().st_size // 1024
             print(f"    保存完了: {output_path.name}（{duration:.1f}秒 / {size_kb}KB）")
+            # 次シーンのために保存
+            prev_text = text
+            prev_request_ids = [request_id] if request_id else []
         else:
             scene["audio_path"] = None
             scene["actual_duration_sec"] = 0
@@ -348,26 +365,42 @@ def _text_to_speech(
     text: str,
     output_path: pathlib.Path,
     role: str = "",
-) -> bool:
-    """ElevenLabs API で1シーン分の音声を生成する。失敗時は False。"""
+    previous_text: str = "",
+    previous_request_ids: list | None = None,
+) -> tuple[bool, str]:
+    """ElevenLabs API で1シーン分の音声を生成する。
+
+    Returns:
+        (成功フラグ, request_id) のタプル。失敗時は (False, "")。
+        request_id は次シーンの previous_request_ids に渡す。
+    """
     url = ELEVENLABS_TTS_URL.format(voice_id=voice_id)
     headers = {
         "xi-api-key": api_key,
         "Content-Type": "application/json",
     }
-    # closingはノイズが出やすいためstabilityを高めに設定
-    stability = 0.65 if role == "closing" else 0.4
+    # closing: stability高め + speed控えめでノイズ軽減
+    is_closing = role == "closing"
+    stability = 0.65 if is_closing else 0.4
+    speed = 1.05 if is_closing else 1.15
     payload = {
         "text": text,
         "model_id": ELEVENLABS_MODEL,
+        "language_code": "ja",
+        "apply_text_normalization": "on",
         "voice_settings": {
             "stability": stability,
             "similarity_boost": 0.75,
-            "style": 0.2,
+            "style": 0.15 if is_closing else 0.2,
             "use_speaker_boost": True,
-            "speed": 1.15,
+            "speed": speed,
         },
     }
+    # 前シーンのコンテキストを渡して連続性を改善
+    if previous_text:
+        payload["previous_text"] = previous_text
+    if previous_request_ids:
+        payload["previous_request_ids"] = previous_request_ids
 
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -377,13 +410,53 @@ def _text_to_speech(
                 json.dumps({"status": resp.status_code, "body": resp.text}, ensure_ascii=False, indent=2),
             )
             print(f"    ElevenLabs API エラー: {resp.status_code}")
-            return False
+            return False, ""
 
         output_path.write_bytes(resp.content)
-        return True
+        # レスポンスヘッダーから request_id を取得
+        request_id = resp.headers.get("request-id", "")
+        return True, request_id
 
     except Exception as e:
         print(f"    リクエストエラー: {e}")
+        return False, ""
+
+
+def _trim_leading_silence(audio_path: pathlib.Path) -> bool:
+    """音声ファイルの先頭の無音（-40dB以下）を除去する。
+
+    ElevenLabs の音声は冒頭に 0.1〜0.3秒の無音が入ることがあり、
+    Shorts の「冒頭1秒で掴む」を阻害する。FFmpeg の silenceremove で除去する。
+    """
+    tmp_path = audio_path.with_suffix(".trimmed.mp3")
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", str(audio_path),
+                "-af", "silenceremove=start_periods=1:start_duration=0:start_threshold=-40dB",
+                "-c:a", "libmp3lame", "-q:a", "2",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return False
+
+        # トリミング前後のサイズ差が小さすぎる場合（無音がなかった）はスキップ
+        orig_size = audio_path.stat().st_size
+        trim_size = tmp_path.stat().st_size
+        if trim_size >= orig_size:
+            tmp_path.unlink(missing_ok=True)
+            return False
+
+        # トリミング済みファイルで上書き
+        tmp_path.replace(audio_path)
+        return True
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
         return False
 
 

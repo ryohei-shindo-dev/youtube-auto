@@ -266,7 +266,7 @@ def _generate_slide(
 
     # メインテキスト
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
-    _draw_main_text(draw, text, text_color)
+    _draw_main_text(draw, text, text_color, role=role)
 
     # チャンネル名
     _draw_channel_name(draw)
@@ -339,7 +339,7 @@ def _generate_slide_v2_portrait(
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
     text_area_top = int(SHORTS_HEIGHT * 0.60)
     text_area_h = SHORTS_HEIGHT - text_area_top - 60
-    _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h)
+    _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
 
     # チャンネル名
     _draw_channel_name(draw)
@@ -389,7 +389,7 @@ def _generate_slide_v2_landscape(
 
     # メインテキスト（下部エリアの中央に配置）
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
-    _draw_text_in_area(draw, text, text_color, PHOTO_HEIGHT, TEXT_AREA_HEIGHT)
+    _draw_text_in_area(draw, text, text_color, PHOTO_HEIGHT, TEXT_AREA_HEIGHT, role=role)
 
     # チャンネル名
     _draw_channel_name(draw)
@@ -468,15 +468,20 @@ def _draw_gradient_border(canvas: Image.Image, role: str):
 
 def _draw_text_in_area(
     draw: ImageDraw.Draw, text: str, color: tuple,
-    area_top: int, area_height: int
+    area_top: int, area_height: int,
+    role: str = "",
 ):
-    """指定エリアの中央にテキストを配置する（影付き）。"""
-    font = _load_font(FONT_PATH_HEAVY, 110)
+    """指定エリアの中央にテキストを配置する（影付き）。
+    hookスライドは15%大きいフォントで表示（冒頭で視線を止める効果）。
+    """
+    is_hook = role == "hook"
+    font_size = 126 if is_hook else 110
+    font = _load_font(FONT_PATH_HEAVY, font_size)
 
     wrapped = _wrap_text(text, 7)
     lines = wrapped.split("\n")
 
-    line_height = 155
+    line_height = 178 if is_hook else 155
     total_height = len(lines) * line_height
     y_start = area_top + (area_height - total_height) // 2
 
@@ -538,14 +543,18 @@ def _draw_accent_lines(draw: ImageDraw.Draw, role: str):
     draw.rectangle([(0, SHORTS_HEIGHT - 6), (SHORTS_WIDTH, SHORTS_HEIGHT)], fill=color)
 
 
-def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple):
-    """メインテキストを中央に大きく配置する（影付き）。"""
-    font = _load_font(FONT_PATH_HEAVY, 120)
+def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple, role: str = ""):
+    """メインテキストを中央に大きく配置する（影付き）。
+    hookスライドは15%大きいフォントで表示。
+    """
+    is_hook = role == "hook"
+    font_size = 138 if is_hook else 120
+    font = _load_font(FONT_PATH_HEAVY, font_size)
 
     wrapped = _wrap_text(text, 7)
     lines = wrapped.split("\n")
 
-    line_height = 170
+    line_height = 195 if is_hook else 170
     total_height = len(lines) * line_height
     y_start = (SHORTS_HEIGHT - total_height) // 2
 
