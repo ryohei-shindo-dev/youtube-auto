@@ -540,10 +540,7 @@ def publish_entry(
                 # 字幕（SRT）アップロード
                 srt_path = folder / "subtitles.srt"
                 if srt_path.exists():
-                    try:
-                        youtube_upload.upload_caption(video_id, str(srt_path))
-                    except Exception as e:
-                        print(f"  [警告] 字幕アップロードに失敗: {e}")
+                    youtube_upload.upload_caption(video_id, str(srt_path))
             else:
                 results["youtube"] = False
                 print("  [YouTube] アップロード失敗")

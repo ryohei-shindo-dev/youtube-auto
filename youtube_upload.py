@@ -181,21 +181,16 @@ def add_to_playlists(
             print(f"  [警告] 再生リスト追加失敗 ({pid}): {e}")
 
 
-def upload_caption(video_id: str, srt_path: str, language: str = "ja") -> bool:
+def upload_caption(video_id: str, srt_path: str) -> bool:
     """YouTube動画にSRT字幕をアップロードする。
 
     Args:
         video_id: 動画ID
         srt_path: SRTファイルのパス
-        language: 字幕の言語コード（デフォルト: ja）
 
     Returns:
         成功したら True
     """
-    if not os.path.exists(srt_path):
-        print(f"  [字幕] SRTファイルが見つかりません: {srt_path}")
-        return False
-
     import sheets
     youtube = sheets.get_youtube_service()
 
@@ -206,7 +201,7 @@ def upload_caption(video_id: str, srt_path: str, language: str = "ja") -> bool:
             body={
                 "snippet": {
                     "videoId": video_id,
-                    "language": language,
+                    "language": "ja",
                     "name": "日本語",
                 }
             },
