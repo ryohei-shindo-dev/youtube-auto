@@ -181,6 +181,44 @@ def add_to_playlists(
             print(f"  [警告] 再生リスト追加失敗 ({pid}): {e}")
 
 
+def upload_caption(video_id: str, srt_path: str, language: str = "ja") -> bool:
+    """YouTube動画にSRT字幕をアップロードする。
+
+    Args:
+        video_id: 動画ID
+        srt_path: SRTファイルのパス
+        language: 字幕の言語コード（デフォルト: ja）
+
+    Returns:
+        成功したら True
+    """
+    if not os.path.exists(srt_path):
+        print(f"  [字幕] SRTファイルが見つかりません: {srt_path}")
+        return False
+
+    import sheets
+    youtube = sheets.get_youtube_service()
+
+    try:
+        media = MediaFileUpload(srt_path, mimetype="application/x-subrip")
+        youtube.captions().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "videoId": video_id,
+                    "language": language,
+                    "name": "日本語",
+                }
+            },
+            media_body=media,
+        ).execute()
+        print(f"  字幕アップロード完了: {os.path.basename(srt_path)}")
+        return True
+    except Exception as e:
+        print(f"  [警告] 字幕アップロードに失敗: {e}")
+        return False
+
+
 def _set_thumbnail(youtube, video_id: str, thumbnail_path: str):
     """動画にカスタムサムネイルを設定する。"""
     try:
