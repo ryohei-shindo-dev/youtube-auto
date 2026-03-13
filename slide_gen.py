@@ -2,32 +2,28 @@
 slide_gen.py
 プリメイド画像 + Pillow で YouTube Shorts 用のスライド画像（1080x1920）を生成するモジュール。
 
-【素材設計】
-  動画ごとに画像生成は行わない。
-  assets/ フォルダに10〜15枚の汎用画像セットを用意し、テーマ×ロールで使い分ける。
-  assets/ が未準備の場合はフォールバック（単色背景）を使用。
+【レイアウト2型】
+  v1（従来型）: シルエット画像を全画面に暗くぼかして配置、テキスト中央
+  v2（写真型）: 写真の縦横で自動レイアウト切替
+    - 縦型写真: 全画面写真 + 下部グラデーション + テキスト重ね（没入型）
+    - 横型写真: 上部55%写真 + 下部45%テキスト（分割型）
+    - 写真は assets/photos/ のカテゴリ別素材を使用
+    - 色補正はnote記事画像と統一（暗め・低彩度・ネイビーオーバーレイ）
 
-【画像セット（assets/ に配置）】
-  01_chart_worried.png    — チャートを見て悩む人
-  02_phone_anxious.png    — スマホを見て焦る人
-  03_person_thinking.png  — 考え込む人
-  04_person_down.png      — 落ち込む人
-  05_person_relieved.png  — 安心している人
-  06_person_happy.png     — 喜んでいる人
-  07_investment_app.png   — 投資アプリを見る人
-  08_long_term_chart.png  — 長期チャート
-  09_growth_graph.png     — 成長グラフ
-  10_money_growing.png    — お金が育つイメージ
-  11_calm_ocean.png       — 穏やかな海（安心感）
-  12_sunrise.png          — 日の出（希望）
-
-【テーマ×ロール→画像マッピング】
-  テロップ位置: 画面中央（上下左右中央寄せ）
-  フォント: ヒラギノ角ゴシック W9（最太字）96pt
-  テキスト折り返し: 7文字/行
+【素材】
+  assets/*.png           — v1用シルエット画像（12枚）
+  assets/photos/*/       — v2用ストック写真（5カテゴリ×3枚）
+    anxiety/   : 不安系（hook用）
+    comparison/: 比較・焦り系（empathy用）
+    data/      : データ系（data用）
+    recovery/  : 回復・安心系（resolve用）
+    steady/    : 行動・継続系（closing用）
 """
 
+from __future__ import annotations
+
 import pathlib
+import random
 import textwrap
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
@@ -42,8 +38,38 @@ FONT_PATH_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 
 # アセットディレクトリ
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
+PHOTOS_DIR = ASSETS_DIR / "photos"
 
 CHANNEL_NAME = "ガチホのモチベ"
+
+# ── v2（写真型）レイアウト定数 ──
+PHOTO_RATIO = 0.55  # 上部写真エリアの割合
+PHOTO_HEIGHT = int(SHORTS_HEIGHT * PHOTO_RATIO)  # 1056px
+TEXT_AREA_HEIGHT = SHORTS_HEIGHT - PHOTO_HEIGHT    # 864px
+
+# ロール → 写真カテゴリ（ChatGPT提案に基づく）
+ROLE_PHOTO_CATEGORY = {
+    "hook": "anxiety",
+    "empathy": "comparison",
+    "data": "data",
+    "resolve": "recovery",
+    "closing": "steady",
+}
+
+# v2用の下部背景色（ロール別、紺系で統一感）
+V2_TEXT_BG = {
+    "hook": (20, 15, 35),
+    "empathy": (15, 18, 38),
+    "data": (12, 22, 42),
+    "resolve": (15, 30, 30),
+    "closing": (20, 18, 30),
+}
+
+# v2用の写真補正パラメータ（note画像と統一）
+V2_PHOTO_BRIGHTNESS = 0.75
+V2_PHOTO_SATURATION = 0.85
+V2_PHOTO_BLUR = 1
+V2_PHOTO_OVERLAY = (15, 20, 45, 100)  # 薄いネイビー
 
 # ── テーマ×ロール → 画像ファイル名のマッピング ──
 THEME_IMAGE_MAP = {
@@ -173,10 +199,18 @@ def generate_all_slides(
     scenes: list,
     output_dir: pathlib.Path,
     theme: str = "",
+    use_photo: bool = False,
 ) -> list:
-    """全シーンのスライド画像を生成する。"""
+    """全シーンのスライド画像を生成する。
+
+    Args:
+        use_photo: True で v2（写真型）レイアウトを使用。
+                   False で従来の v1（シルエット型）。
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = []
+    layout = "v2（写真型）" if use_photo else "v1（シルエット型）"
+    print(f"  レイアウト: {layout}")
 
     for i, scene in enumerate(scenes):
         idx = i + 1
@@ -186,7 +220,10 @@ def generate_all_slides(
 
         print(f"  スライド{idx}（{role}）を生成中...")
         try:
-            path = _generate_slide(text, role, theme, output_path)
+            if use_photo:
+                path = _generate_slide_v2(text, role, output_path)
+            else:
+                path = _generate_slide(text, role, theme, output_path)
             paths.append(path)
             size_kb = path.stat().st_size // 1024
             print(f"    保存完了: {path.name}（{size_kb}KB）")
@@ -236,6 +273,245 @@ def _generate_slide(
 
     canvas.save(str(output_path), "PNG", optimize=True)
     return output_path
+
+
+def _is_portrait(img: Image.Image) -> bool:
+    """写真が縦型（高さ > 幅）かどうかを判定する。"""
+    return img.size[1] > img.size[0]
+
+
+def _generate_slide_v2(
+    text: str,
+    role: str,
+    output_path: pathlib.Path,
+) -> pathlib.Path:
+    """v2: 写真の縦横で自動レイアウト切替。
+    - 縦型写真: 全画面写真 + 下部グラデーション + テキスト重ね（没入型）
+    - 横型写真: 上部55%写真 + 下部45%テキスト（従来型）
+    """
+    photo = _get_photo(role)
+
+    if photo and _is_portrait(photo):
+        return _generate_slide_v2_portrait(text, role, output_path, photo)
+    else:
+        return _generate_slide_v2_landscape(text, role, output_path, photo)
+
+
+def _generate_slide_v2_portrait(
+    text: str,
+    role: str,
+    output_path: pathlib.Path,
+    photo: Image.Image,
+) -> pathlib.Path:
+    """v2 縦型: 写真を全画面に配置し、下部にグラデーション+テキストを重ねる。"""
+    canvas = Image.new("RGB", (SHORTS_WIDTH, SHORTS_HEIGHT), (15, 15, 30))
+
+    # 写真を全画面にフィット
+    photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, SHORTS_HEIGHT)
+
+    # 色補正
+    photo_area = ImageEnhance.Brightness(photo_area).enhance(V2_PHOTO_BRIGHTNESS)
+    photo_area = ImageEnhance.Color(photo_area).enhance(V2_PHOTO_SATURATION)
+    if V2_PHOTO_BLUR > 0:
+        photo_area = photo_area.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
+
+    # ネイビーオーバーレイ
+    photo_area = photo_area.convert("RGBA")
+    overlay = Image.new("RGBA", photo_area.size, V2_PHOTO_OVERLAY)
+    photo_area = Image.alpha_composite(photo_area, overlay).convert("RGB")
+
+    canvas.paste(photo_area, (0, 0))
+
+    # 下部40%にグラデーション（透明→暗色）でテキスト読みやすく
+    bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
+    grad_top = int(SHORTS_HEIGHT * 0.55)  # グラデーション開始位置
+    grad_h = SHORTS_HEIGHT - grad_top
+    for y in range(grad_h):
+        alpha = (y / grad_h) ** 1.5  # 下に行くほど急に暗くなる
+        y_pos = grad_top + y
+        for x in range(SHORTS_WIDTH):
+            pr, pg, pb = canvas.getpixel((x, y_pos))
+            canvas.putpixel((x, y_pos), (
+                int(pr * (1 - alpha) + bg_color[0] * alpha),
+                int(pg * (1 - alpha) + bg_color[1] * alpha),
+                int(pb * (1 - alpha) + bg_color[2] * alpha),
+            ))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # アクセントライン（上端と下端）
+    accent_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
+    draw.rectangle([(0, 0), (SHORTS_WIDTH, 4)], fill=accent_color)
+    draw.rectangle([(0, SHORTS_HEIGHT - 4), (SHORTS_WIDTH, SHORTS_HEIGHT)],
+                   fill=accent_color)
+
+    # テキスト（下部40%の中央に配置）
+    text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
+    text_area_top = int(SHORTS_HEIGHT * 0.60)
+    text_area_h = SHORTS_HEIGHT - text_area_top - 60
+    _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h)
+
+    # チャンネル名
+    _draw_channel_name(draw)
+
+    canvas.save(str(output_path), "PNG", optimize=True)
+    return output_path
+
+
+def _generate_slide_v2_landscape(
+    text: str,
+    role: str,
+    output_path: pathlib.Path,
+    photo: Image.Image | None,
+) -> pathlib.Path:
+    """v2 横型: 上部55%に写真 + 下部45%にテキストのレイアウト（従来型）。"""
+    canvas = Image.new("RGB", (SHORTS_WIDTH, SHORTS_HEIGHT), (15, 15, 30))
+
+    # ── 上部: 写真エリア ──
+    if photo:
+        photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, PHOTO_HEIGHT)
+
+        # 色補正
+        photo_area = ImageEnhance.Brightness(photo_area).enhance(V2_PHOTO_BRIGHTNESS)
+        photo_area = ImageEnhance.Color(photo_area).enhance(V2_PHOTO_SATURATION)
+        if V2_PHOTO_BLUR > 0:
+            photo_area = photo_area.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
+
+        # ネイビーオーバーレイ
+        photo_area = photo_area.convert("RGBA")
+        overlay = Image.new("RGBA", photo_area.size, V2_PHOTO_OVERLAY)
+        photo_area = Image.alpha_composite(photo_area, overlay).convert("RGB")
+
+        canvas.paste(photo_area, (0, 0))
+
+        # 写真下端にグラデーション
+        _draw_gradient_border(canvas, role)
+    else:
+        fallback = Image.new("RGB", (SHORTS_WIDTH, PHOTO_HEIGHT),
+                             ROLE_FALLBACK_BG.get(role, (30, 30, 30)))
+        canvas.paste(fallback, (0, 0))
+
+    # ── 下部: テキストエリア ──
+    bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
+    text_bg = Image.new("RGB", (SHORTS_WIDTH, TEXT_AREA_HEIGHT), bg_color)
+    canvas.paste(text_bg, (0, PHOTO_HEIGHT))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # アクセントライン（上端と下端）
+    accent_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
+    draw.rectangle([(0, 0), (SHORTS_WIDTH, 4)], fill=accent_color)
+    draw.rectangle([(0, SHORTS_HEIGHT - 4), (SHORTS_WIDTH, SHORTS_HEIGHT)],
+                   fill=accent_color)
+
+    # 写真とテキストの境界に細いライン
+    draw.rectangle([(40, PHOTO_HEIGHT - 1), (SHORTS_WIDTH - 40, PHOTO_HEIGHT + 1)],
+                   fill=(*accent_color, 80) if len(accent_color) == 3 else accent_color)
+
+    # メインテキスト（下部エリアの中央に配置）
+    text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
+    _draw_text_in_area(draw, text, text_color, PHOTO_HEIGHT, TEXT_AREA_HEIGHT)
+
+    # チャンネル名
+    _draw_channel_name(draw)
+
+    canvas.save(str(output_path), "PNG", optimize=True)
+    return output_path
+
+
+def _get_photo(role: str) -> Image.Image | None:
+    """ロールに対応する写真カテゴリからランダムに1枚取得する。"""
+    category = ROLE_PHOTO_CATEGORY.get(role, "")
+    if not category:
+        return None
+
+    photo_dir = PHOTOS_DIR / category
+    if not photo_dir.exists():
+        return None
+
+    photos = list(photo_dir.glob("*.jpg")) + list(photo_dir.glob("*.png"))
+    if not photos:
+        return None
+
+    try:
+        return Image.open(random.choice(photos))
+    except Exception:
+        return None
+
+
+def _fit_photo_to_area(
+    img: Image.Image, target_w: int, target_h: int
+) -> Image.Image:
+    """横長写真を指定エリアにフィットさせる（横幅合わせ → 上部クロップ）。"""
+    src_w, src_h = img.size
+
+    # 横幅に合わせてリサイズ
+    scale = target_w / src_w
+    new_w = target_w
+    new_h = int(src_h * scale)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+
+    # 高さが足りない場合は高さに合わせてリサイズし直す
+    if new_h < target_h:
+        scale = target_h / src_h
+        new_w = int(src_w * scale)
+        new_h = target_h
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        # 中央クロップ
+        left = (new_w - target_w) // 2
+        img = img.crop((left, 0, left + target_w, target_h))
+    else:
+        # 上部からクロップ（人物の顔が上部にあることが多い）
+        img = img.crop((0, 0, target_w, target_h))
+
+    return img
+
+
+def _draw_gradient_border(canvas: Image.Image, role: str):
+    """写真下端にグラデーションを描画して、テキストエリアと滑らかに接続する。"""
+    bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
+    gradient_h = 80  # グラデーションの高さ
+
+    for y in range(gradient_h):
+        alpha = y / gradient_h  # 0.0(透明) → 1.0(不透明)
+        r = int(bg_color[0] * alpha)
+        g = int(bg_color[1] * alpha)
+        b = int(bg_color[2] * alpha)
+        # 写真の下端にブレンド
+        y_pos = PHOTO_HEIGHT - gradient_h + y
+        for x in range(SHORTS_WIDTH):
+            pr, pg, pb = canvas.getpixel((x, y_pos))
+            canvas.putpixel((x, y_pos), (
+                int(pr * (1 - alpha) + r),
+                int(pg * (1 - alpha) + g),
+                int(pb * (1 - alpha) + b),
+            ))
+
+
+def _draw_text_in_area(
+    draw: ImageDraw.Draw, text: str, color: tuple,
+    area_top: int, area_height: int
+):
+    """指定エリアの中央にテキストを配置する（影付き）。"""
+    font = _load_font(FONT_PATH_HEAVY, 110)
+
+    wrapped = _wrap_text(text, 7)
+    lines = wrapped.split("\n")
+
+    line_height = 155
+    total_height = len(lines) * line_height
+    y_start = area_top + (area_height - total_height) // 2
+
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = (SHORTS_WIDTH - text_width) // 2
+        y = y_start + i * line_height
+
+        # 影
+        for dx, dy in [(3, 3), (2, 2)]:
+            draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0))
+        draw.text((x, y), line, font=font, fill=color)
 
 
 def _get_premade_image(role: str, theme: str):
