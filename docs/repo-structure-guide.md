@@ -77,7 +77,7 @@
 以下を **削除**（リポジトリ内ドキュメントと重複するため）：
 - Purpose / チャンネル方針 → AGENTS.md にある
 - パイプライン構成 / Repo Map → CLAUDE.md にある
-- cron 設定 / シート列構成 → CLAUDE.md or docs/ にある
+- 定期実行設定（launchd）/ シート列構成 → CLAUDE.md or docs/ にある
 - タスク一覧 → PENDING_TASKS.md にある
 
 以下だけ **残す**（Claude Code 固有の作業知識）：

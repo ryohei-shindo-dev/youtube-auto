@@ -7,9 +7,8 @@
 ## Current Operating Facts
 - 現在の投稿頻度は `1日2本`。
 - 現在の投稿時刻は `07:00` と `19:00`。
-- `CHANNEL_STRATEGY.md` 記載時点の動画ストックは `142本`。
-- `CHANNEL_STRATEGY.md` 記載時点の想定投稿期間は `2026/03/07 - 2026/05/16`。
-- 自動投稿の実行主体は `cron + auto_publish.py`。
+- 動画ストックは `124本`（2026-03-14 時点、約62日分）。
+- 自動投稿の実行主体は `launchd + auto_publish.py`（plist は `~/Library/LaunchAgents/com.youtube-auto.publish-*.plist`）。
 
 ## Temporary Priorities
 - 当面強いとみなしているフックは `含み損`、`暴落`、`売りたい`、`不安`、`退場`。

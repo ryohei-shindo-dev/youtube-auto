@@ -11,7 +11,7 @@
 
 **次のアクション**:
 1. TikTok Developer Portal で審査結果を確認
-2. 承認 → `.env` の Client Key を Production に切替 → `tiktok_auth.py` で本番トークン取得 → cron に `tiktok` 追加
+2. 承認 → `.env` の Client Key を Production に切替 → `tiktok_auth.py` で本番トークン取得 → launchd に `tiktok` 用 plist 追加
 3. 否認 → 否認理由を確認し `docs/` 配下を修正して再申請
 
 **関連ファイル**: `tiktok_auth.py`, `auto_publish.py`, `docs/privacy.html`, `docs/terms.html`, `.env`
@@ -21,8 +21,8 @@
 ## 2. 5分動画（長尺）3本目の企画・制作
 
 **状態**: デザイン改善（明るさ修正）に伴い2本とも削除→再アップロード済み（2026-03-14）。旧版は再生数3〜4回で影響なし。ChatGPT方針: 2本目の反応を見るまで3本目は保留。
-- 01: https://youtube.com/watch?v=M-oJf6OlF_k
-- 02: https://youtube.com/watch?v=sI8zPwGfKtc
+- 01: https://youtu.be/othACgQKmt8
+- 02: https://youtu.be/tVxLD4myubY
 
 **次のアクション**:
 1. 2本目のパフォーマンスを1〜2週間観察

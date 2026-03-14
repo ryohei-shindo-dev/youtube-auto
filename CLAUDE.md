@@ -33,8 +33,8 @@
 ├── batch_api_gen.py     # Batch API 一括生成（50%割引、非同期）
 ├── batch_note_gen.py    # note 記事一括生成
 ├── review_gen.py        # ChatGPT レビュー用プロンプト生成
-├── error_notify.py      # cron 失敗時 Gmail 通知
-├── run_with_notify.sh   # cron ラッパー（エラー検知 → 通知）
+├── error_notify.py      # 定期実行失敗時 Gmail 通知
+├── run_with_notify.sh   # 定期実行ラッパー（エラー検知 → 通知）
 │
 ├── long_video/          # 長尺動画の素材・出力
 ├── long_video_builder.py
@@ -42,7 +42,7 @@
 ├── publish_long_video.py
 │
 ├── assets/              # 背景画像（12 枚）・長尺用画像・BGM・アイコン
-├── note_articles/       # 生成済み note 記事（15 本）
+├── note_articles/       # 生成済み note 記事（28 本）
 ├── bin/youtube-menu     # 対話メニュー（ym コマンド）
 │
 ├── AGENTS.md            # コンテンツルール・表現チェックリスト（恒常）
