@@ -187,13 +187,45 @@ def _draw_accent_band(draw: ImageDraw.Draw, y_start: int, y_end: int, x: int = 4
     draw.rectangle([(x, y_start), (x + 20, y_end)], fill=COLOR_ACCENT)
 
 
+def _draw_subtitle_chip(
+    draw: ImageDraw.Draw,
+    x: int,
+    y: int,
+    subtitle: str,
+    font,
+    anchor: str = "left",
+):
+    """サブタイトルの背面に半透明チップを描画して可読性を確保する。"""
+    bbox = draw.textbbox((0, 0), subtitle, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    pad_x = 16
+    pad_y = 10
+
+    if anchor == "center":
+        left = x - text_w // 2 - pad_x
+        right = x + text_w // 2 + pad_x
+    else:
+        left = x - pad_x
+        right = x + text_w + pad_x
+
+    top = y - pad_y
+    bottom = y + text_h + pad_y - 2
+    draw.rounded_rectangle(
+        [(left, top), (right, bottom)],
+        radius=14,
+        fill=(18, 24, 40),
+        outline=(120, 130, 150),
+    )
+
+
 def _draw_left_sub_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
     """左寄せ + 下補足型（デフォルト）。"""
     # アクセント帯
     _draw_accent_band(draw, 200, 460)
 
     # 見出し（大きく、太く）
-    font_title = _load_font(FONT_HEAVY, 58)
+    font_title = _load_font(FONT_HEAVY, 66)
     lines = _wrap_lines(title, font_title, draw, max_width=1040)
     y = 240
     for line in lines:
@@ -206,9 +238,11 @@ def _draw_left_sub_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
 
     # 補足テキスト
     if subtitle:
-        font_sub = _load_font(FONT_REGULAR, 28)
+        font_sub = _load_font(FONT_REGULAR, 30)
+        sub_y = y + 26
+        _draw_subtitle_chip(draw, 90, sub_y, subtitle, font_sub, anchor="left")
         draw.text(
-            (90, y + 24), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
+            (90, sub_y), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
             stroke_width=1, stroke_fill=(0, 0, 0),
         )
 
@@ -218,7 +252,7 @@ def _draw_left_layout(draw: ImageDraw.Draw, title: str):
     # アクセント帯
     _draw_accent_band(draw, 220, 440)
 
-    font_title = _load_font(FONT_HEAVY, 64)
+    font_title = _load_font(FONT_HEAVY, 72)
     lines = _wrap_lines(title, font_title, draw, max_width=1040)
     # 垂直中央寄せ
     line_heights = []
@@ -240,7 +274,7 @@ def _draw_center_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
     """中央寄せ短句型。"""
     # アクセント帯なし（中央配置では左帯が邪魔）
     # 代わりに見出しの下に短い黄色ライン
-    font_title = _load_font(FONT_HEAVY, 62)
+    font_title = _load_font(FONT_HEAVY, 70)
     lines = _wrap_lines(title, font_title, draw, max_width=1000)
 
     # 垂直中央寄せ
@@ -270,12 +304,14 @@ def _draw_center_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
 
     # 補足テキスト（中央寄せ）
     if subtitle:
-        font_sub = _load_font(FONT_REGULAR, 26)
+        font_sub = _load_font(FONT_REGULAR, 30)
         bbox = draw.textbbox((0, 0), subtitle, font=font_sub)
         sw = bbox[2] - bbox[0]
         sx = (NOTE_WIDTH - sw) // 2
+        sub_y = line_y + 24
+        _draw_subtitle_chip(draw, NOTE_WIDTH // 2, sub_y, subtitle, font_sub, anchor="center")
         draw.text(
-            (sx, line_y + 24), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
+            (sx, sub_y), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
             stroke_width=1, stroke_fill=(0, 0, 0),
         )
 
@@ -370,6 +406,45 @@ NOTE_ARTICLES_BATCH2 = [
 # 全記事結合
 NOTE_ARTICLES = NOTE_ARTICLES_BATCH1 + NOTE_ARTICLES_BATCH2
 
+# 追加記事（2026-03 中核テーマ強化）
+NOTE_ARTICLES_ADD = [
+    {
+        "id": "add_01",
+        "title": "オルカンで\nいいのか",
+        "subtitle": "",
+        "bg": "比較",
+        "layout": LAYOUT_LEFT_SUB,
+    },
+    {
+        "id": "add_02",
+        "title": "S&P500が\n遅く見える",
+        "subtitle": "",
+        "bg": "比較",
+        "layout": LAYOUT_CENTER,
+    },
+    {
+        "id": "add_03",
+        "title": "爆益を見た夜",
+        "subtitle": "",
+        "bg": "比較",
+        "layout": LAYOUT_LEFT,
+    },
+    {
+        "id": "add_04",
+        "title": "何もしない\n不安",
+        "subtitle": "",
+        "bg": "希望",
+        "layout": LAYOUT_LEFT_SUB,
+    },
+    {
+        "id": "add_05",
+        "title": "正しいのに\n退屈",
+        "subtitle": "",
+        "bg": "継続",
+        "layout": LAYOUT_CENTER,
+    },
+]
+
 
 def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib.Path]:
     """全27記事分のnoteトップ画像を一括生成する。"""
@@ -388,6 +463,26 @@ def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib
         if result:
             results.append(result)
     print(f"\n合計 {len(results)}/{len(NOTE_ARTICLES)} 枚生成完了")
+    return results
+
+
+def generate_additional(output_dir: pathlib.Path | str = "note_images") -> list[pathlib.Path]:
+    """追加記事分のnoteトップ画像を生成する。"""
+    out = pathlib.Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    results = []
+    for art in NOTE_ARTICLES_ADD:
+        path = out / f"note_{art['id']}.png"
+        result = generate_note_image(
+            title=art["title"],
+            subtitle=art["subtitle"],
+            output_path=path,
+            bg_keyword=art["bg"],
+            layout=art.get("layout", LAYOUT_LEFT_SUB),
+        )
+        if result:
+            results.append(result)
+    print(f"\n追加記事: {len(results)}/{len(NOTE_ARTICLES_ADD)} 枚生成完了")
     return results
 
 
