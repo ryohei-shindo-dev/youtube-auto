@@ -39,7 +39,7 @@ FONT_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
 FONT_BOLD = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 FONT_MINCHO = "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc"
 
-TITLE = "積立3年目が一番つらい理由｜増えない時期に何が起きているか"
+TITLE = "積み立て3年目が一番つらい理由｜増えない時期に何が起きているか"
 DESCRIPTION = (
     "積立3年目は、いちばんしんどい時期です。\n"
     "新鮮さが消え、結果が出るには早すぎる。\n\n"
@@ -276,38 +276,38 @@ def _render_thumbnail(output_path: pathlib.Path):
 # ── レイアウト描画（1本目と同じ） ──────────────────────
 
 def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 72)
-    body_font = _load_font(FONT_BOLD, 42)
+    title_font = _load_font(FONT_HEAVY, 82)
+    body_font = _load_font(FONT_BOLD, 58)
     draw.text(
         (160, 200), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=15, break_long_words=False))
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=13, break_long_words=False))
     draw.multiline_text(
-        (162, 330), wrapped_body, font=body_font,
+        (162, 340), wrapped_body, font=body_font,
         fill=(230, 235, 240), spacing=16,
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
 def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 66)
-    body_font = _load_font(FONT_BOLD, 38)
+    title_font = _load_font(FONT_HEAVY, 78)
+    body_font = _load_font(FONT_BOLD, 58)
     draw.text(
         (140, 180), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=15, break_long_words=False))
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=13, break_long_words=False))
     draw.multiline_text(
-        (140, 320), wrapped_body, font=body_font,
+        (140, 340), wrapped_body, font=body_font,
         fill=(235, 240, 245), spacing=18,
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
 def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 145)
-    body_font = _load_font(FONT_BOLD, 44)
+    body_font = _load_font(FONT_BOLD, 62)
     accent = _accent_color(card["role"])
 
     bbox = draw.textbbox((0, 0), card["title"], font=title_font)
@@ -315,14 +315,14 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     title_x = (VIDEO_WIDTH - title_w) // 2
     draw.text((title_x, 300), card["title"], font=title_font, fill=accent, stroke_width=6, stroke_fill=(0, 0, 0))
 
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=22, break_long_words=False))
-    bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=16)
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=18, break_long_words=False))
+    bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=18)
     body_w = bbox_body[2] - bbox_body[0]
     body_x = (VIDEO_WIDTH - body_w) // 2
     draw.multiline_text(
-        (body_x, 540), wrapped_body, font=body_font,
-        fill=(245, 245, 245), spacing=16, align="center",
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        (body_x, 560), wrapped_body, font=body_font,
+        fill=(245, 245, 245), spacing=18, align="center",
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
@@ -341,8 +341,8 @@ def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 64)
-    body_font = _load_font(FONT_BOLD, 34)
+    title_font = _load_font(FONT_HEAVY, 78)
+    body_font = _load_font(FONT_BOLD, 56)
     text_x = 140
     text_y = 140
     draw.text(
@@ -350,10 +350,10 @@ def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
     if card.get("body"):
-        wrapped_body = "\n".join(textwrap.wrap(card["body"], width=16, break_long_words=False))
+        wrapped_body = "\n".join(textwrap.wrap(card["body"], width=14, break_long_words=False))
         draw.multiline_text(
-            (text_x + 2, text_y + 110), wrapped_body, font=body_font,
-            fill=(235, 240, 245), spacing=12,
+            (text_x + 2, text_y + 130), wrapped_body, font=body_font,
+            fill=(235, 240, 245), spacing=14,
             stroke_width=3, stroke_fill=(0, 0, 0),
         )
 
@@ -403,27 +403,22 @@ def _compose_video(
                 video_paths.append(pause_video)
                 audio_paths.append(pause_audio)
 
-            # ロール内の各カードを個別クリップとして生成
-            # Ken Burnsの位置はロール全体の時間軸で計算し、連続性を保つ
+            # ロール全体で1本の連続クリップ（背景カットなし、テキストだけ切替）
             zoom_dir = ROLE_ZOOM_DIR.get(role, "in")
             pan_dir = ROLE_PAN_DIR.get(role, "center")
-            card_offset = 0.0
             print(f"  ロール [{role}] {len(cards)}カード {total_dur:.1f}秒 （パン: {pan_dir}）...")
 
-            for ci, card in enumerate(cards):
-                card_video = tmp / f"role_{gi:02d}_card_{ci:02d}.mp4"
-                _make_card_clip(
-                    group["bgs"][0],  # 同じロールは同じ背景
-                    group["overlays"][ci],
-                    card["duration"],
-                    card_video,
-                    zoom_out=(zoom_dir == "out"),
-                    pan_dir=pan_dir,
-                    card_offset=card_offset,
-                    role_total_dur=total_dur,
-                )
-                video_paths.append(card_video)
-                card_offset += card["duration"]
+            role_video = tmp / f"role_{gi:02d}_{role}.mp4"
+            _make_role_clip(
+                group["bgs"][0],
+                group["overlays"],
+                cards,
+                total_dur,
+                role_video,
+                zoom_out=(zoom_dir == "out"),
+                pan_dir=pan_dir,
+            )
+            video_paths.append(role_video)
 
             # 音声クリップ（ロール全体で1つ）
             audio_clip = tmp / f"audio_{gi:02d}_{role}.m4a"
@@ -450,18 +445,17 @@ def _compose_video(
     return OUTPUT_VIDEO
 
 
-def _make_card_clip(
+def _make_role_clip(
     background_path: pathlib.Path,
-    overlay_path: pathlib.Path,
-    duration: float,
+    overlay_paths: list[pathlib.Path],
+    cards: list[dict],
+    total_dur: float,
     output_path: pathlib.Path,
     zoom_out: bool = False,
     pan_dir: str = "center",
-    card_offset: float = 0.0,
-    role_total_dur: float = 1.0,
 ):
-    """1カード分のクリップを生成。Ken Burnsの位置はロール全体の時間軸で計算し、
-    カード間で結合しても背景の動きが連続する。"""
+    """ロール全体で1本の連続クリップを生成。
+    背景はカットなしでKen Burnsパン、テキストだけ時間指定で切り替える。"""
     up_w = int(VIDEO_WIDTH * UPSCALE)
     up_h = int(VIDEO_HEIGHT * UPSCALE)
     cx = (up_w - VIDEO_WIDTH) // 2
@@ -469,9 +463,6 @@ def _make_card_clip(
     pan_x = int(VIDEO_WIDTH * ZOOM_RATIO / 2)
     pan_y = int(VIDEO_HEIGHT * ZOOM_RATIO / 2)
 
-    # パン方向に応じてX/Yの移動量を設定
-    # t はクリップ内の時間（0〜duration）
-    # global_t = card_offset + t でロール全体での位置を計算
     if pan_dir == "left_to_right":
         dx_factor, dy_factor = 2 * pan_x, 0
     elif pan_dir == "right_to_left":
@@ -480,22 +471,18 @@ def _make_card_clip(
         dx_factor, dy_factor = 0, 2 * pan_y
     elif pan_dir == "bottom_to_top":
         dx_factor, dy_factor = 0, -2 * pan_y
-    else:  # center: ズームのみ、パンなし
+    else:
         dx_factor, dy_factor = 0, 0
 
-    # zoom in: 広い→狭い, zoom out: 狭い→広い
-    # global_t をロール全体の尺で正規化して連続性を保つ
-    if zoom_out:
-        x_expr = f"'{cx + abs(dx_factor)//2} + {dx_factor}*({card_offset}+t)/{role_total_dur}'"
-        y_expr = f"'{cy + abs(dy_factor)//2} + {dy_factor}*({card_offset}+t)/{role_total_dur}'"
-    else:
-        x_expr = f"'{cx - abs(dx_factor)//2} + {dx_factor}*({card_offset}+t)/{role_total_dur}'"
-        y_expr = f"'{cy - abs(dy_factor)//2} + {dy_factor}*({card_offset}+t)/{role_total_dur}'"
-
-    # center の場合は固定位置
     if pan_dir == "center":
         x_expr = f"'{cx}'"
         y_expr = f"'{cy}'"
+    elif zoom_out:
+        x_expr = f"'{cx + abs(dx_factor)//2} + {dx_factor}*t/{total_dur}'"
+        y_expr = f"'{cy + abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
+    else:
+        x_expr = f"'{cx - abs(dx_factor)//2} + {dx_factor}*t/{total_dur}'"
+        y_expr = f"'{cy - abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
 
     crop_expr = (
         f"scale={up_w}:{up_h},"
@@ -503,25 +490,49 @@ def _make_card_clip(
         f"x={x_expr}:y={y_expr}"
     )
 
+    # 入力: [0]=背景, [1]=overlay1, [2]=overlay2, ...
+    inputs = ["-loop", "1", "-i", str(background_path)]
+    for ov_path in overlay_paths:
+        inputs += ["-loop", "1", "-i", str(ov_path)]
+
+    # フィルタ: 背景にKen Burns → 各オーバーレイを時間指定で重ねる
+    filter_parts = [f"[0:v]{crop_expr}[bg]"]
+    # 各オーバーレイをスケール
+    for i in range(len(overlay_paths)):
+        filter_parts.append(f"[{i+1}:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[ov{i}]")
+
+    # 時間指定でオーバーレイを重ねる
+    prev_label = "bg"
+    t_offset = 0.0
+    for i, card in enumerate(cards):
+        t_start = t_offset
+        t_end = t_offset + card["duration"]
+        out_label = f"tmp{i}" if i < len(cards) - 1 else "v"
+        filter_parts.append(
+            f"[{prev_label}][ov{i}]overlay=0:0:format=auto"
+            f":enable='between(t,{t_start:.6f},{t_end:.6f})'[{out_label}]"
+        )
+        prev_label = out_label
+        t_offset = t_end
+
+    # 最終出力にフォーマット指定
+    filter_parts[-1] = filter_parts[-1].rsplit("[", 1)[0] + ",format=yuv420p[v]"
+
+    filter_complex = ";".join(filter_parts)
+
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-loop", "1", "-i", str(background_path),
-        "-loop", "1", "-i", str(overlay_path),
+        *inputs,
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
-        "-filter_complex",
-        (
-            f"[0:v]{crop_expr}[bg];"
-            f"[1:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[fg];"
-            "[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]"
-        ),
+        "-filter_complex", filter_complex,
         "-map", "[v]",
-        "-t", str(duration),
+        "-t", str(total_dur),
         "-r", "30",
         "-an",
         str(output_path),
     ]
-    _run(cmd, timeout=120)
+    _run(cmd, timeout=300)
 
 
 def _make_pause_video(

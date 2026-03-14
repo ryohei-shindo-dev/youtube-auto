@@ -39,7 +39,7 @@ FONT_BOLD = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 FONT_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 FONT_MINCHO = "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc"
 
-TITLE = "含み損で眠れない夜に、今日は何をしないか"
+TITLE = "含み損がつらい夜に聞く、静かな整理"
 DESCRIPTION = (
     "含み損の夜は、数字そのものより、\n"
     "自分の判断が間違っていた気がしてつらくなります。\n\n"
@@ -64,14 +64,15 @@ ROLE_AUDIO = {
     "closing": LONG_DIR / "audio" / "07_closing.mp3",
 }
 
+PHOTOS_DIR = ASSETS_DIR / "photos"
 ROLE_BG = {
-    "hook": "long_night_thinking.png",
-    "overview": "long_door_light.png",
-    "why_painful": "long_night_thinking.png",
-    "data": "long_waiting_person.png",
-    "interpret": "long_waiting_person.png",
-    "action": "long_lamp_room.png",
-    "closing": "long_dawn_road.png",
+    "hook": PHOTOS_DIR / "anxiety" / "anxiety05.jpg",
+    "overview": PHOTOS_DIR / "anxiety" / "anxiety03.jpg",
+    "why_painful": PHOTOS_DIR / "comparison" / "comparison05.jpg",
+    "data": PHOTOS_DIR / "data" / "data01.jpg",
+    "interpret": PHOTOS_DIR / "steady" / "steady05.jpg",
+    "action": PHOTOS_DIR / "recovery" / "recovery01.jpg",
+    "closing": PHOTOS_DIR / "steady" / "steady02.jpg",
 }
 
 # ロールごとのズーム方向（内面系=in / 余韻系=out）
@@ -85,10 +86,20 @@ ROLE_ZOOM_DIR: dict[str, str] = {
     "closing": "out",
 }
 
-# scale→crop 方式のパラメータ
-# 背景を UPSCALE 倍に拡大し、crop 範囲をゆっくり動かす（iMovie Ken Burns 方式）
+# scale→crop 方式のパラメータ（iMovie Ken Burns 方式）
 UPSCALE = 1.5
-ZOOM_RATIO = 0.035  # 100% → 103.5% のズーム量
+ZOOM_RATIO = 0.035  # 100% → 103.5%
+
+# ロールごとのパン方向（単調にならないようバリエーション）
+ROLE_PAN_DIR: dict[str, str] = {
+    "hook": "left_to_right",
+    "overview": "center",
+    "why_painful": "right_to_left",
+    "data": "bottom_to_top",
+    "interpret": "center",
+    "action": "top_to_bottom",
+    "closing": "center",
+}
 
 STORYBOARD = [
     {"role": "hook", "title": "含み損", "body": "夜が長い", "share": 1.0, "layout": "number"},
@@ -106,7 +117,7 @@ STORYBOARD = [
     {"role": "interpret", "title": "同じではない", "body": "", "share": 0.6, "layout": "full"},
     {"role": "interpret", "title": "途中で決めない", "body": "今日の価格は途中\n途中の数字で全部を決めない", "share": 1.4, "layout": "corner"},
     {"role": "action", "title": "今夜やること", "body": "口座を開かない\n設定を変えない", "share": 1.0, "layout": "corner"},
-    {"role": "action", "title": "何もしない", "body": "動かなかったことが正解になる", "share": 1.0, "layout": "number", "bg": "long_dawn_road.png"},
+    {"role": "action", "title": "何もしない", "body": "動かなかったことが正解になる", "share": 1.0, "layout": "number"},
     {"role": "closing", "title": "今日はそれで十分", "body": "途中の数字で全部を決めない", "share": 1.0, "layout": "corner"},
 ]
 
@@ -182,8 +193,9 @@ def _resolve_storyboard() -> list[dict]:
 
 
 def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path: pathlib.Path):
-    bg_file = card.get("bg") or ROLE_BG[card["role"]]
-    bg_path = ASSETS_DIR / bg_file
+    bg_path = card.get("bg_path") or ROLE_BG[card["role"]]
+    if isinstance(bg_path, str):
+        bg_path = pathlib.Path(bg_path)
     background = _prepare_background(bg_path)
     overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -206,10 +218,10 @@ def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path
 
 def _render_thumbnail(output_path: pathlib.Path):
     # 背景画像を読み込み、暗め加工
-    bg_path = ASSETS_DIR / "long_night_thinking.png"
+    bg_path = PHOTOS_DIR / "anxiety" / "anxiety05.jpg"
     if bg_path.exists():
         bg = Image.open(bg_path).convert("RGB")
-        bg = bg.resize((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
+        bg = _crop_to_landscape(bg, THUMB_WIDTH, THUMB_HEIGHT)
         from PIL import ImageEnhance
         bg = ImageEnhance.Brightness(bg).enhance(0.70)
         canvas = bg
@@ -241,8 +253,8 @@ def _render_thumbnail(output_path: pathlib.Path):
 
 
 def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 72)
-    body_font = _load_font(FONT_BOLD, 42)
+    title_font = _load_font(FONT_HEAVY, 82)
+    body_font = _load_font(FONT_BOLD, 58)
     text_x = 160
     text_y = 200
 
@@ -250,33 +262,33 @@ def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
         (text_x, text_y), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=15, break_long_words=False))
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=13, break_long_words=False))
     draw.multiline_text(
-        (text_x + 2, text_y + 130), wrapped_body, font=body_font,
+        (text_x + 2, text_y + 140), wrapped_body, font=body_font,
         fill=(230, 235, 240), spacing=16,
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
 def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 66)
-    body_font = _load_font(FONT_BOLD, 38)
+    title_font = _load_font(FONT_HEAVY, 78)
+    body_font = _load_font(FONT_BOLD, 58)
 
     draw.text(
         (140, 180), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=15, break_long_words=False))
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=13, break_long_words=False))
     draw.multiline_text(
-        (140, 320), wrapped_body, font=body_font,
+        (140, 340), wrapped_body, font=body_font,
         fill=(235, 240, 245), spacing=18,
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
 def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 145)
-    body_font = _load_font(FONT_BOLD, 44)
+    body_font = _load_font(FONT_BOLD, 62)
     accent = _accent_color(card["role"])
 
     bbox = draw.textbbox((0, 0), card["title"], font=title_font)
@@ -284,14 +296,14 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     title_x = (VIDEO_WIDTH - title_w) // 2
     draw.text((title_x, 300), card["title"], font=title_font, fill=accent, stroke_width=6, stroke_fill=(0, 0, 0))
 
-    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=22, break_long_words=False))
-    bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=16)
+    wrapped_body = "\n".join(textwrap.wrap(card["body"], width=18, break_long_words=False))
+    bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=18)
     body_w = bbox_body[2] - bbox_body[0]
     body_x = (VIDEO_WIDTH - body_w) // 2
     draw.multiline_text(
-        (body_x, 540), wrapped_body, font=body_font,
-        fill=(245, 245, 245), spacing=16, align="center",
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        (body_x, 560), wrapped_body, font=body_font,
+        fill=(245, 245, 245), spacing=18, align="center",
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
 
@@ -315,8 +327,8 @@ def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 64)
-    body_font = _load_font(FONT_BOLD, 34)
+    title_font = _load_font(FONT_HEAVY, 78)
+    body_font = _load_font(FONT_BOLD, 56)
 
     text_x = 140
     text_y = 140
@@ -326,12 +338,26 @@ def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
     )
 
     if card["body"]:
-        wrapped_body = "\n".join(textwrap.wrap(card["body"], width=16, break_long_words=False))
+        wrapped_body = "\n".join(textwrap.wrap(card["body"], width=14, break_long_words=False))
         draw.multiline_text(
-            (text_x + 2, text_y + 110), wrapped_body, font=body_font,
-            fill=(235, 240, 245), spacing=12,
+            (text_x + 2, text_y + 130), wrapped_body, font=body_font,
+            fill=(235, 240, 245), spacing=14,
             stroke_width=3, stroke_fill=(0, 0, 0),
         )
+
+
+def _group_by_role(storyboard, background_paths, overlay_paths):
+    """ストーリーボードを連続する同じロールごとにグループ化する。"""
+    groups = []
+    current_role = None
+    for card, bg, ov in zip(storyboard, background_paths, overlay_paths):
+        if card["role"] != current_role:
+            groups.append({"role": card["role"], "cards": [], "bgs": [], "overlays": []})
+            current_role = card["role"]
+        groups[-1]["cards"].append(card)
+        groups[-1]["bgs"].append(bg)
+        groups[-1]["overlays"].append(ov)
+    return groups
 
 
 def _compose_video(
@@ -339,50 +365,50 @@ def _compose_video(
     background_paths: list[pathlib.Path],
     overlay_paths: list[pathlib.Path],
 ) -> pathlib.Path:
+    groups = _group_by_role(storyboard, background_paths, overlay_paths)
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp = pathlib.Path(tmp_dir)
         video_paths = []
         audio_paths = []
-        role_offsets = {role: 0.0 for role in ROLE_AUDIO}
 
-        previous_role = None
-        previous_background = None
-        previous_overlay = None
+        for gi, group in enumerate(groups):
+            role = group["role"]
+            cards = group["cards"]
+            total_dur = sum(c["duration"] for c in cards)
 
-        for index, (card, background_path, overlay_path) in enumerate(
-            zip(storyboard, background_paths, overlay_paths),
-            start=1,
-        ):
-            role = card["role"]
-            audio_path = ROLE_AUDIO[role]
-            offset = role_offsets[role]
-            role_offsets[role] += card["duration"]
-
-            if previous_role and previous_role != role and previous_background is not None and previous_overlay is not None:
-                pause_video = tmp / f"pause_{index:02d}.mp4"
-                pause_audio = tmp / f"pause_{index:02d}.m4a"
-                _make_pause_video(previous_background, previous_overlay, SECTION_PAUSE, pause_video)
+            # セクション切替時に間を挿入
+            if gi > 0:
+                prev_group = groups[gi - 1]
+                prev_bg = prev_group["bgs"][-1]
+                prev_ov = prev_group["overlays"][-1]
+                pause_video = tmp / f"pause_{gi:02d}.mp4"
+                pause_audio = tmp / f"pause_{gi:02d}.m4a"
+                _make_pause_video(prev_bg, prev_ov, SECTION_PAUSE, pause_video)
                 _make_silence_audio(SECTION_PAUSE, pause_audio)
                 video_paths.append(pause_video)
                 audio_paths.append(pause_audio)
 
-            video_path = tmp / f"video_{index:02d}.mp4"
-            audio_clip = tmp / f"audio_{index:02d}.m4a"
+            # ロール全体で1本の連続クリップ（背景カットなし、テキストだけ切替）
             zoom_dir = ROLE_ZOOM_DIR.get(role, "in")
-            _make_video_clip(
-                background_path,
-                overlay_path,
-                card["duration"],
-                video_path,
-                zoom_out=(zoom_dir == "out"),
-            )
-            _make_audio_clip(audio_path, offset, card["duration"], audio_clip)
-            video_paths.append(video_path)
-            audio_paths.append(audio_clip)
+            pan_dir = ROLE_PAN_DIR.get(role, "center")
 
-            previous_role = role
-            previous_background = background_path
-            previous_overlay = overlay_path
+            role_video = tmp / f"role_{gi:02d}_{role}.mp4"
+            _make_role_clip(
+                group["bgs"][0],
+                group["overlays"],
+                cards,
+                total_dur,
+                role_video,
+                zoom_out=(zoom_dir == "out"),
+                pan_dir=pan_dir,
+            )
+            video_paths.append(role_video)
+
+            # 音声クリップ（ロール全体で1つ）
+            audio_clip = tmp / f"audio_{gi:02d}_{role}.m4a"
+            _make_audio_clip(ROLE_AUDIO[role], 0.0, total_dur, audio_clip)
+            audio_paths.append(audio_clip)
 
         raw_video = tmp / "raw_video.mp4"
         raw_audio = tmp / "raw_audio.m4a"
@@ -401,60 +427,91 @@ def _compose_video(
     return OUTPUT_VIDEO
 
 
-def _make_video_clip(
+def _make_role_clip(
     background_path: pathlib.Path,
-    overlay_path: pathlib.Path,
-    duration: float,
+    overlay_paths: list[pathlib.Path],
+    cards: list[dict],
+    total_dur: float,
     output_path: pathlib.Path,
     zoom_out: bool = False,
+    pan_dir: str = "center",
 ):
-    # scale→crop 方式（iMovie Ken Burns 再現）
-    # 背景を UPSCALE 倍に拡大し、crop 範囲をゆっくり動かす。
-    # テキスト（overlay）は固定のまま合成する。
+    """ロール全体で1本の連続クリップを生成。
+    背景はカットなしでKen Burnsパン、テキストだけ時間指定で切り替える。"""
     up_w = int(VIDEO_WIDTH * UPSCALE)
     up_h = int(VIDEO_HEIGHT * UPSCALE)
     cx = (up_w - VIDEO_WIDTH) // 2
     cy = (up_h - VIDEO_HEIGHT) // 2
-    # ズーム移動量（中央基準、片側のみ）
     pan_x = int(VIDEO_WIDTH * ZOOM_RATIO / 2)
     pan_y = int(VIDEO_HEIGHT * ZOOM_RATIO / 2)
 
-    if zoom_out:
-        # 狭い範囲 → 広い範囲（少し引いていく）
-        crop_expr = (
-            f"scale={up_w}:{up_h},"
-            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
-            f"x='{cx + pan_x} - {2 * pan_x}*(t/{duration})':"
-            f"y='{cy + pan_y} - {2 * pan_y}*(t/{duration})'"
-        )
+    if pan_dir == "left_to_right":
+        dx_factor, dy_factor = 2 * pan_x, 0
+    elif pan_dir == "right_to_left":
+        dx_factor, dy_factor = -2 * pan_x, 0
+    elif pan_dir == "top_to_bottom":
+        dx_factor, dy_factor = 0, 2 * pan_y
+    elif pan_dir == "bottom_to_top":
+        dx_factor, dy_factor = 0, -2 * pan_y
     else:
-        # 広い範囲 → 狭い範囲（少し寄っていく）
-        crop_expr = (
-            f"scale={up_w}:{up_h},"
-            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
-            f"x='{cx - pan_x} + {2 * pan_x}*(t/{duration})':"
-            f"y='{cy - pan_y} + {2 * pan_y}*(t/{duration})'"
+        dx_factor, dy_factor = 0, 0
+
+    if pan_dir == "center":
+        x_expr = f"'{cx}'"
+        y_expr = f"'{cy}'"
+    elif zoom_out:
+        x_expr = f"'{cx + abs(dx_factor)//2} + {dx_factor}*t/{total_dur}'"
+        y_expr = f"'{cy + abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
+    else:
+        x_expr = f"'{cx - abs(dx_factor)//2} + {dx_factor}*t/{total_dur}'"
+        y_expr = f"'{cy - abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
+
+    crop_expr = (
+        f"scale={up_w}:{up_h},"
+        f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
+        f"x={x_expr}:y={y_expr}"
+    )
+
+    # 入力: [0]=背景, [1]=overlay1, [2]=overlay2, ...
+    inputs = ["-loop", "1", "-i", str(background_path)]
+    for ov_path in overlay_paths:
+        inputs += ["-loop", "1", "-i", str(ov_path)]
+
+    # フィルタ: 背景にKen Burns → 各オーバーレイを時間指定で重ねる
+    filter_parts = [f"[0:v]{crop_expr}[bg]"]
+    for i in range(len(overlay_paths)):
+        filter_parts.append(f"[{i+1}:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[ov{i}]")
+
+    prev_label = "bg"
+    t_offset = 0.0
+    for i, card in enumerate(cards):
+        t_start = t_offset
+        t_end = t_offset + card["duration"]
+        out_label = f"tmp{i}" if i < len(cards) - 1 else "v"
+        filter_parts.append(
+            f"[{prev_label}][ov{i}]overlay=0:0:format=auto"
+            f":enable='between(t,{t_start:.6f},{t_end:.6f})'[{out_label}]"
         )
+        prev_label = out_label
+        t_offset = t_end
+
+    filter_parts[-1] = filter_parts[-1].rsplit("[", 1)[0] + ",format=yuv420p[v]"
+
+    filter_complex = ";".join(filter_parts)
 
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-loop", "1", "-i", str(background_path),
-        "-loop", "1", "-i", str(overlay_path),
+        *inputs,
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
-        "-filter_complex",
-        (
-            f"[0:v]{crop_expr}[bg];"
-            f"[1:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[fg];"
-            "[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]"
-        ),
+        "-filter_complex", filter_complex,
         "-map", "[v]",
-        "-t", str(duration),
+        "-t", str(total_dur),
         "-r", "30",
         "-an",
         str(output_path),
     ]
-    _run(cmd, timeout=120)
+    _run(cmd, timeout=300)
 
 
 def _make_pause_video(
@@ -561,15 +618,15 @@ def _mux_video_audio(video_path: pathlib.Path, audio_path: pathlib.Path, output_
 
 def _prepare_background(bg_path: pathlib.Path) -> Image.Image:
     img = Image.open(bg_path).convert("RGB")
-    img = _crop_to_landscape(img)
+    img = _crop_to_landscape(img, VIDEO_WIDTH, VIDEO_HEIGHT)
     img = img.filter(ImageFilter.GaussianBlur(radius=2))
     img = ImageEnhance.Brightness(img).enhance(0.75)
     return img
 
 
-def _crop_to_landscape(img: Image.Image) -> Image.Image:
+def _crop_to_landscape(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     src_w, src_h = img.size
-    target_ratio = VIDEO_WIDTH / VIDEO_HEIGHT
+    target_ratio = target_w / target_h
 
     if src_w / src_h > target_ratio:
         crop_h = src_h
@@ -581,7 +638,7 @@ def _crop_to_landscape(img: Image.Image) -> Image.Image:
     left = (src_w - crop_w) // 2
     top = (src_h - crop_h) // 2
     img = img.crop((left, top, left + crop_w, top + crop_h))
-    return img.resize((VIDEO_WIDTH, VIDEO_HEIGHT), Image.LANCZOS)
+    return img.resize((target_w, target_h), Image.LANCZOS)
 
 
 def _accent_color(role: str) -> tuple[int, int, int]:
