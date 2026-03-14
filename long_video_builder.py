@@ -211,7 +211,7 @@ def _render_thumbnail(output_path: pathlib.Path):
         bg = Image.open(bg_path).convert("RGB")
         bg = bg.resize((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
         from PIL import ImageEnhance
-        bg = ImageEnhance.Brightness(bg).enhance(0.40)
+        bg = ImageEnhance.Brightness(bg).enhance(0.70)
         canvas = bg
     else:
         canvas = Image.new("RGB", (THUMB_WIDTH, THUMB_HEIGHT), (10, 10, 10))
@@ -563,7 +563,7 @@ def _prepare_background(bg_path: pathlib.Path) -> Image.Image:
     img = Image.open(bg_path).convert("RGB")
     img = _crop_to_landscape(img)
     img = img.filter(ImageFilter.GaussianBlur(radius=2))
-    img = ImageEnhance.Brightness(img).enhance(0.50)
+    img = ImageEnhance.Brightness(img).enhance(0.75)
     return img
 
 
