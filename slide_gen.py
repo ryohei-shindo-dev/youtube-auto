@@ -495,7 +495,10 @@ def _draw_text_in_area(
 
     line_height = 178 if is_hook else 155
     total_height = len(lines) * line_height
-    y_start = area_top + (area_height - total_height) // 2
+    available_space = max(0, area_height - total_height)
+    # 下部テキストエリアは中央寄せだと短文時に間延びして見えるため、
+    # やや上寄せで配置して写真との境界付近から読み始める。
+    y_start = area_top + int(available_space * 0.22)
 
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
