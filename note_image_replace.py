@@ -4,8 +4,10 @@ note_image_replace.py
 note管理シートからNo.とURLを取得し、対応する画像をアップロードする。
 
 使い方:
-    python note_image_replace.py --replace         # 全記事
-    python note_image_replace.py --replace --no 1   # 1記事だけ
+    python note_image_replace.py --replace           # 全記事（下書き保存まで）
+    python note_image_replace.py --replace --no 1    # 1記事だけ（下書き保存まで）
+    python note_image_replace.py --replace --finalize-publish
+                                                # 公開設定画面まで進めて確定
 """
 
 from __future__ import annotations
@@ -81,7 +83,7 @@ def _get_articles_from_sheet() -> list[dict]:
     return articles
 
 
-def _replace_one(page: Page, article: dict) -> str:
+def _replace_one(page: Page, article: dict, finalize_publish: bool = False) -> str:
     """1記事の編集ページを開き、画像を差し替える。
 
     Returns: "ok", "fail"
@@ -140,6 +142,10 @@ def _replace_one(page: Page, article: dict) -> str:
         ).click()
         time.sleep(3)
 
+        if not finalize_publish:
+            print(f"    OK（{image_path.name} / 下書き保存まで）")
+            return "ok"
+
         # Step 6: publish画面に遷移
         publish_url = f"https://editor.note.com/notes/{key}/publish/"
         page.goto(publish_url)
@@ -168,7 +174,7 @@ def _replace_one(page: Page, article: dict) -> str:
         return "fail"
 
 
-def do_replace(target_no: int | None = None):
+def do_replace(target_no: int | None = None, finalize_publish: bool = False):
     print("note管理シートから記事一覧を取得...")
     articles = _get_articles_from_sheet()
     print(f"  {len(articles)}件の記事を検出\n")
@@ -191,7 +197,7 @@ def do_replace(target_no: int | None = None):
 
         for i, article in enumerate(articles):
             print(f"[{i+1}/{len(articles)}] {article['key']}")
-            result = _replace_one(page, article)
+            result = _replace_one(page, article, finalize_publish=finalize_publish)
             if result == "ok":
                 ok += 1
             else:
@@ -210,10 +216,15 @@ def main():
     parser.add_argument("--replace", action="store_true")
     parser.add_argument("--no", type=int, default=None,
                         help="差し替える画像No.（省略時は全件）")
+    parser.add_argument(
+        "--finalize-publish",
+        action="store_true",
+        help="下書き保存後に publish 画面へ進み、公開確定まで行う（既定は安全のため無効）",
+    )
     args = parser.parse_args()
 
     if args.replace:
-        do_replace(target_no=args.no)
+        do_replace(target_no=args.no, finalize_publish=args.finalize_publish)
     else:
         parser.print_help()
 
