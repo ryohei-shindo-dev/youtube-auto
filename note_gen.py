@@ -240,6 +240,7 @@ def _call_claude(api_key: str, prompt: str) -> Optional[str]:
 
 def _save_article(article: str, output_dir: pathlib.Path, filename: str) -> pathlib.Path:
     """記事をファイルに保存する。"""
+    article = script_gen.normalize_preferred_spelling(article)
     body_text = article.replace("#", "").replace("*", "").replace("-", "").strip()
     char_count = len(body_text)
     print(f"  note記事生成完了（{char_count}字）")

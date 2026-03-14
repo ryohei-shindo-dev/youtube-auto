@@ -302,7 +302,7 @@ def _sort_by_score(entries: list) -> list:
 def get_next_publishable(rows: list | None = None, platforms: list | None = None) -> dict | None:
     """シートから次に投稿すべき動画を取得する。
 
-    1. 部分投稿済み（G=公開済みだが指定プラットフォームのURLが空）を優先
+    1. 部分投稿済み（指定プラットフォームの一部だけ未投稿）を優先
        → 同じ動画が全プラットフォームに揃ってから次の動画に進む
     2. 該当がなければ、G=生成済み（まだどこにも投稿していない）を選択
     """
@@ -318,13 +318,21 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         entry = _row_to_entry(row, i)
         if not entry["folder"]:
             continue
+        missing = [p for p in platforms if not entry.get(_PLATFORM_URL_KEYS.get(p, ""))]
+        if not missing:
+            continue
+
+        has_any_platform_url = any(entry.get(key) for key in _PLATFORM_URL_KEYS.values())
+
         if entry["status"] == sheets.STATUS_GENERATED:
-            generated.append(entry)
-        elif entry["status"] == sheets.STATUS_PUBLISHED:
-            # 指定プラットフォームのURLが空なら投稿が必要
-            missing = [p for p in platforms if not entry.get(_PLATFORM_URL_KEYS.get(p, ""))]
-            if missing:
+            # 生成済みでも一部プラットフォームだけ投稿済みなら partial 扱いにする。
+            # これをしないと、同一プラットフォームの再実行時に同じ動画を再投稿してしまう。
+            if has_any_platform_url:
                 partial.append(entry)
+            else:
+                generated.append(entry)
+        elif entry["status"] == sheets.STATUS_PUBLISHED:
+            partial.append(entry)
 
     # 部分投稿済み（他プラットフォームは済みだが指定プラットフォームが未投稿）を優先。
     # これにより YouTube→X→Instagram の時間差投稿で同じ動画が順番に全プラットフォームに投稿される。

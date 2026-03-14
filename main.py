@@ -45,6 +45,7 @@ DONE_DIR = SCRIPT_DIR / "done"
 def main():
     parser = argparse.ArgumentParser(description="YouTube 自動生成パイプライン")
     parser.add_argument("--dry-run", action="store_true", help="動画生成まで（アップロードなし）")
+    parser.add_argument("--skip-dedupe", action="store_true", help="重複チェックをスキップ（確認用）")
     parser.add_argument("--topic", type=str, default=None, help="トピックを手動指定")
     parser.add_argument("--theme", type=str, default=None, help="テーマを手動指定（メリット/格言/あるある/歴史データ/ガチホモチベ）")
     parser.add_argument("--long", action="store_true", help="通常動画を生成（日曜用）")
@@ -114,12 +115,14 @@ def main():
         sys.exit(1)
 
     # 重複チェック（Shorts のみ。通常動画は対象外）
-    if not is_long:
+    if not is_long and not args.skip_dedupe:
         dup = dedupe_check.check_duplicate(script_data)
         print(dedupe_check.format_report(dup))
         if dup["is_duplicate"]:
             print("\n[中止] 類似動画が既に存在します。別のトピックで再実行してください。")
             sys.exit(1)
+    elif not is_long and args.skip_dedupe:
+        print("  [重複チェック] スキップ（--skip-dedupe）")
 
     scenes = script_data["scenes"]
     print(f"  タイトル: {script_data['title']}")

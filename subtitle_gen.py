@@ -107,6 +107,7 @@ def _generate_transcript_json(
             "role": scene.get("role", ""),
             "text": scene.get("text", ""),
             "slide_text": scene.get("slide_text", ""),
+            "photo_asset": scene.get("photo_asset", ""),
             "start_sec": round(current_time, 2),
             "end_sec": round(current_time + duration, 2),
             "duration_sec": round(duration, 2),

@@ -22,6 +22,8 @@ slide_gen.py
 
 from __future__ import annotations
 
+import json
+import os
 import pathlib
 import random
 import textwrap
@@ -32,6 +34,11 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 SHORTS_WIDTH = 1080
 SHORTS_HEIGHT = 1920
 
+# Instagram Reels / Shorts の下部UIと重ならないための安全域
+BOTTOM_SAFE_AREA = 360
+BOTTOM_TEXT_MARGIN = 80
+SPLIT_LAYOUT_TEXT_TOP_PADDING = 96
+
 # 日本語フォントパス（macOS 標準）
 FONT_PATH_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W9.ttc"
 FONT_PATH_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
@@ -39,6 +46,8 @@ FONT_PATH_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 # アセットディレクトリ
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 PHOTOS_DIR = ASSETS_DIR / "photos"
+PHOTO_HISTORY_PATH = pathlib.Path(__file__).parent / "debug" / "photo_history.json"
+PHOTO_HISTORY_KEEP = 6
 
 CHANNEL_NAME = "ガチホのモチベ"
 
@@ -229,7 +238,9 @@ def generate_all_slides(
         print(f"  スライド{idx}（{role}）を生成中...")
         try:
             if use_photo:
-                path = _generate_slide_v2(text, role, output_path)
+                path, photo_asset = _generate_slide_v2(text, role, output_path)
+                if photo_asset:
+                    scene["photo_asset"] = photo_asset
             else:
                 path = _generate_slide(text, role, theme, output_path)
             paths.append(path)
@@ -307,17 +318,17 @@ def _generate_slide_v2(
     text: str,
     role: str,
     output_path: pathlib.Path,
-) -> pathlib.Path:
+) -> tuple[pathlib.Path, str]:
     """v2: 写真の縦横で自動レイアウト切替。
     - 縦型写真: 全画面写真 + 下部グラデーション + テキスト重ね（没入型）
     - 横型写真: 上部55%写真 + 下部45%テキスト（従来型）
     """
-    photo = _get_photo(role)
+    photo, photo_asset = _get_photo(role)
 
     if photo and _is_portrait(photo):
-        return _generate_slide_v2_portrait(text, role, output_path, photo)
+        return _generate_slide_v2_portrait(text, role, output_path, photo), photo_asset
     else:
-        return _generate_slide_v2_landscape(text, role, output_path, photo)
+        return _generate_slide_v2_landscape(text, role, output_path, photo), photo_asset
 
 
 def _generate_slide_v2_portrait(
@@ -347,10 +358,11 @@ def _generate_slide_v2_portrait(
     draw.rectangle([(0, SHORTS_HEIGHT - 4), (SHORTS_WIDTH, SHORTS_HEIGHT)],
                    fill=accent_color)
 
-    # テキスト（下部40%の中央に配置）
+    # テキストは下部UI安全域を除いた範囲に配置
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
     text_area_top = int(SHORTS_HEIGHT * 0.60)
-    text_area_h = SHORTS_HEIGHT - text_area_top - 60
+    text_area_bottom = SHORTS_HEIGHT - BOTTOM_SAFE_AREA
+    text_area_h = max(0, text_area_bottom - text_area_top)
     _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
 
     # チャンネル名
@@ -399,9 +411,12 @@ def _generate_slide_v2_landscape(
     draw.rectangle([(40, PHOTO_HEIGHT - 1), (SHORTS_WIDTH - 40, PHOTO_HEIGHT + 1)],
                    fill=(*accent_color, 80) if len(accent_color) == 3 else accent_color)
 
-    # メインテキスト（下部エリアの中央に配置）
+    # メインテキストは下部UI安全域を除いた範囲に配置
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
-    _draw_text_in_area(draw, text, text_color, PHOTO_HEIGHT, TEXT_AREA_HEIGHT, role=role)
+    text_area_top = PHOTO_HEIGHT + SPLIT_LAYOUT_TEXT_TOP_PADDING
+    text_area_bottom = SHORTS_HEIGHT - BOTTOM_SAFE_AREA
+    text_area_h = max(0, text_area_bottom - text_area_top)
+    _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
 
     # チャンネル名
     _draw_channel_name(draw)
@@ -410,24 +425,118 @@ def _generate_slide_v2_landscape(
     return output_path
 
 
-def _get_photo(role: str) -> Image.Image | None:
+def _get_photo(role: str) -> tuple[Image.Image | None, str]:
     """ロールに対応する写真カテゴリからランダムに1枚取得する。"""
     category = ROLE_PHOTO_CATEGORY.get(role, "")
     if not category:
-        return None
+        return None, ""
 
     photo_dir = PHOTOS_DIR / category
     if not photo_dir.exists():
-        return None
+        return None, ""
 
-    photos = list(photo_dir.glob("*.jpg")) + list(photo_dir.glob("*.png"))
+    photos = sorted(list(photo_dir.glob("*.jpg")) + list(photo_dir.glob("*.png")))
     if not photos:
-        return None
+        return None, ""
+
+    history = _load_photo_history()
+    blocked_names = set(history.get(category, [])[-PHOTO_HISTORY_KEEP:])
+    if role == "hook":
+        blocked_names.update(_get_recent_published_hook_photo_names(limit=1))
+    candidates = [p for p in photos if p.name not in blocked_names] or photos
+    selected = random.choice(candidates)
 
     try:
-        return Image.open(random.choice(photos))
+        img = Image.open(selected)
+        _remember_photo_choice(category, selected.name, history)
+        return img, selected.name
     except Exception:
-        return None
+        return None, ""
+
+
+def _get_recent_published_hook_photo_names(limit: int = 1) -> list[str]:
+    """直近の YouTube 投稿済み動画の hook 画像ファイル名を取得する。"""
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    if sheet_id:
+        try:
+            import sheets
+
+            rows = sheets.get_service().spreadsheets().values().get(
+                spreadsheetId=sheet_id,
+                range=f"{sheets.SHEET_NAME}!A:N",
+            ).execute().get("values", [])
+            published = []
+            for row in rows[1:]:
+                folder = sheets.get_cell(row, sheets.COL["folder"])
+                pub_date = sheets.get_cell(row, sheets.COL["pub_date"])
+                gen_date = sheets.get_cell(row, sheets.COL["gen_date"])
+                youtube_url = sheets.get_cell(row, sheets.COL["youtube_url"])
+                if folder and youtube_url:
+                    published.append((pub_date or gen_date or folder, folder))
+
+            published.sort(key=lambda item: item[0], reverse=True)
+            names = []
+            for _, folder in published:
+                asset = _read_hook_photo_asset_from_folder(folder)
+                if asset:
+                    names.append(asset)
+                if len(names) >= limit:
+                    return names
+        except Exception:
+            pass
+
+    names = []
+    for transcript_path in sorted(
+        pathlib.Path(__file__).parent.joinpath("done").glob("*/transcript.json"),
+        reverse=True,
+    ):
+        asset = _read_hook_photo_asset_from_transcript(transcript_path)
+        if asset:
+            names.append(asset)
+        if len(names) >= limit:
+            break
+    if not names:
+        history = _load_photo_history()
+        latest = history.get("anxiety", [])[-1:]
+        names.extend(latest)
+    return names
+
+
+def _read_hook_photo_asset_from_folder(folder_name: str) -> str:
+    transcript_path = pathlib.Path(__file__).parent / "done" / folder_name / "transcript.json"
+    return _read_hook_photo_asset_from_transcript(transcript_path)
+
+
+def _read_hook_photo_asset_from_transcript(transcript_path: pathlib.Path) -> str:
+    try:
+        data = json.loads(transcript_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+
+    for scene in data.get("scenes", []):
+        if scene.get("role") == "hook":
+            return scene.get("photo_asset", "")
+    return ""
+
+
+def _load_photo_history() -> dict:
+    """最近使った写真名をカテゴリ別に読み込む。"""
+    try:
+        return json.loads(PHOTO_HISTORY_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _remember_photo_choice(category: str, filename: str, history: dict):
+    """選択した写真を履歴に保存し、直近の重複を避ける。"""
+    items = history.get(category, [])
+    items.append(filename)
+    history[category] = items[-PHOTO_HISTORY_KEEP:]
+    PHOTO_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PHOTO_HISTORY_PATH.write_text(
+        json.dumps(history, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _fit_photo_to_area(
@@ -495,7 +604,7 @@ def _draw_text_in_area(
 
     line_height = 178 if is_hook else 155
     total_height = len(lines) * line_height
-    available_space = max(0, area_height - total_height)
+    available_space = max(0, area_height - total_height - BOTTOM_TEXT_MARGIN)
     # 下部テキストエリアは中央寄せだと短文時に間延びして見えるため、
     # やや上寄せで配置して写真との境界付近から読み始める。
     y_start = area_top + int(available_space * 0.22)
@@ -590,7 +699,7 @@ def _draw_channel_name(draw: ImageDraw.Draw):
     bbox = draw.textbbox((0, 0), CHANNEL_NAME, font=font)
     text_width = bbox[2] - bbox[0]
     x = SHORTS_WIDTH - text_width - 40
-    y = SHORTS_HEIGHT - 60
+    y = SHORTS_HEIGHT - BOTTOM_SAFE_AREA + 80
     draw.text((x + 1, y + 1), CHANNEL_NAME, font=font, fill=(0, 0, 0))
     draw.text((x, y), CHANNEL_NAME, font=font, fill=(200, 200, 200))
 

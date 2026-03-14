@@ -12,8 +12,10 @@ import json
 import pathlib
 import random
 
+import script_gen
+
 # 共通ハッシュタグ（長期投資チャンネル向け）
-BASE_HASHTAGS = ["長期投資", "積立投資", "NISA", "ガチホ", "資産形成"]
+BASE_HASHTAGS = ["長期投資", "積み立て投資", "NISA", "ガチホ", "資産形成"]
 
 # テーマ別の追加ハッシュタグ
 THEME_HASHTAGS = {
@@ -46,30 +48,30 @@ X_HOOK_PATTERNS = [
 # 短文・改行・共感型で統一。ローテーション運用（15日で1周）。
 X_STANDALONE_POSTS = [
     "含み損。\n\n長期投資で\n一番つらい時期。\n\nでも\n\n20年続けた人\n元本割れゼロ。\n\n時間が最大の武器。\n\n#長期投資",
-    "積立3年目。\n\n一番しんどい時期。\n\n理由はシンプル。\n\nまだ\n増えてないから。",
+    "積み立て3年目。\n\n一番しんどい時期。\n\n理由はシンプル。\n\nまだ\n増えてないから。",
     "長期投資。\n\n成功条件。\n\n才能\n知識\nセンス\n\n全部いらない。\n\n必要なのは\n\nやめないこと。",
     "暴落。\n\n怖い。\n\nでも\n\n暴落で売った人\n回復を受け取れない。",
     "長期投資で\n一番危ない瞬間。\n\n暴落じゃない。\n\n「増えてない期間」",
     "含み損。\n\nつらいのは\n\nお金が減ることじゃない。\n\n自分の判断を\n疑い始めること。",
     "投資。\n\n一番難しいこと。\n\n買うことでも\n売ることでもない。\n\n持ち続けること。",
     "長期投資。\n\n途中の数字は\n\nあまり意味ない。",
-    "積立投資。\n\n成功した人の共通点。\n\nただ\n\n続けた。",
+    "積み立て投資。\n\n成功した人の共通点。\n\nただ\n\n続けた。",
     "長期投資。\n\n一番もったいない行動。\n\n暴落で売ること。",
     "含み損。\n\n実は\n\n長期投資では\n\n普通。",
     "投資。\n\n勝つ人。\n\n市場に残った人。",
     "長期投資。\n\n一番大事なこと。\n\n退場しないこと。",
     "投資で一番の敵。\n\n相場じゃない。\n\n焦り。",
-    "積立投資。\n\n最初の5年。\n\nほとんど増えない。",
+    "積み立て投資。\n\n最初の5年。\n\nほとんど増えない。",
     "暴落。\n\n途中イベント。\n\n長期投資では。",
     "長期投資。\n\n途中でやめる人。\n\nかなり多い。\n\n理由。\n\n増えてない期間。",
     "投資。\n\n一番つらい瞬間。\n\n含み損じゃない。\n\n自分を疑う瞬間。",
-    "積立投資。\n\n一番大事。\n\n続ける仕組み。",
+    "積み立て投資。\n\n一番大事。\n\n続ける仕組み。",
     "長期投資。\n\n成功者の共通点。\n\n市場に残ったこと。",
     "含み損。\n\n長期投資では\n\n途中の景色。",
     "長期投資。\n\n一番のコツ。\n\n何もしない勇気。",
     "投資。\n\n一番危ない行動。\n\n感情で売ること。",
     "長期投資。\n\n途中でやめる人。\n\n複利を受け取れない。",
-    "積立投資。\n\n暴落。\n\n実は\n\n安く買える期間。",
+    "積み立て投資。\n\n暴落。\n\n実は\n\n安く買える期間。",
     "長期投資。\n\n増えてない時間。\n\n一番つらい。",
     "投資。\n\n一番強い武器。\n\n時間。",
     "長期投資。\n\n成功条件。\n\n退場しないこと。",
@@ -131,17 +133,17 @@ def generate_social_captions(script_data: dict, output_dir: pathlib.Path) -> dic
 
     result = {
         "tiktok": {
-            "caption": tiktok_full,
+            "caption": script_gen.normalize_preferred_spelling(tiktok_full),
             "hashtags": tiktok_tags,
         },
         "instagram": {
-            "caption": insta_full,
+            "caption": script_gen.normalize_preferred_spelling(insta_full),
             "hashtags": instagram_tags,
         },
         "x": {
-            "shorts_post": x_shorts_post,
-            "empathy_post": x_empathy_post,
-            "standalone_post": x_standalone_post,
+            "shorts_post": script_gen.normalize_preferred_spelling(x_shorts_post),
+            "empathy_post": script_gen.normalize_preferred_spelling(x_empathy_post),
+            "standalone_post": script_gen.normalize_preferred_spelling(x_standalone_post),
             "hashtags": X_HASHTAGS,
         },
     }
