@@ -60,8 +60,9 @@ def _regen_one(folder: pathlib.Path) -> bool:
         scene["audio_path"] = str(audio_path)
 
     # Step 1: スライド再生成（v2 写真型、縦横自動切替）
+    theme = transcript.get("theme", "")
     slide_paths = slide_gen.generate_all_slides(
-        scenes, folder, theme="", use_photo=True,
+        scenes, folder, theme=theme, use_photo=True,
     )
     if len(slide_paths) != len(scenes):
         print(f"  [エラー] スライド生成失敗: {len(slide_paths)}/{len(scenes)}")

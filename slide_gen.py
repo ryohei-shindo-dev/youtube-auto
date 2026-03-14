@@ -8,7 +8,7 @@ slide_gen.py
     - 縦型写真: 全画面写真 + 下部グラデーション + テキスト重ね（没入型）
     - 横型写真: 上部55%写真 + 下部45%テキスト（分割型）
     - 写真は assets/photos/ のカテゴリ別素材を使用
-    - 色補正はnote記事画像と統一（暗め・低彩度・ネイビーオーバーレイ）
+    - 色補正はロール別（hook=やや暗→closing=ほぼ原色、感情曲線に連動）
 
 【素材】
   assets/*.png           — v1用シルエット画像（12枚）
@@ -56,20 +56,26 @@ ROLE_PHOTO_CATEGORY = {
     "closing": "steady",
 }
 
-# v2用の下部背景色（ロール別、紺系で統一感）
+# v2用の下部背景色（ロール別、感情曲線に沿って hook=暗め → closing=やや明るい）
 V2_TEXT_BG = {
-    "hook": (20, 15, 35),
-    "empathy": (15, 18, 38),
-    "data": (12, 22, 42),
-    "resolve": (15, 30, 30),
-    "closing": (20, 18, 30),
+    "hook": (38, 30, 52),
+    "empathy": (32, 36, 58),
+    "data": (28, 42, 66),
+    "resolve": (32, 52, 52),
+    "closing": (40, 44, 62),
 }
 
-# v2用の写真補正パラメータ（note画像と統一）
-V2_PHOTO_BRIGHTNESS = 0.75
-V2_PHOTO_SATURATION = 0.85
+# v2用の写真補正パラメータ（ロール別、感情曲線に沿って段階的に明るくする）
+V2_PHOTO_PARAMS = {
+    "hook":    {"brightness": 0.94, "saturation": 0.95, "overlay": (18, 24, 48, 45)},
+    "empathy": {"brightness": 0.92, "saturation": 0.95, "overlay": (16, 22, 44, 40)},
+    "data":    {"brightness": 0.96, "saturation": 0.98, "overlay": (12, 20, 38, 28)},
+    "resolve": {"brightness": 1.00, "saturation": 1.00, "overlay": (10, 18, 32, 18)},
+    "closing": {"brightness": 1.02, "saturation": 1.00, "overlay": (8, 16, 28, 10)},
+}
 V2_PHOTO_BLUR = 1
-V2_PHOTO_OVERLAY = (15, 20, 45, 100)  # 薄いネイビー
+# フォールバック（ロール不明時）
+_V2_PHOTO_DEFAULT = {"brightness": 0.95, "saturation": 0.95, "overlay": (15, 20, 45, 30)}
 
 # ── テーマ×ロール → 画像ファイル名のマッピング ──
 THEME_IMAGE_MAP = {
@@ -155,17 +161,17 @@ LONG_IMAGE_MAP = {
     "closing": "12_sunrise.png",
 }
 
-# ── ロール別のオーバーレイカラー（RGBA） ──
+# ── ロール別のオーバーレイカラー（RGBA）── v1用、画像の上に被せる
 ROLE_OVERLAY = {
-    "hook": (30, 10, 10, 210),
-    "empathy": (10, 20, 50, 200),
-    "data": (15, 35, 55, 190),
-    "resolve": (20, 50, 30, 190),
-    "closing": (40, 20, 10, 190),
-    "opening": (10, 20, 50, 200),
-    "explain": (20, 20, 40, 200),
-    "theme": (20, 20, 40, 200),
-    "summary": (20, 50, 30, 190),
+    "hook": (30, 12, 16, 120),
+    "empathy": (12, 24, 52, 105),
+    "data": (14, 34, 56, 95),
+    "resolve": (18, 46, 34, 90),
+    "closing": (32, 22, 18, 90),
+    "opening": (12, 24, 52, 105),
+    "explain": (20, 20, 40, 100),
+    "theme": (20, 20, 40, 100),
+    "summary": (18, 46, 34, 90),
 }
 
 # ── テキストカラー ──
@@ -174,7 +180,7 @@ ROLE_TEXT_COLOR = {
     "empathy": (255, 255, 255),
     "data": (100, 200, 255),
     "resolve": (120, 230, 150),
-    "closing": (255, 200, 100),
+    "closing": (236, 196, 122),
     "opening": (255, 255, 255),
     "explain": (200, 200, 200),
     "theme": (255, 215, 0),
@@ -217,6 +223,8 @@ def generate_all_slides(
         output_path = output_dir / f"slide_{idx:02d}.png"
         role = scene.get("role", "hook")
         text = scene.get("slide_text", scene.get("text", ""))
+        # スライド上の句点は不要（短文なので視覚的に邪魔）
+        text = text.rstrip("。")
 
         print(f"  スライド{idx}（{role}）を生成中...")
         try:
@@ -249,7 +257,7 @@ def _generate_slide(
         canvas = _crop_to_shorts(bg_img)
         canvas = canvas.filter(ImageFilter.GaussianBlur(radius=3))
         enhancer = ImageEnhance.Brightness(canvas)
-        canvas = enhancer.enhance(0.4)
+        canvas = enhancer.enhance(0.65)
         canvas = canvas.convert("RGBA")
         overlay_color = ROLE_OVERLAY.get(role, (20, 20, 40, 200))
         overlay = Image.new("RGBA", (SHORTS_WIDTH, SHORTS_HEIGHT), overlay_color)
@@ -280,14 +288,18 @@ def _is_portrait(img: Image.Image) -> bool:
     return img.size[1] > img.size[0]
 
 
-def _apply_photo_correction(img: Image.Image) -> Image.Image:
-    """写真に色補正+ネイビーオーバーレイを適用する（portrait/landscape共通）。"""
-    img = ImageEnhance.Brightness(img).enhance(V2_PHOTO_BRIGHTNESS)
-    img = ImageEnhance.Color(img).enhance(V2_PHOTO_SATURATION)
+def _apply_photo_correction(img: Image.Image, role: str = "") -> Image.Image:
+    """写真に色補正+ネイビーオーバーレイを適用する（portrait/landscape共通）。
+
+    ロール別に明度・彩度・オーバーレイ濃度を変え、感情曲線（hook=暗→closing=明）を反映。
+    """
+    params = V2_PHOTO_PARAMS.get(role, _V2_PHOTO_DEFAULT)
+    img = ImageEnhance.Brightness(img).enhance(params["brightness"])
+    img = ImageEnhance.Color(img).enhance(params["saturation"])
     if V2_PHOTO_BLUR > 0:
         img = img.filter(ImageFilter.GaussianBlur(radius=V2_PHOTO_BLUR))
     img = img.convert("RGBA")
-    overlay = Image.new("RGBA", img.size, V2_PHOTO_OVERLAY)
+    overlay = Image.new("RGBA", img.size, params["overlay"])
     return Image.alpha_composite(img, overlay).convert("RGB")
 
 
@@ -317,13 +329,13 @@ def _generate_slide_v2_portrait(
     """v2 縦型: 写真を全画面に配置し、下部にグラデーション+テキストを重ねる。"""
     canvas = Image.new("RGB", (SHORTS_WIDTH, SHORTS_HEIGHT), (15, 15, 30))
 
-    # 写真を全画面にフィット + 色補正
+    # 写真を全画面にフィット + 色補正（ロール別）
     photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, SHORTS_HEIGHT)
-    photo_area = _apply_photo_correction(photo_area)
+    photo_area = _apply_photo_correction(photo_area, role=role)
     canvas.paste(photo_area, (0, 0))
 
     # 下部45%にグラデーション（透明→暗色）でテキスト読みやすく
-    bg_color = V2_TEXT_BG.get(role, (20, 18, 30))
+    bg_color = V2_TEXT_BG.get(role, (40, 44, 62))
     _blend_gradient(canvas, start_y=int(SHORTS_HEIGHT * 0.55),
                     bg_color=bg_color, exponent=1.5)
 
@@ -360,7 +372,7 @@ def _generate_slide_v2_landscape(
     # ── 上部: 写真エリア ──
     if photo:
         photo_area = _fit_photo_to_area(photo, SHORTS_WIDTH, PHOTO_HEIGHT)
-        photo_area = _apply_photo_correction(photo_area)
+        photo_area = _apply_photo_correction(photo_area, role=role)
         canvas.paste(photo_area, (0, 0))
 
         # 写真下端にグラデーション
