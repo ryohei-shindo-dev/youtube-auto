@@ -303,6 +303,7 @@ SHORTS_TEMPLATE = """
 ━━━ 最重要: これは1本の「ストーリー」だ ━━━
 Shortsは説明動画ではない。15秒の感情ストーリーだ。
 5シーンはバラバラの文ではない。1つの物語として繋がっていなければならない。
+出力表記ルールとして、ユーザー向けの文面では `積立` ではなく `積み立て` を使うこと。
 
 ★全シーンの繋がりルール:
   hook（痛み）→ empathy（共感）→ data（でも希望がある）→ resolve（だから大丈夫）→ closing
@@ -702,13 +703,11 @@ def _resolve_slide_from_conclusion(conclusion: str) -> str:
 
 
 def _closing_slide_from_text(text: str) -> str:
-    """closing の表示テキストは hook 再掲ではなく短いCTAに寄せる。"""
+    """closing の表示テキストは短い固定CTAに寄せる。"""
     if "コメント" in text:
-        return "コメントで教えて"
-    if "フォロー" in text:
-        return "続ける人はフォロー"
-    if "残ってますか" in text:
-        return "今日も残ってますか"
+        return "同じ人いる？"
+    if "フォロー" in text or "持つ" in text or "続けよう" in text:
+        return "続けてますか"
     return "続けてますか"
 
 
