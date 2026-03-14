@@ -554,9 +554,12 @@ def _format_for_tts(text: str) -> str:
     # 改行を除去
     text = text.replace("\n", "")
 
-    # 「…」「・・・」は間として使うだけなので、読み上げ対象から外す
+    # 視覚用の記号は読み上げ対象から外す
     text = re.sub(r"(?:…|⋯)+", " ", text)
     text = re.sub(r"(?:\.{3,}|・{3,})", " ", text)
+    text = re.sub(r"[※→←↑↓]", " ", text)
+    text = re.sub(r"[【】『』]", " ", text)
+    text = re.sub(r"(?:ーー+|――+|—+)", " ", text)
 
     # 「%」→「パーセント」
     text = text.replace("%", "パーセント")
