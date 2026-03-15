@@ -649,53 +649,12 @@ def _update_sheet(no: int, url: str, url_only: bool = False, schedule_str: str |
 def _get_note_articles_from_sheet() -> list[dict]:
     """note管理シートから記事一覧（No.・タイトル・note ID）を取得する。
 
-    note_image_replace.py の _get_articles_from_sheet() と同じ方式。
-    シートの A列=No.、F列=タイトル、I列=URL を読み取る。
+    note_image_replace.py の _get_articles_from_sheet() を再利用。
     """
-    import os
     from dotenv import load_dotenv
     load_dotenv(SCRIPT_DIR / ".env")
-    import sheets
-
-    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
-    if not sheet_id:
-        print("YOUTUBE_SHEET_ID が未設定です。")
-        return []
-
-    service = sheets.get_service()
-    result = service.spreadsheets().values().get(
-        spreadsheetId=sheet_id,
-        range=f"{sheets.NOTE_SHEET_NAME}!A:I",
-    ).execute()
-
-    rows = result.get("values", [])
-    articles = []
-    for row in rows[1:]:  # ヘッダー行スキップ
-        if len(row) < 9:
-            continue
-        no_str = row[0]
-        title = row[5] if len(row) > 5 else ""
-        url = row[8] if len(row) > 8 else ""
-        if not no_str or not url:
-            continue
-
-        m = re.search(r"/n/(n[a-zA-Z0-9]+)", url)
-        if not m:
-            continue
-
-        try:
-            no = int(no_str)
-        except ValueError:
-            continue
-
-        articles.append({
-            "no": no,
-            "title": title,
-            "url": url,
-            "key": m.group(1),
-        })
-
-    return articles
+    from note_image_replace import _get_articles_from_sheet
+    return _get_articles_from_sheet()
 
 
 def _find_article_body_html(no: int, title: str = "") -> str | None:

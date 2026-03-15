@@ -27,6 +27,7 @@ SHORTS_HEIGHT = 1920
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 BGM_PATH = ASSETS_DIR / "bgm_ambient.m4a"
 BGM_VOLUME = 0.08  # ナレーション対比のBGM音量（0.08 ≈ -22dB、かなり小さい）
+MIN_SCENE_SEC = 2.0  # スライドの最低表示時間（短すぎるとテキストが読めない）
 
 
 def compose_shorts_video(
@@ -66,8 +67,6 @@ def compose_shorts_video(
             audio_path = scene.get("audio_path", "")
             duration = scene.get("actual_duration_sec", 5)
 
-            # スライドの最低表示時間（短すぎるとテキストが読めない）
-            MIN_SCENE_SEC = 2.0
             if duration < MIN_SCENE_SEC:
                 print(f"  [{role}] 音声{duration:.1f}秒 → 最低{MIN_SCENE_SEC}秒に延長")
                 duration = MIN_SCENE_SEC

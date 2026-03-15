@@ -15,7 +15,7 @@ import time
 
 from playwright.sync_api import Page
 
-from note_publish import _launch_browser, _close_browser, _markdown_to_note_text
+from note_publish import _launch_browser, _close_browser, _markdown_to_note_html
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
@@ -70,7 +70,7 @@ def _load_article(spec: dict) -> tuple[str, str, pathlib.Path]:
         else:
             body_lines.append(line)
     body = "\n".join(body_lines).strip()
-    return title, _markdown_to_note_text(body), spec["image_path"]
+    return title, _markdown_to_note_html(body), spec["image_path"]
 
 
 def _upload_header_image(page: Page, image_path: pathlib.Path):
