@@ -27,6 +27,7 @@ import re
 import sys
 import time
 from datetime import datetime
+from html import escape as _html_escape
 
 from playwright.sync_api import sync_playwright, Page, BrowserContext
 
@@ -157,42 +158,43 @@ def do_debug():
         raise
 
 
-def _markdown_to_note_text(body: str) -> str:
-    """Markdown記法をnoteのプレーンテキスト風に変換する。
+def _markdown_to_note_html(body: str) -> str:
+    """Markdown を note エディタの HTML に変換する。
 
-    noteのエディタはリッチテキストなので:
-    - ## 見出し → そのままテキストとして入力（noteの見出し機能を使う場合は手動）
-    - **太字** → テキストのみ（太字はnoteエディタで自動適用されない）
-    - --- → 空行に変換
+    ## 見出し → <h3>（note のセクション見出し）
+    **太字** → <b>
+    --- → <hr>（区切り線）
+    通常行 → <p>
+    空行 → <p><br></p>
     """
-    lines = []
-    for line in body.split("\n"):
-        # --- を空行に
+    parts: list[str] = []
+    for raw_line in body.split("\n"):
+        line = raw_line.rstrip()
+        # --- → 区切り線
         if re.match(r"^-{3,}$", line.strip()):
-            lines.append("")
+            parts.append("<hr>")
             continue
-        # ## 見出し → ■ 付きテキスト
+        # ## 見出し → h3
         m = re.match(r"^##\s+(.+)$", line)
         if m:
-            lines.append(f"■ {m.group(1)}")
+            heading = re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(1))
+            parts.append(f"<h3>{_html_escape(heading)}</h3>")
             continue
-        # **太字** → テキストのみ
-        line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)
-        lines.append(line)
+        # 空行
+        if not line.strip():
+            parts.append("<p><br></p>")
+            continue
+        # 太字 → b タグ、通常行 → p
+        escaped = _html_escape(line)
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+        parts.append(f"<p>{text}</p>")
 
-    # 連続する空行を最大2行に
-    result = []
-    blank_count = 0
-    for line in lines:
-        if line.strip() == "":
-            blank_count += 1
-            if blank_count <= 2:
-                result.append("")
-        else:
-            blank_count = 0
-            result.append(line)
-
-    return "\n".join(result).strip()
+    html = "\n".join(parts)
+    # 連続する空段落を最大2個に制限
+    empty = "<p><br></p>"
+    while f"{empty}\n{empty}\n{empty}" in html:
+        html = html.replace(f"{empty}\n{empty}\n{empty}", f"{empty}\n{empty}")
+    return html.strip()
 
 
 def post_article(
@@ -207,7 +209,7 @@ def post_article(
         記事URL（成功時）、None（失敗時）
     """
     title, body, image_path = _find_article(no)
-    body_text = _markdown_to_note_text(body)
+    body_html = _markdown_to_note_html(body)
     tags = NOTE_TAGS + EXTRA_TAGS.get(no, [])
 
     print(f"\n{'=' * 50}")
@@ -265,15 +267,15 @@ def post_article(
     try:
         body_el = page.wait_for_selector(body_sel, timeout=10000)
         body_el.click()
-        # execCommand で ProseMirror の内部状態を正しく更新する
+        # insertHTML で ProseMirror に見出し・太字・区切り線を含む HTML を入力
         page.evaluate(
-            """text => {
-                document.execCommand('insertText', false, text);
+            """html => {
+                document.execCommand('insertHTML', false, html);
             }""",
-            body_text,
+            body_html,
         )
         time.sleep(1)
-        print(f"  本文入力完了（{len(body_text)}文字）")
+        print(f"  本文入力完了（HTML）")
     except Exception as e:
         print(f"  [エラー] 本文入力失敗: {e}")
         print("  手動で本文を貼り付けてください。")
@@ -644,6 +646,306 @@ def _update_sheet(no: int, url: str, url_only: bool = False, schedule_str: str |
         print(f"  [警告] #{no} シート更新失敗: {e}")
 
 
+def _get_note_articles_from_sheet() -> list[dict]:
+    """note管理シートから記事一覧（No.・タイトル・note ID）を取得する。
+
+    note_image_replace.py の _get_articles_from_sheet() と同じ方式。
+    シートの A列=No.、F列=タイトル、I列=URL を読み取る。
+    """
+    import os
+    from dotenv import load_dotenv
+    load_dotenv(SCRIPT_DIR / ".env")
+    import sheets
+
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    if not sheet_id:
+        print("YOUTUBE_SHEET_ID が未設定です。")
+        return []
+
+    service = sheets.get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range=f"{sheets.NOTE_SHEET_NAME}!A:I",
+    ).execute()
+
+    rows = result.get("values", [])
+    articles = []
+    for row in rows[1:]:  # ヘッダー行スキップ
+        if len(row) < 9:
+            continue
+        no_str = row[0]
+        title = row[5] if len(row) > 5 else ""
+        url = row[8] if len(row) > 8 else ""
+        if not no_str or not url:
+            continue
+
+        m = re.search(r"/n/(n[a-zA-Z0-9]+)", url)
+        if not m:
+            continue
+
+        try:
+            no = int(no_str)
+        except ValueError:
+            continue
+
+        articles.append({
+            "no": no,
+            "title": title,
+            "url": url,
+            "key": m.group(1),
+        })
+
+    return articles
+
+
+def _find_article_body_html(no: int, title: str = "") -> str | None:
+    """記事No.またはタイトルから本文の HTML を取得する。
+
+    検索順序:
+      1. _find_article(no) — No.16+ の第2弾記事（_ARTICLE_FILE_OFFSET使用）
+      2. note_{no:02d}_*.md — No.1-15 の第1弾記事
+      3. タイトル前方一致 — note_add_* 等の追加記事
+    """
+    # 1. No. 16+ (second batch)
+    try:
+        _, body, _ = _find_article(no)
+        return _markdown_to_note_html(body)
+    except FileNotFoundError:
+        pass
+
+    # 2. No. 1-15 (first batch)
+    pattern = f"note_{no:02d}_*"
+    matches = list(ARTICLES_DIR.glob(pattern))
+    if matches:
+        return _body_html_from_file(matches[0])
+
+    # 3. Title match against all files
+    if title:
+        for md_file in sorted(ARTICLES_DIR.glob("*.md")):
+            file_title = _extract_title_from_file(md_file)
+            if file_title and (file_title[:15] in title or title[:15] in file_title):
+                return _body_html_from_file(md_file)
+
+    return None
+
+
+def _extract_title_from_file(md_file: pathlib.Path) -> str:
+    """markdown ファイルの先頭 # 行からタイトルを抽出する。"""
+    for line in md_file.read_text(encoding="utf-8").split("\n"):
+        if line.startswith("# "):
+            return line[2:].strip()
+    return ""
+
+
+def _body_html_from_file(md_file: pathlib.Path) -> str:
+    """markdown ファイルの本文（タイトル行以降）を HTML に変換する。"""
+    text = md_file.read_text(encoding="utf-8")
+    body_lines: list[str] = []
+    past_title = False
+    for line in text.split("\n"):
+        if line.startswith("# ") and not past_title:
+            past_title = True
+        else:
+            body_lines.append(line)
+    return _markdown_to_note_html("\n".join(body_lines).strip())
+
+
+def _repair_single_article(page: Page, note_id: str, body_html: str) -> bool:
+    """1本の記事の本文フォーマットを修正する。
+
+    エディタを開き → 本文を全選択 → 削除 → HTML で再入力 → 「公開に進む」→「更新する」。
+    予約投稿の場合、「更新する」は予約状態を維持する。
+
+    編集URL: note_image_replace.py で検証済みの editor.note.com/notes/{id}/edit/
+    保存フロー: MEMORY記載の「公開に進む」→「更新する」（「下書き保存」→「予約投稿」は404の原因）
+    """
+    # エディタを開く（note_image_replace.py で検証済みの URL パターン）
+    edit_url = f"https://editor.note.com/notes/{note_id}/edit/"
+    page.goto(edit_url)
+    page.wait_for_load_state("networkidle")
+    time.sleep(3)
+
+    # 本文エリアをクリック（note_publish.py の post_article で検証済みのセレクタ）
+    body_sel = 'div.ProseMirror[role="textbox"]'
+    body_el = page.wait_for_selector(body_sel, timeout=10000)
+    body_el.click()
+    time.sleep(0.5)
+
+    # 全選択 → 削除
+    page.keyboard.press("Meta+a")
+    time.sleep(0.3)
+    page.keyboard.press("Backspace")
+    time.sleep(0.5)
+
+    # HTML で再入力（--draft テストで動作確認済み）
+    page.evaluate(
+        """html => {
+            document.execCommand('insertHTML', false, html);
+        }""",
+        body_html,
+    )
+    time.sleep(1)
+
+    # 保存: 「公開に進む」→「更新する」
+    page.keyboard.press("Escape")
+    time.sleep(1)
+
+    publish_nav = page.wait_for_selector(
+        'button:has-text("公開に進む")', timeout=10000
+    )
+    publish_nav.click()
+    page.wait_for_load_state("networkidle")
+    time.sleep(2)
+
+    update_btn = page.wait_for_selector(
+        'button:has-text("更新する")', timeout=10000
+    )
+    update_btn.click()
+    time.sleep(5)
+
+    return True
+
+
+def do_repair():
+    """全記事の本文フォーマットを修正する（■ 見出し → H3 見出し）。
+
+    データソース: Google Sheet の note管理シート（note_image_replace.py と同じ方式）。
+    ダッシュボード抽出は使わない（信頼性が低いため）。
+    """
+    # 1. シートから記事一覧を取得（note_image_replace.py と同じ方式）
+    print("note管理シートから記事一覧を取得中...")
+    articles = _get_note_articles_from_sheet()
+    if not articles:
+        print("[エラー] シートから記事URLが取得できませんでした。")
+        print("  先に python note_publish.py --urls でURLをシートに記録してください。")
+        return
+
+    print(f"  シート上の記事（URL付き）: {len(articles)}本")
+
+    # 2. 各記事の本文HTMLを事前に準備（ブラウザを開く前に全件確認）
+    repair_list: list[dict] = []
+    for art in articles:
+        body_html = _find_article_body_html(art["no"], art["title"])
+        if body_html:
+            repair_list.append({**art, "body_html": body_html})
+        else:
+            print(f"  [スキップ] #{art['no']} {art['title'][:30]}: ローカルファイルなし")
+
+    if not repair_list:
+        print("[エラー] 修正対象の記事が見つかりませんでした。")
+        return
+
+    print(f"  修正対象: {len(repair_list)}本\n")
+
+    # 3. ブラウザを開いて修正
+    pw, context, page = _launch_browser(headless=False)
+    try:
+        repaired = 0
+        failed = 0
+
+        for art in repair_list:
+            print(f"  修正中: #{art['no']} {art['title'][:35]}...", end="", flush=True)
+            try:
+                _repair_single_article(page, art["key"], art["body_html"])
+                repaired += 1
+                print(" 完了")
+            except Exception as e:
+                failed += 1
+                print(f" [エラー] {e}")
+
+            time.sleep(2)
+
+        print(f"\n修正完了: {repaired}本, 失敗: {failed}本")
+
+    finally:
+        _close_browser(pw, context, wait_for_user=False)
+
+
+def do_repair_add():
+    """note_add_* 記事の本文フォーマットを修正する（シートにURLがない記事用）。
+
+    ダッシュボードの HTML から note ID を取得し、タイトルで照合して修正する。
+    do_fetch_urls() と同じ regex フォールバック方式を使用。
+    """
+    # 1. note_add ファイルを読み込み（ブラウザを開く前に全件確認）
+    add_files = sorted(ARTICLES_DIR.glob("note_add_*.md"))
+    if not add_files:
+        print("[エラー] note_add_*.md ファイルが見つかりません")
+        return
+
+    targets: list[dict] = []
+    for md_file in add_files:
+        title = _extract_title_from_file(md_file)
+        body_html = _body_html_from_file(md_file)
+        if title and body_html:
+            targets.append({"title": title, "body_html": body_html, "file": md_file.name})
+
+    print(f"修正対象ファイル: {len(targets)}本")
+    for t in targets:
+        print(f"  {t['file']}: {t['title'][:40]}")
+
+    # 2. ダッシュボードから全記事の key と name を取得
+    pw, context, page = _launch_browser(headless=False)
+    try:
+        page.goto("https://note.com/dashboard/contents")
+        page.wait_for_load_state("networkidle")
+        time.sleep(5)
+
+        # ページ末尾までスクロールして全記事を表示
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        time.sleep(2)
+
+        # do_fetch_urls() と同じ regex でHTMLから抽出
+        html_content = page.content()
+        keys = re.findall(r'"key":"(n[a-f0-9]{12,})"', html_content)
+        names = re.findall(r'"name":"([^"]{5,80})"', html_content)
+
+        print(f"\nダッシュボードから検出: key={len(keys)}件, name={len(names)}件")
+
+        if not keys:
+            print("[エラー] ダッシュボードから記事が検出できませんでした。")
+            print("  ブラウザでnoteにログインしているか確認してください。")
+            return
+
+        # key と name をペアにする（do_fetch_urls と同じ方式）
+        dashboard_articles = []
+        for i, key in enumerate(keys):
+            name = names[i] if i < len(names) else ""
+            dashboard_articles.append({"key": key, "name": name})
+
+        # 3. タイトルマッチング → 修正
+        repaired = 0
+        not_found = 0
+
+        for target in targets:
+            matched_key = None
+            for dart in dashboard_articles:
+                if target["title"][:15] in dart["name"] or dart["name"][:15] in target["title"]:
+                    matched_key = dart["key"]
+                    break
+
+            if not matched_key:
+                print(f"  [マッチなし] {target['title'][:40]}")
+                not_found += 1
+                continue
+
+            print(f"  修正中: {target['title'][:40]}...", end="", flush=True)
+            try:
+                _repair_single_article(page, matched_key, target["body_html"])
+                repaired += 1
+                print(" 完了")
+            except Exception as e:
+                not_found += 1
+                print(f" [エラー] {e}")
+
+            time.sleep(2)
+
+        print(f"\n修正完了: {repaired}本, 未検出: {not_found}本")
+
+    finally:
+        _close_browser(pw, context, wait_for_user=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description="note記事 自動投稿")
     parser.add_argument("--login", action="store_true", help="ブラウザでログイン")
@@ -653,6 +955,8 @@ def main():
     parser.add_argument("--draft", action="store_true", help="下書き保存のみ")
     parser.add_argument("--batch", action="store_true", help="全記事をスケジュール通り投稿")
     parser.add_argument("--urls", action="store_true", help="ダッシュボードからURL取得→シート記録")
+    parser.add_argument("--repair", action="store_true", help="全記事の見出しフォーマットを修正（■→H3）")
+    parser.add_argument("--repair-add", action="store_true", help="note_add_*記事の見出しフォーマットを修正")
     args = parser.parse_args()
 
     if args.login:
@@ -661,6 +965,10 @@ def main():
         do_debug()
     elif args.urls:
         do_fetch_urls()
+    elif args.repair:
+        do_repair()
+    elif args.repair_add:
+        do_repair_add()
     elif args.batch:
         do_batch()
     elif args.no:

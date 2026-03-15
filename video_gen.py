@@ -66,6 +66,12 @@ def compose_shorts_video(
             audio_path = scene.get("audio_path", "")
             duration = scene.get("actual_duration_sec", 5)
 
+            # スライドの最低表示時間（短すぎるとテキストが読めない）
+            MIN_SCENE_SEC = 2.0
+            if duration < MIN_SCENE_SEC:
+                print(f"  [{role}] 音声{duration:.1f}秒 → 最低{MIN_SCENE_SEC}秒に延長")
+                duration = MIN_SCENE_SEC
+
             # resolve の前に0.7秒の無音（間）を挿入
             # 別クリップではなく音声の先頭に無音を付加（concat境界ノイズ防止）
             actual_audio = audio_path

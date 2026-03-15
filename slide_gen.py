@@ -28,6 +28,8 @@ import pathlib
 import random
 import textwrap
 
+from functools import lru_cache
+
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 # Shorts 解像度（縦型 9:16）
@@ -38,6 +40,7 @@ SHORTS_HEIGHT = 1920
 BOTTOM_SAFE_AREA = 360
 BOTTOM_TEXT_MARGIN = 80
 SPLIT_LAYOUT_TEXT_TOP_PADDING = 96
+TEXT_SIDE_MARGIN = 72
 
 # 日本語フォントパス（macOS 標準）
 FONT_PATH_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W9.ttc"
@@ -47,9 +50,10 @@ FONT_PATH_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 PHOTOS_DIR = ASSETS_DIR / "photos"
 PHOTO_HISTORY_PATH = pathlib.Path(__file__).parent / "debug" / "photo_history.json"
-PHOTO_HISTORY_KEEP = 6
+PHOTO_HISTORY_KEEP = 12
 
 CHANNEL_NAME = "ガチホのモチベ"
+BRAND_LABEL_COLOR = (180, 180, 180)
 
 # ── v2（写真型）レイアウト定数 ──
 PHOTO_RATIO = 0.55  # 上部写真エリアの割合
@@ -287,8 +291,8 @@ def _generate_slide(
     text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
     _draw_main_text(draw, text, text_color, role=role)
 
-    # チャンネル名
-    _draw_channel_name(draw)
+    # ブランド名はclosingのみ下中央寄りに表示
+    _draw_channel_name(draw, role=role)
 
     canvas.save(str(output_path), "PNG", optimize=True)
     return output_path
@@ -365,8 +369,8 @@ def _generate_slide_v2_portrait(
     text_area_h = max(0, text_area_bottom - text_area_top)
     _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
 
-    # チャンネル名
-    _draw_channel_name(draw)
+    # ブランド名はclosingのみ下中央寄りに表示
+    _draw_channel_name(draw, role=role)
 
     canvas.save(str(output_path), "PNG", optimize=True)
     return output_path
@@ -418,8 +422,8 @@ def _generate_slide_v2_landscape(
     text_area_h = max(0, text_area_bottom - text_area_top)
     _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
 
-    # チャンネル名
-    _draw_channel_name(draw)
+    # ブランド名はclosingのみ下中央寄りに表示
+    _draw_channel_name(draw, role=role)
 
     canvas.save(str(output_path), "PNG", optimize=True)
     return output_path
@@ -597,12 +601,12 @@ def _draw_text_in_area(
     """
     is_hook = role == "hook"
     font_size = 126 if is_hook else 110
-    font = _load_font(FONT_PATH_HEAVY, font_size)
-
-    wrapped = _wrap_text(text, 7)
-    lines = wrapped.split("\n")
-
     line_height = 178 if is_hook else 155
+    font, lines, line_height = _fit_text_layout(
+        draw, text, FONT_PATH_HEAVY, font_size, line_height,
+        SHORTS_WIDTH - (TEXT_SIDE_MARGIN * 2),
+        role=role,
+    )
     total_height = len(lines) * line_height
     available_space = max(0, area_height - total_height - BOTTOM_TEXT_MARGIN)
     # 下部テキストエリアは中央寄せだと短文時に間延びして見えるため、
@@ -673,12 +677,12 @@ def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple, role: str = "
     """
     is_hook = role == "hook"
     font_size = 138 if is_hook else 120
-    font = _load_font(FONT_PATH_HEAVY, font_size)
-
-    wrapped = _wrap_text(text, 7)
-    lines = wrapped.split("\n")
-
     line_height = 195 if is_hook else 170
+    font, lines, line_height = _fit_text_layout(
+        draw, text, FONT_PATH_HEAVY, font_size, line_height,
+        SHORTS_WIDTH - (TEXT_SIDE_MARGIN * 2),
+        role=role,
+    )
     total_height = len(lines) * line_height
     y_start = (SHORTS_HEIGHT - total_height) // 2
 
@@ -693,49 +697,160 @@ def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple, role: str = "
         draw.text((x, y), line, font=font, fill=color)
 
 
-def _draw_channel_name(draw: ImageDraw.Draw):
-    """右下にチャンネル名を半透明で表示する。"""
+def _draw_channel_name(draw: ImageDraw.Draw, role: str = ""):
+    """closing のみ下中央寄りにチャンネル名を小さく表示する。"""
+    if role != "closing":
+        return
     font = _load_font(FONT_PATH_REGULAR, 28)
     bbox = draw.textbbox((0, 0), CHANNEL_NAME, font=font)
     text_width = bbox[2] - bbox[0]
-    x = SHORTS_WIDTH - text_width - 40
-    y = SHORTS_HEIGHT - BOTTOM_SAFE_AREA + 80
+    x = (SHORTS_WIDTH - text_width) // 2
+    y = SHORTS_HEIGHT - BOTTOM_SAFE_AREA + 56
     draw.text((x + 1, y + 1), CHANNEL_NAME, font=font, fill=(0, 0, 0))
-    draw.text((x, y), CHANNEL_NAME, font=font, fill=(200, 200, 200))
+    draw.text((x, y), CHANNEL_NAME, font=font, fill=BRAND_LABEL_COLOR)
 
 
-def _wrap_text(text: str, width: int) -> str:
-    """日本語テキストを指定文字数で折り返す。単語の途中で割れないよう調整。"""
+def _wrap_text_lines(text: str, width: int) -> list[str]:
+    """折り返し後の各行を返す。
+
+    日本語テキスト（スペースなし）を指定文字数で折り返す。
+    割ってはいけない単語はUnicode PUA文字（1文字）に置換し、
+    折り返し後に復元する。
+    """
     # 割ってはいけない単語リスト
     no_break = [
         "チャンネル", "フォロー", "コメント", "ガチホ",
         "インデックス", "リターン", "バフェット", "マンガー",
     ]
+    placeholder_map: dict[str, str] = {}
+    protected = text
+    for idx, word in enumerate(no_break):
+        # Unicode PUA 1文字をプレースホルダに使う（折り返しで分断されない）
+        token = chr(0xE000 + idx)
+        if word in protected:
+            protected = protected.replace(word, token)
+            placeholder_map[token] = word
 
-    wrapped = textwrap.wrap(text, width=width)
-    result = []
+    wrapped = textwrap.wrap(protected, width=width, break_long_words=True, break_on_hyphens=False)
+    restored = []
     for line in wrapped:
-        # 単語が割れていないかチェック
-        fixed = False
-        for word in no_break:
-            # 行末に単語の一部だけが残っている場合
-            for i in range(1, len(word)):
-                partial = word[:i]
-                if line.endswith(partial) and not line.endswith(word):
-                    # この行から部分を除去して次の行に回す
-                    line = line[:-len(partial)]
-                    fixed = True
-                    break
-            if fixed:
+        for token, word in placeholder_map.items():
+            line = line.replace(token, word)
+        restored.append(line)
+
+    return restored or [text]
+
+
+def _fit_text_layout(
+    draw: ImageDraw.Draw,
+    text: str,
+    font_path: str,
+    font_size: int,
+    line_height: int,
+    max_width: int,
+    role: str = "",
+) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+    """指定幅に収まるまで折り返しとフォントサイズを調整する。"""
+    # 意味切れ目の候補はテキストとロールだけで決まるので、ループ外で1回だけ計算
+    semantic_candidates = _semantic_break_candidates(text.strip(), role) if role in {"data", "resolve"} else []
+    width = 7
+    current_size = font_size
+    current_line_height = line_height
+
+    while current_size >= 84:
+        font = _load_font(font_path, current_size)
+        # data/resolve はセマンティック改行を試行（フォントサイズごとに1回）
+        lines = _preferred_role_lines(text, role, draw, font, max_width, semantic_candidates) if semantic_candidates else []
+        if lines:
+            return font, lines, current_line_height
+        # セマンティック改行が不可なら文字数ベースで折り返し
+        lines = _wrap_text_lines(text, width)
+        widest = 0
+        for line in lines:
+            bb = draw.textbbox((0, 0), line, font=font)
+            widest = max(widest, bb[2] - bb[0])
+        if widest <= max_width:
+            return font, lines, current_line_height
+        width += 1
+        if width > 12:
+            current_size -= 6
+            current_line_height = max(110, int(current_line_height * 0.92))
+            width = 7
+
+    font = _load_font(font_path, current_size)
+    return font, _wrap_text_lines(text, 12), current_line_height
+
+
+def _preferred_role_lines(
+    text: str,
+    role: str,
+    draw: ImageDraw.Draw,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+    candidates: list[int] | None = None,
+) -> list[str]:
+    """ロール別に、意味の切れ目を優先した改行候補を返す。"""
+    stripped = text.strip()
+    if len(stripped) < 8:
+        return []
+
+    if candidates is None:
+        candidates = _semantic_break_candidates(stripped, role)
+    if not candidates:
+        return []
+
+    best_lines = []
+    best_score = None
+    for idx in candidates:
+        left = stripped[:idx].strip("、。 ")
+        right = stripped[idx:].strip("、。 ")
+        if not left or not right:
+            continue
+        widths = []
+        for line in (left, right):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            widths.append(bbox[2] - bbox[0])
+        if max(widths) > max_width:
+            continue
+        score = abs(len(left) - len(right))
+        if best_score is None or score < best_score:
+            best_score = score
+            best_lines = [left, right]
+    return best_lines
+
+
+def _semantic_break_candidates(text: str, role: str) -> list[int]:
+    """意味の切れ目として使いやすい位置を返す。"""
+    tokens = [
+        "ほど", "人ほど", "人は", "判断が", "日が", "時は", "時ほど",
+        "だから", "結局", "やっぱり", "つまり", "焦らない日が",
+        "売らない判断が", "暴落の後", "暴落は", "下がる時期も",
+        "口座を見るほど", "見るほど", "見ない強さも", "比べない日ほど",
+    ]
+    if role == "data":
+        tokens = ["から", "だけ"] + tokens
+
+    seen = set()
+    points = []
+    for token in tokens:
+        start = 0
+        while True:
+            idx = text.find(token, start)
+            if idx == -1:
                 break
-        if line:
-            result.append(line)
+            split_at = idx + len(token)
+            if 2 <= split_at <= len(text) - 2 and split_at not in seen:
+                seen.add(split_at)
+                points.append(split_at)
+            start = idx + 1
 
-    return "\n".join(result)
+    center = len(text) / 2
+    return sorted(points, key=lambda p: abs(p - center))
 
 
+@lru_cache(maxsize=32)
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    """フォントを読み込む。失敗時はデフォルトフォント。"""
+    """フォントを読み込む。失敗時はデフォルトフォント。キャッシュ付き。"""
     try:
         return ImageFont.truetype(path, size)
     except Exception:
