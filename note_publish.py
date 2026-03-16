@@ -38,7 +38,7 @@ USER_DATA_DIR = SCRIPT_DIR / ".note_browser"
 
 # note アカウント情報
 NOTE_USER = "gachiho_motive"
-NOTE_MAGAZINE = "含み損の夜に読むメモ"
+NOTE_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
 
 # 固定タグ
 NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]

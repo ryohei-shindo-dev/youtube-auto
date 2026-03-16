@@ -98,9 +98,21 @@
 - note_image_gen.py: 写真選択をローテーション→ランダムに変更（同じ画像が繰り返し使われる問題を修正）
 - 記事管理ページURL: `note.com/notes`、セレクタ: `a.o-articleList__link`（DevTools確認済み）
 
+**実績（2026-03-16追加②）**:
+- マガジン名決定:「静かに持ち続ける人へ」→「こつこつ積み立てを続ける人の読みもの」
+- マガジンヘッダー画像を再生成（recovery43背景、チャンネル名なし、垂直センター）
+  - 保存先: `note_images/magazine_header_new.png`
+
+**実績（2026-03-16追加③）**:
+- こつこつ系コンテンツ戦略を導入（ChatGPT評価: ブランドの芯に据える）
+  - script_gen.py: 継続モチベ系の代替感情曲線（違和感→整理→肯定）をテンプレートに追加
+  - topics.json: 継続モチベ系に10本のこつこつ系トピック追加（17→27本）
+  - hooks.json: 違和感型に「静かな違和感」hook 8本追加（8→16本）
+- こつこつ系 note 記事 8本を生成+予約投稿完了（note_add_22〜29、3/26〜3/30）
+- 縦型没入レイアウト統一+274枚素材で117本の動画再生成完了
+
 **次のアクション**:
-1. マガジン名を手動で変更（「静かに持ち続ける人へ」→「長期投資の夜に読むメモ」）
-2. 一時ファイル削除: `add_note_images.py`, `regen_all.py`
+1. 一時ファイル削除: `add_note_images.py`, `regen_all.py`, `publish_note_kotsukotsu.py`
 
 **関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`
 
