@@ -279,6 +279,25 @@ def score_script(script_data: dict) -> dict:
         })
         warnings.append(f"禁止表現が含まれています: {found_banned}")
 
+    # ── チェック4b: 定番句ペナルティ（-2点、該当で減点） ──
+    _STALE_DATA = ["20年続けた人、元本割れゼロ", "月3万の積立、30年後に6000万"]
+    _STALE_EMPATHY = ["あなたも", "あなたも。"]
+    emp_text = empathy_text.rstrip("。？！ ")
+    found_stale = []
+    for phrase in _STALE_DATA:
+        if phrase in data_text:
+            found_stale.append(f"data定番「{phrase}」")
+    if emp_text in _STALE_EMPATHY:
+        found_stale.append(f"empathy一語「{emp_text}」")
+    if found_stale:
+        checks.append({
+            "name": "定番句ペナルティ",
+            "score": -2,
+            "max": 0,
+            "reason": f"定番句: {', '.join(found_stale)}",
+        })
+        warnings.append(f"定番句が含まれています: {', '.join(found_stale)}")
+
     # ── チェック5: タイトル−トピック一致（2点） ──
     topic_result = check_topic_match(script_data)
     topic_score = topic_result["score"]
