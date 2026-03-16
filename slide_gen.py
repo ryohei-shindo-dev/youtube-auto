@@ -26,6 +26,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import textwrap
 
 from functools import lru_cache
@@ -725,15 +726,14 @@ def _wrap_text_lines(text: str, width: int) -> list[str]:
     protected = text
 
     # 数字+単位+助詞（6000万、30年後、1800万円等）を分断しない
-    import re as _re
-    for m in _re.finditer(r"\d+[万億千百兆円%％年月日本倍回件人]+[後前目間分]*", protected):
+    for m in re.finditer(r"\d+[万億千百兆円%％年月日本倍回件人]+[後前目間分]*", protected):
         word = m.group()
         if word not in no_break:
             no_break.append(word)
     # 単位なしの数字列（S&P500等）も分断しない
-    for m in _re.finditer(r"\d{2,}", protected):
+    for m in re.finditer(r"\d{2,}", protected):
         word = m.group()
-        if word not in no_break and not any(word in w for w in no_break if w != word):
+        if word not in no_break:
             no_break.append(word)
 
     for idx, word in enumerate(no_break):

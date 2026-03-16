@@ -675,7 +675,7 @@ def _single_sentence_slide_text(text: str, max_len: int = 14) -> str:
     # 数字の途中で切れている場合、残りの数字と直後の単位文字を含める
     if len(text) > len(truncated) and truncated and truncated[-1].isdigit():
         rest = text[len(truncated):]
-        m = re.match(r"(\d*[万億千百兆円%]?)", rest)
+        m = re.match(r"(\d*[万億千百兆円%％年月日本倍回件人]?[後前目間分]?)", rest)
         if m and m.group(1):
             truncated += m.group(1)
     return _clean_slide_text(truncated)
