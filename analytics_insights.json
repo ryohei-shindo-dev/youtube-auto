@@ -1,57 +1,61 @@
 {
   "meta": {
-    "generated_at": "2026-03-09T23:00:01+09:00",
-    "sample_size": 11,
+    "generated_at": "2026-03-16T23:00:00+09:00",
+    "sample_size": 28,
     "confidence": "low",
     "mode": "weekly",
-    "avg_views": 791,
-    "avg_views_24h": 771,
-    "avg_like_rate_pct": 0.3,
-    "avg_comment_rate_pct": 0.034
+    "avg_views": 1163,
+    "avg_views_24h": 1025,
+    "avg_like_rate_pct": 0.25,
+    "avg_comment_rate_pct": 0.064
   },
   "title_rules": {
-    "prefer_numeric_titles": true,
-    "numeric_boost_ratio": 2.3,
-    "numeric_title_ratio": 0.7,
     "prefer_specific_timeframes": true,
     "prefer_money_amounts": true
   },
-  "strong_hooks": [],
+  "strong_hooks": [
+    {
+      "text": "増えない人へ",
+      "score": 1.3,
+      "sample_size": 3,
+      "avg_views": 1462
+    }
+  ],
   "weak_hooks": [],
   "top_videos": [
     {
-      "title": "1800万円がつらい人へ｜積立投資 #Shorts",
-      "views": 1825
-    },
-    {
-      "title": "3年目が一番つらい人へ｜長期投資の真実 #Shorts",
-      "views": 1750
-    },
-    {
       "title": "配当使ったがつらい人へ｜積立投資 #Shorts",
-      "views": 1622
+      "views": 2947
+    },
+    {
+      "title": "コロナで売った人、1800万円の機会損失｜積立投資 #Shorts",
+      "views": 2524
+    },
+    {
+      "title": "年利5%の差が、30年後にこんなに怖い｜資産形成 #Shorts",
+      "views": 2480
     }
   ],
   "bottom_videos": [
     {
-      "title": "爆益で悩む人へ｜ガチホの真実 #Shorts",
-      "views": 323
+      "title": "含み損がつらい夜に聞く、静かな整理",
+      "views": 7
     },
     {
-      "title": "売りたい人へ｜長期投資の真実 #Shorts",
-      "views": 295
+      "title": "積み立て3年目が一番つらい理由｜増えない時期に何が起きているか",
+      "views": 5
     },
     {
-      "title": "含み損で眠れない夜に、今日は何をしないか",
-      "views": 1
+      "title": "オルカンとS&P500で揺れる人へ｜乗り換えたくなるときに整理したいこと",
+      "views": 4
     }
   ],
   "high_engagement": [
     {
       "title": "100円がつらい人へ｜長期投資の真実 #Shorts",
-      "views": 411,
-      "like_rate_pct": 0.97,
-      "comment_rate_pct": 0.243
+      "views": 508,
+      "like_rate_pct": 0.98,
+      "comment_rate_pct": 0.197
     },
     {
       "title": "爆益で悩む人へ｜ガチホの真実 #Shorts",
@@ -60,16 +64,16 @@
       "comment_rate_pct": 0.0
     },
     {
-      "title": "売りたい人へ｜長期投資の真実 #Shorts",
-      "views": 295,
-      "like_rate_pct": 0.68,
-      "comment_rate_pct": 0.0
+      "title": "レバレッジ2倍が気になりだした夜に見てほしい | インデックス投資 #Shorts",
+      "views": 285,
+      "like_rate_pct": 0.7,
+      "comment_rate_pct": 0.351
     }
   ],
   "prompt_guidance": [
-    "タイトルに具体的な数字（金額・期間・割合）を入れると再生数が平均2.3倍。70%の動画で数字入りタイトルを使え。",
     "金額（1800万円、500万円等）はタイトルで特に強い。",
     "期間（3年目、20年、30年後等）もタイトルで効果的。",
+    "最近強いhook語: 増えない人へ",
     "いいね率0.3%はやや低め。共感・感情に寄せたhookを増やす。",
     "エンゲージメント高い動画: 100円がつらい人へ｜長期投資の真実 #、爆益で悩む人へ｜ガチホの真実 #Shor",
     "数字を入れても煽りトーンにしない。落ち着いたトーンを維持。"
