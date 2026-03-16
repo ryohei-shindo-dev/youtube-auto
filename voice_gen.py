@@ -35,6 +35,8 @@ _READING_FIXES = [
     ("3分の1", "さんぶんのいち"),
     ("3分の2", "さんぶんのに"),
     # 長尺で読み間違えが確認された語
+    ("ガチホ仲間", "がちほなかま"),
+    ("仲間", "なかま"),
     ("新興国株", "しんこうこくかぶ"),
     ("データ", "でえた"),
     ("見積もり", "みつもり"),
@@ -56,6 +58,9 @@ _READING_FIXES = [
     ("4000万円", "よんせんまんえん"),
     ("5000万円", "ごせんまんえん"),
     ("6000万円", "ろくせんまんえん"),
+    ("7000万円", "ななせんまんえん"),
+    ("8000万円", "はっせんまんえん"),
+    ("9000万円", "きゅうせんまんえん"),
     # 複合語・制度名
     ("ドルコスト平均法", "どるこすとへいきんほう"),
     ("平均取得単価", "へいきんしゅとくたんか"),
@@ -606,8 +611,11 @@ def _format_for_tts(text: str) -> str:
     # 「でも」「だから」「だけど」の後に間を入れる（断言前のポーズ）
     text = re.sub(r"(でも、|だから、|だけど、)", r"\1 ", text)
 
-    # 句読点・感嘆符の後にスペースを挿入（ポーズ用）
-    text = re.sub(r"([。！？])", r"\1 ", text)
+    # 句点の後に読点を挿入して確実にポーズを入れる（v3対策）
+    # 「。でも」→「。、でも」のように句点後に間を作る
+    text = re.sub(r"。(?!$)", "。、", text)
+    # 感嘆符・疑問符の後にスペースを挿入
+    text = re.sub(r"([！？])", r"\1 ", text)
 
     # 連続空白を1つに
     text = re.sub(r"\s+", " ", text).strip()
@@ -652,11 +660,12 @@ def _text_to_speech(
             "speed": speed,
         },
     }
-    # 前シーンのコンテキストを渡して連続性を改善
-    if previous_text:
-        payload["previous_text"] = previous_text
-    if previous_request_ids:
-        payload["previous_request_ids"] = previous_request_ids
+    # 前シーンのコンテキストを渡して連続性を改善（v3では未サポート）
+    if ELEVENLABS_MODEL != "eleven_v3":
+        if previous_text:
+            payload["previous_text"] = previous_text
+        if previous_request_ids:
+            payload["previous_request_ids"] = previous_request_ids
 
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=30)

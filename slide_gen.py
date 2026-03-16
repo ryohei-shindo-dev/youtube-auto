@@ -750,6 +750,15 @@ def _wrap_text_lines(text: str, width: int) -> list[str]:
             line = line.replace(token, word)
         restored.append(line)
 
+    # 禁則処理: 行頭の「、」「。」を前の行の末尾に戻す
+    for i in range(1, len(restored)):
+        while restored[i] and restored[i][0] in ("、", "。"):
+            restored[i - 1] += restored[i][0]
+            restored[i] = restored[i][1:]
+
+    # 空行が生まれた場合は除去
+    restored = [line for line in restored if line]
+
     return restored or [text]
 
 
