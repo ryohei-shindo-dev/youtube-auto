@@ -93,10 +93,14 @@
 - マガジン名「静かに持ち続ける人へ」→「長期投資の夜に読むメモ」に変更予定
 - noteプレミアム: 4〜6月は継続、6月末に再判定（ChatGPT評価）
 
+**実績（2026-03-16追加）**:
+- 16本の予約投稿にヘッダー画像を追加完了（新素材で再生成、予約状態維持）
+- note_image_gen.py: 写真選択をローテーション→ランダムに変更（同じ画像が繰り返し使われる問題を修正）
+- 記事管理ページURL: `note.com/notes`、セレクタ: `a.o-articleList__link`（DevTools確認済み）
+
 **次のアクション**:
-1. 予約投稿の完了確認
-2. マガジン名を手動で変更
-3. 一時ファイル削除: `debug_buttons.py`, `repair_add.py`, `gen_note_supplement.py`, `gen_note_images.py`, `publish_note_supplement.py`, `regen_slides_videos.py`, `regen_videos.py`, `chatgpt_c_rank.md`
+1. マガジン名を手動で変更（「静かに持ち続ける人へ」→「長期投資の夜に読むメモ」）
+2. 一時ファイル削除: `add_note_images.py`, `regen_all.py`
 
 **関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`
 
@@ -149,25 +153,46 @@
 
 ---
 
-## 9. シーン最低表示時間 + 写真素材拡充 → 全動画再生成
+## 9. スライド・動画品質改善（2026-03-15）
 
-**状態**: 修正済み・スライド+動画再生成実行中（2026-03-15）
+**状態**: 全修正完了・全動画再生成完了
 
 **経緯**:
 
 1. シーン最低表示時間
-   - 3/15 7:00投稿「コロナで売った人、1800万円の機会損失」で empathy が0.7秒（「あなたも。」の音声だけ）。テキストが読めない
-   - 原因: `video_gen.py` に最低表示時間の制約がなかった
-   - 修正: `MIN_SCENE_SEC = 2.0` を追加。キュー117本中115本に2秒未満シーンあり（163シーン）
-   - 動画のみ再生成完了（115/115本成功、APIコストゼロ）
+   - 3/15 7:00投稿「コロナで売った人、1800万円の機会損失」で empathy が0.7秒。テキストが読めない
+   - 修正: `video_gen.py` に `MIN_SCENE_SEC = 2.0`（モジュールレベル定数）を追加
+   - 115/115本の動画再生成完了
 
 2. 写真素材拡充
-   - YouTube Studio で4本中3本が同じ hook 画像（anxiety カテゴリ）。バリエーション不足
-   - 全5カテゴリを15枚→30枚に拡充（Pexels から各15枚追加、縦横混合）
-   - `PHOTO_HISTORY_KEEP` を6→12に変更（30枚中12枚ブロック）
-   - スライド+動画を全117本再生成中（新写真プール反映、APIコストゼロ）
+   - 4本中3本が同じ hook 画像。全5カテゴリを15枚→30枚に拡充
+   - `PHOTO_HISTORY_KEEP` を6→12に変更
+   - 117本のスライド+動画再生成完了
 
-**関連ファイル**: `video_gen.py`, `slide_gen.py`, `assets/photos/*/`, `regen_slides_videos.py`（一時スクリプト）
+3. テキスト折り返し修正
+   - `_wrap_text_lines` の `break_long_words=False` で日本語が折り返されない致命的バグを修正
+   - Unicode PUA文字プレースホルダ + `break_long_words=True` に変更
+   - 117本のスライド+動画再生成完了
+
+4. closing slide_text 修正
+   - ループ再生テキストがそのままスライドに載り、長すぎて意味不明だった
+   - 16本の closing slide_text を短い CTA（「同じ人いる？」「続けてますか」）に修正
+   - 16本のスライド+動画再生成完了
+
+5. empathy slide_text 修正（音声 < テキスト問題）
+   - 音声「あなたも。」なのにスライドに「あなたも、あの時売り…」等の読まれないテキスト → 不快
+   - ルール: 音声 ≥ テキスト = OK、音声 < テキスト = NG（AGENTS.md に追記済み）
+   - 20本の empathy slide_text を音声テキストに揃えて再生成完了
+
+6. 読み辞書追加
+   - 「9割退場」「引力」「1800万円」等の読みを追加
+   - 「レバレッジ2倍が気になりだした夜」を音声再生成+YouTube再投稿済み
+
+7. コード品質改善（/simplify）
+   - `note_publish_additional.py` の旧関数名 import を修正（ImportError防止）
+   - `_get_note_articles_from_sheet` の重複を `note_image_replace.py` からの import に変更（50行削減）
+
+**関連ファイル**: `video_gen.py`, `slide_gen.py`, `voice_gen.py`, `note_publish.py`, `note_publish_additional.py`, `AGENTS.md`
 
 ---
 
@@ -183,7 +208,7 @@
 | 低 | 長尺動画 3本目 | 2本目の反応待ち（保留） |
 | 低 | 英語版チャンネル | 検討・準備済み |
 | 済 | note 記事フォーマット統一 | 全32本完了（2026-03-15） |
-| 済 | シーン最低表示時間 + 写真素材拡充 | 15→30枚/カテゴリ、117本スライド+動画再生成中 |
+| 済 | スライド・動画品質改善 | 最低表示2秒+写真30枚+折り返し修正+slide_text修正+読み辞書、全再生成完了 |
 | 済 | closingノイズ修正+全動画再生成 | 124/124本完了 |
 | 済 | 読み辞書拡充 | 387エントリ |
 | 済 | 新プロンプト先行投入 | 14本生成+キュー配置 |

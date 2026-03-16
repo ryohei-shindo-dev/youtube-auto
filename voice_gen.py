@@ -32,6 +32,8 @@ _READING_FIXES = [
     # ── 長い語句を先に（部分一致の誤置換を防ぐ） ──
     ("10年目", "じゅうねんめ"),
     # 金額の読み（ElevenLabsが「いっせん」を「せん」と読む問題への対応）
+    ("3分の1", "さんぶんのいち"),
+    ("3分の2", "さんぶんのに"),
     ("9割退場", "きゅうわりたいじょう"),
     ("引力", "いんりょく"),
     ("9割", "きゅうわり"),
@@ -573,6 +575,16 @@ def _format_for_tts(text: str) -> str:
     text = re.sub(r"[※→←↑↓]", " ", text)
     text = re.sub(r"[【】『』]", " ", text)
     text = re.sub(r"(?:ーー+|――+|—+)", " ", text)
+
+    # 分数「N/M」→「Mぶんの N」（例: 1/3 → さんぶんのいち）
+    _FRACTION_NUM = {"1": "いち", "2": "に", "3": "さん", "4": "よん", "5": "ご",
+                     "6": "ろく", "7": "なな", "8": "はち", "9": "きゅう", "10": "じゅう"}
+    def _fraction_to_reading(m):
+        num, denom = m.group(1), m.group(2)
+        d_read = _FRACTION_NUM.get(denom, denom)
+        n_read = _FRACTION_NUM.get(num, num)
+        return f"{d_read}ぶんの{n_read}"
+    text = re.sub(r"(\d+)/(\d+)", _fraction_to_reading, text)
 
     # 「%」→「パーセント」
     text = text.replace("%", "パーセント")

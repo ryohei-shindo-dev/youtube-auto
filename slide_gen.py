@@ -323,16 +323,14 @@ def _generate_slide_v2(
     role: str,
     output_path: pathlib.Path,
 ) -> tuple[pathlib.Path, str]:
-    """v2: 写真の縦横で自動レイアウト切替。
-    - 縦型写真: 全画面写真 + 下部グラデーション + テキスト重ね（没入型）
-    - 横型写真: 上部55%写真 + 下部45%テキスト（従来型）
+    """v2: 全画面没入型レイアウトに統一。
+
+    写真の縦横に関わらず、全画面にフィットさせて下部グラデーション+テキスト重ね。
+    横型写真は中央クロップで縦型にフィットする（_fit_photo_to_area が処理）。
     """
     photo, photo_asset = _get_photo(role)
 
-    if photo and _is_portrait(photo):
-        return _generate_slide_v2_portrait(text, role, output_path, photo), photo_asset
-    else:
-        return _generate_slide_v2_landscape(text, role, output_path, photo), photo_asset
+    return _generate_slide_v2_portrait(text, role, output_path, photo), photo_asset
 
 
 def _generate_slide_v2_portrait(

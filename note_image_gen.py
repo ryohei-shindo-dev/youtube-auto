@@ -132,7 +132,8 @@ _cat_index: dict[str, int] = {}  # カテゴリごとの次に使うインデッ
 
 
 def _pick_photo(category: str) -> pathlib.Path:
-    """カテゴリフォルダから写真をローテーション選択する。"""
+    """カテゴリフォルダから写真をランダム選択する。"""
+    import random
     cat_dir = PHOTOS_DIR / category
     if not cat_dir.exists():
         cat_dir = PHOTOS_DIR / DEFAULT_PHOTO_CAT
@@ -140,10 +141,7 @@ def _pick_photo(category: str) -> pathlib.Path:
     if not photos:
         # フォールバック: 旧背景画像
         return ASSETS_DIR / "long_night_thinking.png"
-    idx = _cat_index.get(category, 0)
-    path = photos[idx % len(photos)]
-    _cat_index[category] = idx + 1
-    return path
+    return random.choice(photos)
 
 
 def _load_background(
