@@ -730,6 +730,11 @@ def _wrap_text_lines(text: str, width: int) -> list[str]:
         word = m.group()
         if word not in no_break:
             no_break.append(word)
+    # 分数（1/3、3分の1等）を分断しない
+    for m in re.finditer(r"\d+/\d+|\d+分の\d+", protected):
+        word = m.group()
+        if word not in no_break:
+            no_break.append(word)
     # 単位なしの数字列（S&P500等）も分断しない
     for m in re.finditer(r"\d{2,}", protected):
         word = m.group()
