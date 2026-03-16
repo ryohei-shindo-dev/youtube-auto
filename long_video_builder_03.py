@@ -16,10 +16,7 @@ BASE_DIR = pathlib.Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
 LONG_DIR = BASE_DIR / "long_video" / "03_allcountry_sp500"
 PHOTOS_DIR = ASSETS_DIR / "photos"
-BGM_PATH = ASSETS_DIR / "bgm_ambient.m4a"
 
-VIDEO_WIDTH = 1920
-VIDEO_HEIGHT = 1080
 THUMB_WIDTH = 1280
 THUMB_HEIGHT = 720
 
