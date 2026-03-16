@@ -40,7 +40,8 @@ SHORTS_HEIGHT = 1920
 BOTTOM_SAFE_AREA = 360
 BOTTOM_TEXT_MARGIN = 80
 SPLIT_LAYOUT_TEXT_TOP_PADDING = 96
-TEXT_SIDE_MARGIN = 72
+TEXT_SIDE_MARGIN_LEFT = 72
+TEXT_SIDE_MARGIN_RIGHT = 160  # YouTube Shorts の右側UIボタン（いいね等）と重ならないため
 
 # 日本語フォントパス（macOS 標準）
 FONT_PATH_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W9.ttc"
@@ -602,7 +603,7 @@ def _draw_text_in_area(
     line_height = 178 if is_hook else 155
     font, lines, line_height = _fit_text_layout(
         draw, text, FONT_PATH_HEAVY, font_size, line_height,
-        SHORTS_WIDTH - (TEXT_SIDE_MARGIN * 2),
+        SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT,
         role=role,
     )
     total_height = len(lines) * line_height
@@ -614,7 +615,7 @@ def _draw_text_in_area(
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
         text_width = bbox[2] - bbox[0]
-        x = (SHORTS_WIDTH - text_width) // 2
+        x = TEXT_SIDE_MARGIN_LEFT + (SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT - text_width) // 2
         y = y_start + i * line_height
 
         # 影
@@ -678,7 +679,7 @@ def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple, role: str = "
     line_height = 195 if is_hook else 170
     font, lines, line_height = _fit_text_layout(
         draw, text, FONT_PATH_HEAVY, font_size, line_height,
-        SHORTS_WIDTH - (TEXT_SIDE_MARGIN * 2),
+        SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT,
         role=role,
     )
     total_height = len(lines) * line_height
@@ -687,7 +688,7 @@ def _draw_main_text(draw: ImageDraw.Draw, text: str, color: tuple, role: str = "
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font)
         text_width = bbox[2] - bbox[0]
-        x = (SHORTS_WIDTH - text_width) // 2
+        x = TEXT_SIDE_MARGIN_LEFT + (SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT - text_width) // 2
         y = y_start + i * line_height
 
         for dx, dy in [(4, 4), (3, 3), (2, 2)]:
@@ -702,7 +703,7 @@ def _draw_channel_name(draw: ImageDraw.Draw, role: str = ""):
     font = _load_font(FONT_PATH_REGULAR, 28)
     bbox = draw.textbbox((0, 0), CHANNEL_NAME, font=font)
     text_width = bbox[2] - bbox[0]
-    x = (SHORTS_WIDTH - text_width) // 2
+    x = TEXT_SIDE_MARGIN_LEFT + (SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT - text_width) // 2
     y = SHORTS_HEIGHT - BOTTOM_SAFE_AREA + 56
     draw.text((x + 1, y + 1), CHANNEL_NAME, font=font, fill=(0, 0, 0))
     draw.text((x, y), CHANNEL_NAME, font=font, fill=BRAND_LABEL_COLOR)

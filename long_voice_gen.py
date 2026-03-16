@@ -20,7 +20,7 @@ import requests
 from voice_gen import _READING_FIXES, _format_for_tts, _get_audio_duration
 
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-ELEVENLABS_MODEL = "eleven_multilingual_v2"
+ELEVENLABS_MODEL = "eleven_v3"
 
 # 5分動画用: Shorts(1.15)より少しゆっくり
 LONG_VIDEO_SPEED = 1.05

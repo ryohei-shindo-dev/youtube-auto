@@ -308,7 +308,7 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_MINCHO, 108)
+    title_font = _load_font(FONT_HEAVY, 108)
     bbox = draw.multiline_textbbox((0, 0), card["title"], font=title_font, spacing=20)
     width = bbox[2] - bbox[0]
     height = bbox[3] - bbox[1]
