@@ -881,3 +881,92 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
         return ImageFont.truetype(path, size)
     except Exception:
         return ImageFont.load_default()
+
+
+# ── Shorts サムネイル生成（16:9 横型） ──
+
+THUMB_WIDTH = 1280
+THUMB_HEIGHT = 720
+
+
+def generate_shorts_thumbnail(
+    scenes: list,
+    output_path: pathlib.Path,
+) -> pathlib.Path | None:
+    """Shortsサムネイル（16:9横型）を生成する。
+
+    テキスト: resolve > data（意味が通る結論メッセージ）
+    写真: hook > empathy（顔が大きい人物写真が多いカテゴリ）
+    """
+    # テキスト: resolve/data から選択（意味が通るもの優先）
+    text_scene = None
+    for preferred_role in ("resolve", "data"):
+        for s in scenes:
+            if s.get("role") == preferred_role and s.get("slide_text"):
+                text_scene = s
+                break
+        if text_scene:
+            break
+
+    if not text_scene:
+        return None
+
+    text = text_scene.get("slide_text", "").rstrip("。")
+
+    # 写真: hook/empathy から選択（顔が大きい人物写真が多い）
+    photo = None
+    for photo_role in ("hook", "empathy"):
+        for s in scenes:
+            if s.get("role") == photo_role and s.get("photo_asset"):
+                category = ROLE_PHOTO_CATEGORY.get(photo_role, "anxiety")
+                photo_path = PHOTOS_DIR / category / s["photo_asset"]
+                if photo_path.exists():
+                    try:
+                        photo = Image.open(photo_path)
+                    except Exception:
+                        continue
+                break
+        if photo:
+            break
+
+    # フォールバック: anxiety カテゴリからランダム取得
+    if photo is None:
+        photo, _ = _get_photo("hook")
+    if photo is None:
+        return None
+
+    # 16:9にクロップ
+    photo = photo.convert("RGB")
+    photo = _fit_photo_to_area(photo, THUMB_WIDTH, THUMB_HEIGHT)
+    photo = _apply_photo_correction(photo, role="resolve")
+
+    # 明るさ調整（サムネは少し明るめ）
+    from PIL import ImageEnhance
+    photo = ImageEnhance.Brightness(photo).enhance(0.90)
+
+    draw = ImageDraw.Draw(photo)
+
+    # テキスト描画（左寄せ、縁取り付き）
+    n = len(text)
+    if n <= 6:
+        font_size = 110
+    elif n <= 10:
+        font_size = 90
+    else:
+        font_size = 72
+    font = _load_font(FONT_PATH_HEAVY, font_size)
+
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_h = bbox[3] - bbox[1]
+    x = 60
+    y = (THUMB_HEIGHT - text_h) // 2
+
+    # 黒縁付きテキスト
+    draw.text((x, y), text, font=font,
+              fill=(240, 200, 60), stroke_width=6, stroke_fill=(0, 0, 0))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    photo.save(str(output_path), "PNG", optimize=True)
+    size_kb = output_path.stat().st_size // 1024
+    print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB）")
+    return output_path

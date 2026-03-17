@@ -151,11 +151,17 @@ def main():
 
     # ── Step 5: サムネイル生成 ──
     print("\n[Step 5/9] サムネイル生成")
-    scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
-    thumb_path = thumbnail_gen.generate_thumbnail(
-        script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
-        hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
+    # Shorts用サムネ（16:9、resolveの写真+テキスト）
+    thumb_path = slide_gen.generate_shorts_thumbnail(
+        scenes, PENDING_DIR / "thumbnail.png",
     )
+    if not thumb_path:
+        # フォールバック: 従来のテキストサムネ
+        scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
+        thumb_path = thumbnail_gen.generate_thumbnail(
+            script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
+            hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
+        )
 
     # ── Step 6: 字幕・文字起こし生成 ──
     print("\n[Step 6/9] 字幕・文字起こし生成")
