@@ -21,6 +21,9 @@ debug/
 long_video/
 archive/
 
+# ストック写真（大容量）
+assets/photos/
+
 # ログ・自動更新データ
 logs/
 analytics_log.json
