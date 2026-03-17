@@ -48,12 +48,6 @@ _LINK_INTROS_YOUTUBE = [
     "こういう話を続けています。",
     "短い整理。",
 ]
-_LINK_INTROS_NOTE = [
-    "少し長めに整理しました。",
-    "静かに読む用。",
-    "夜に読む整理。",
-    "こういうことを書いています。",
-]
 
 
 def _load_murmurs() -> list[str]:
@@ -62,38 +56,27 @@ def _load_murmurs() -> list[str]:
         return json.load(f)
 
 
-def _load_recent_history(n: int = HISTORY_CHECK_COUNT) -> list[str]:
-    """直近の投稿履歴を読み込む。"""
+def _load_recent_history(n: int = HISTORY_CHECK_COUNT) -> tuple[list[str], list[str]]:
+    """直近の投稿履歴を読み込む。テキストとタイプを同時に返す。"""
     if not HISTORY_FILE.exists():
-        return []
+        return [], []
     lines = HISTORY_FILE.read_text(encoding="utf-8").strip().split("\n")
-    recent = []
-    for line in lines[-n:]:
-        try:
-            entry = json.loads(line)
-            recent.append(entry.get("text", ""))
-        except json.JSONDecodeError:
-            continue
-    return recent
-
-
-def _load_recent_history_types(n: int = 10) -> list[str]:
-    """直近の投稿タイプ（murmur/link）を返す。"""
-    if not HISTORY_FILE.exists():
-        return []
-    lines = HISTORY_FILE.read_text(encoding="utf-8").strip().split("\n")
+    texts = []
     types = []
     for line in lines[-n:]:
         try:
             entry = json.loads(line)
+            texts.append(entry.get("text", ""))
             types.append(entry.get("type", "murmur"))
         except json.JSONDecodeError:
             continue
-    return types
+    return texts, types
 
 
 def _similarity(a: str, b: str) -> float:
     """2つのテキストの類似度を返す（0.0〜1.0）。"""
+    if not a or not b:
+        return 0.0
     return SequenceMatcher(None, a, b).ratio()
 
 
@@ -101,22 +84,18 @@ def _pick_murmur(murmurs: list[str], history: list[str]) -> str | None:
     """重複チェック付きでつぶやきを選択する。"""
     candidates = list(murmurs)
     random.shuffle(candidates)
+    best_candidate = None
+    best_score = float("inf")
     for candidate in candidates:
         if candidate in history:
             continue
-        too_similar = False
-        for past in history:
-            if _similarity(candidate, past) > SIMILARITY_THRESHOLD:
-                too_similar = True
-                break
-        if not too_similar:
-            return candidate
-    if candidates:
-        best = min(candidates, key=lambda c: max(
-            (_similarity(c, p) for p in history), default=0.0
-        ))
-        return best
-    return None
+        max_sim = max((_similarity(candidate, p) for p in history), default=0.0)
+        if max_sim <= SIMILARITY_THRESHOLD:
+            return candidate  # 十分に異なる候補が見つかった
+        if max_sim < best_score:
+            best_score = max_sim
+            best_candidate = candidate
+    return best_candidate  # 全て類似の場合、最も類似度が低いものを返す
 
 
 def _get_recent_youtube_url() -> tuple[str, str] | None:
@@ -133,22 +112,19 @@ def _get_recent_youtube_url() -> tuple[str, str] | None:
         ).execute()
         rows = result.get("values", [])
         C = sheets.COL
-        # 公開済みでYouTube URLがあるものを逆順で探す
-        for row in reversed(rows[1:]):
-            status = sheets.get_cell(row, C["status"])
-            yt_url = sheets.get_cell(row, C["youtube_url"])
-            x_url = sheets.get_cell(row, C["x_url"])
-            title = sheets.get_cell(row, C["title"])
-            # YouTube公開済みかつX未告知のもの
-            if status in ("公開済み", "partial") and yt_url and not x_url:
-                return yt_url, title
-        # X未告知がなければ直近の公開済みを返す
+        # X未告知優先、なければ直近の公開済みを返す
+        fallback = None
         for row in reversed(rows[1:]):
             status = sheets.get_cell(row, C["status"])
             yt_url = sheets.get_cell(row, C["youtube_url"])
             title = sheets.get_cell(row, C["title"])
             if status in ("公開済み", "partial") and yt_url:
-                return yt_url, title
+                x_url = sheets.get_cell(row, C["x_url"])
+                if not x_url:
+                    return yt_url, title  # X未告知を優先
+                if fallback is None:
+                    fallback = (yt_url, title)
+        return fallback
     except Exception as e:
         print(f"  [警告] YouTube URL取得エラー: {e}")
     return None
@@ -166,16 +142,15 @@ def _build_link_post() -> str | None:
     return None
 
 
-def _should_post_link(force_murmur: bool, force_link: bool) -> bool:
+def _should_post_link(force_murmur: bool, force_link: bool, recent_types: list[str]) -> bool:
     """リンク付きポストにするか判定する。"""
     if force_murmur:
         return False
     if force_link:
         return True
     # 直近でリンク連投を避ける
-    recent_types = _load_recent_history_types(5)
     if recent_types and recent_types[-1] == "link":
-        return False  # 直前がリンクなら今回はつぶやき
+        return False
     return random.random() < LINK_POST_RATIO
 
 
@@ -208,8 +183,11 @@ def main():
     parser.add_argument("--link", action="store_true", help="リンク付きを強制")
     args = parser.parse_args()
 
+    # 履歴を1回だけ読み込む
+    history_texts, history_types = _load_recent_history()
+
     # リンク付きにするか判定
-    use_link = _should_post_link(args.murmur, args.link)
+    use_link = _should_post_link(args.murmur, args.link, history_types)
 
     if use_link:
         print("モード: リンク付き")
@@ -222,9 +200,8 @@ def main():
     if not use_link:
         print("モード: つぶやき型")
         murmurs = _load_murmurs()
-        history = _load_recent_history()
-        print(f"  ストック: {len(murmurs)}本 / 投稿履歴: {len(history)}件")
-        selected = _pick_murmur(murmurs, history)
+        print(f"  ストック: {len(murmurs)}本 / 投稿履歴: {len(history_texts)}件")
+        selected = _pick_murmur(murmurs, history_texts)
         post_type = "murmur"
 
     if not selected:
