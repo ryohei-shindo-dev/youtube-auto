@@ -1,6 +1,6 @@
 """
 note_publish_additional.py
-追加したnote記事5本を投稿・予約投稿するためのワンショット用スクリプト。
+追加したnote記事29本を投稿・予約投稿するためのスクリプト。
 
 使い方:
     python note_publish_additional.py --login
@@ -22,12 +22,13 @@ ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 
 ARTICLE_SPECS = [
+    # --- 投稿済み（add_01〜03） ---
     {
         "id": "add_01",
         "title": "オルカンでいいのか揺れる夜に、思い出したいこと",
         "article_path": ARTICLES_DIR / "note_add_01_オルカンでいいのか揺れる夜.md",
         "image_path": IMAGES_DIR / "note_add_01.png",
-        "schedule": None,  # 今すぐ投稿
+        "schedule": None,  # 即時投稿済み（3/14）
     },
     {
         "id": "add_02",
@@ -43,6 +44,14 @@ ARTICLE_SPECS = [
         "image_path": IMAGES_DIR / "note_add_03.png",
         "schedule": "2026-03-16 21:00",
     },
+    # --- 予約投稿（add_04〜29: 3/17〜3/29、1日2本 12:30+21:00） ---
+    {
+        "id": "add_28",
+        "title": "画面を見なかった日が、一番いい投資判断だった",
+        "article_path": ARTICLES_DIR / "note_add_28_画面を見なかった日が、一番いい.md",
+        "image_path": IMAGES_DIR / "note_add_28.png",
+        "schedule": "2026-03-17 12:30",
+    },
     {
         "id": "add_04",
         "title": "何もしないことが不安になる日に、確認したいこと",
@@ -51,11 +60,172 @@ ARTICLE_SPECS = [
         "schedule": "2026-03-17 21:00",
     },
     {
+        "id": "add_29",
+        "title": "他人の成績表を見ない日が、いちばん崩れにくい",
+        "article_path": ARTICLES_DIR / "note_add_29_他人を見ない日が、いちばん崩れ.md",
+        "image_path": IMAGES_DIR / "note_add_29.png",
+        "schedule": "2026-03-18 12:30",
+    },
+    {
         "id": "add_05",
         "title": "正しいのに退屈で続かない。その感覚の整理",
         "article_path": ARTICLES_DIR / "note_add_05_正しいのに退屈で続かない.md",
         "image_path": IMAGES_DIR / "note_add_05.png",
         "schedule": "2026-03-18 21:00",
+    },
+    {
+        "id": "add_06",
+        "title": "NASDAQ100が目につく夜、実は揺れているのは心",
+        "article_path": ARTICLES_DIR / "note_add_06_NASDAQ100に目移りした.md",
+        "image_path": IMAGES_DIR / "note_add_06.png",
+        "schedule": "2026-03-19 12:30",
+    },
+    {
+        "id": "add_10",
+        "title": "積み立て額を減らしたくなった夜に、まず確認したい「3ヶ月前の自分の気持ち」",
+        "article_path": ARTICLES_DIR / "note_add_10_積み立て設定を変えたくなる夜に.md",
+        "image_path": IMAGES_DIR / "note_add_10.png",
+        "schedule": "2026-03-19 21:00",
+    },
+    {
+        "id": "add_07",
+        "title": "配当利回り5%の誘いに、過去データを確認してから返事する",
+        "article_path": ARTICLES_DIR / "note_add_07_高配当に乗り換えたくなる日に、.md",
+        "image_path": IMAGES_DIR / "note_add_07.png",
+        "schedule": "2026-03-20 12:30",
+    },
+    {
+        "id": "add_12",
+        "title": "投資信託を増やしすぎると、迷いが深くなることがあります",
+        "article_path": ARTICLES_DIR / "note_add_12_投資信託を増やしすぎると、安心.md",
+        "image_path": IMAGES_DIR / "note_add_12.png",
+        "schedule": "2026-03-20 21:00",
+    },
+    {
+        "id": "add_09",
+        "title": "勉強するほど迷う投資脳を、シンプルに戻す方法",
+        "article_path": ARTICLES_DIR / "note_add_09_投資の勉強をするほど、軸がぶれ.md",
+        "image_path": IMAGES_DIR / "note_add_09.png",
+        "schedule": "2026-03-21 12:30",
+    },
+    {
+        "id": "add_16",
+        "title": "取り崩しまで20年あるのに、夜眠れなくなるのはなぜ",
+        "article_path": ARTICLES_DIR / "note_add_16_取り崩しがまだ先なのに、不安に.md",
+        "image_path": IMAGES_DIR / "note_add_16.png",
+        "schedule": "2026-03-21 21:00",
+    },
+    {
+        "id": "add_08",
+        "title": "オルカンを持っているのに、置いていかれる気がするとき",
+        "article_path": ARTICLES_DIR / "note_add_08_オルカンを持っているのに、置い.md",
+        "image_path": IMAGES_DIR / "note_add_08.png",
+        "schedule": "2026-03-22 12:30",
+    },
+    {
+        "id": "add_13",
+        "title": "投資商品を減らしたら、なぜか心が落ち着いた話",
+        "article_path": ARTICLES_DIR / "note_add_13_商品を減らした方が落ち着く人が.md",
+        "image_path": IMAGES_DIR / "note_add_13.png",
+        "schedule": "2026-03-22 21:00",
+    },
+    {
+        "id": "add_11",
+        "title": "SNSで正解を見すぎた日に、心が疲れる理由",
+        "article_path": ARTICLES_DIR / "note_add_11_SNSで誰かの正解を見すぎた日.md",
+        "image_path": IMAGES_DIR / "note_add_11.png",
+        "schedule": "2026-03-23 12:30",
+    },
+    {
+        "id": "add_17",
+        "title": "40代で始めたのに、もう遅い気がする理由",
+        "article_path": ARTICLES_DIR / "note_add_17_老後まで遠いのに、もう間に合わ.md",
+        "image_path": IMAGES_DIR / "note_add_17.png",
+        "schedule": "2026-03-23 21:00",
+    },
+    {
+        "id": "add_14",
+        "title": "他人の資産額に見えた自分の積み立ての小ささ",
+        "article_path": ARTICLES_DIR / "note_add_14_他人の資産額を見た夜に、自分の.md",
+        "image_path": IMAGES_DIR / "note_add_14.png",
+        "schedule": "2026-03-24 12:30",
+    },
+    {
+        "id": "add_18",
+        "title": "積み立て20年、ゴールが見えない焦燥感への向き合い方",
+        "article_path": ARTICLES_DIR / "note_add_18_積み立てを続けているのに、いつ.md",
+        "image_path": IMAGES_DIR / "note_add_18.png",
+        "schedule": "2026-03-24 21:00",
+    },
+    {
+        "id": "add_15",
+        "title": "「他の投資の方が伸びてる」という夜の不安が、実は当たり前の理由",
+        "article_path": ARTICLES_DIR / "note_add_15_「もっと伸びるものがある」と思.md",
+        "image_path": IMAGES_DIR / "note_add_15.png",
+        "schedule": "2026-03-25 12:30",
+    },
+    {
+        "id": "add_19",
+        "title": "増減に一喜一憂する前に、まず「目的」を思い出すこと",
+        "article_path": ARTICLES_DIR / "note_add_19_増えても減っても落ち着かない人.md",
+        "image_path": IMAGES_DIR / "note_add_19.png",
+        "schedule": "2026-03-25 21:00",
+    },
+    {
+        "id": "add_22",
+        "title": "何も起きない日が、いちばん長期投資らしい",
+        "article_path": ARTICLES_DIR / "note_add_22_何も起きない日が、いちばん長期.md",
+        "image_path": IMAGES_DIR / "note_add_22.png",
+        "schedule": "2026-03-26 12:30",
+    },
+    {
+        "id": "add_20",
+        "title": "「自分だけ遅い」と感じる夜に、比較を少し静かにする考え方",
+        "article_path": ARTICLES_DIR / "note_add_20_「自分だけ遅い」と感じる夜に、.md",
+        "image_path": IMAGES_DIR / "note_add_20.png",
+        "schedule": "2026-03-26 21:00",
+    },
+    {
+        "id": "add_23",
+        "title": "引き落とされた。それで十分です",
+        "article_path": ARTICLES_DIR / "note_add_23_今日も引き落とされた。それで十.md",
+        "image_path": IMAGES_DIR / "note_add_23.png",
+        "schedule": "2026-03-27 12:30",
+    },
+    {
+        "id": "add_21",
+        "title": "新NISAで何を買うか迷った時、つい変えてしまう心理",
+        "article_path": ARTICLES_DIR / "note_add_21_新NISAで何を買うかより、変.md",
+        "image_path": IMAGES_DIR / "note_add_21.png",
+        "schedule": "2026-03-27 21:00",
+    },
+    {
+        "id": "add_24",
+        "title": "増えてる実感がない日ほど、積み立ては効いている",
+        "article_path": ARTICLES_DIR / "note_add_24_増えてる実感がない日ほど、積み.md",
+        "image_path": IMAGES_DIR / "note_add_24.png",
+        "schedule": "2026-03-28 12:30",
+    },
+    {
+        "id": "add_25",
+        "title": "相場が冷え込む時こそ、積み立ては本当の出番です",
+        "article_path": ARTICLES_DIR / "note_add_25_積み立ては、盛り上がらない日ほ.md",
+        "image_path": IMAGES_DIR / "note_add_25.png",
+        "schedule": "2026-03-28 21:00",
+    },
+    {
+        "id": "add_26",
+        "title": "気づいたら続いていた。それが長期投資の正体",
+        "article_path": ARTICLES_DIR / "note_add_26_気づいたら続いていた。それが長.md",
+        "image_path": IMAGES_DIR / "note_add_26.png",
+        "schedule": "2026-03-29 12:30",
+    },
+    {
+        "id": "add_27",
+        "title": "派手さゼロ。でも20年後、それが最強になる",
+        "article_path": ARTICLES_DIR / "note_add_27_地味すぎる。でもそれが一番強い.md",
+        "image_path": IMAGES_DIR / "note_add_27.png",
+        "schedule": "2026-03-29 21:00",
     },
 ]
 
