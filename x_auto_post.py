@@ -80,9 +80,28 @@ def _similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
+_NIGHT_WORDS = ["夜", "眠れない", "今夜", "夜中"]
+_MORNING_WORDS = ["朝", "今朝"]
+
+
+def _filter_by_time(murmurs: list[str]) -> list[str]:
+    """現在の時間帯に合わないつぶやきを除外する。"""
+    hour = datetime.now().hour
+    is_morning = 5 <= hour < 15
+    is_evening = 15 <= hour or hour < 5
+    filtered = []
+    for m in murmurs:
+        if is_morning and any(w in m for w in _NIGHT_WORDS):
+            continue
+        if is_evening and any(w in m for w in _MORNING_WORDS):
+            continue
+        filtered.append(m)
+    return filtered
+
+
 def _pick_murmur(murmurs: list[str], history: list[str]) -> str | None:
     """重複チェック付きでつぶやきを選択する。"""
-    candidates = list(murmurs)
+    candidates = _filter_by_time(list(murmurs))
     random.shuffle(candidates)
     best_candidate = None
     best_score = float("inf")
