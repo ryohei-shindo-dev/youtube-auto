@@ -21,8 +21,12 @@ debug/
 long_video/
 archive/
 
-# ストック写真（大容量）
+# 画像素材（大容量）
 assets/photos/
+assets/*.png
+
+# X投稿履歴
+x_post_history.jsonl
 
 # ログ・自動更新データ
 logs/
