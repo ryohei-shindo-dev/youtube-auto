@@ -151,9 +151,10 @@ def main():
 
     # ── Step 5: サムネイル生成 ──
     print("\n[Step 5/9] サムネイル生成")
-    # Shorts用サムネ（16:9、resolveの写真+テキスト）
+    # Shorts用サムネ（16:9、dataテキスト+hookの人物写真）
     thumb_path = slide_gen.generate_shorts_thumbnail(
         scenes, PENDING_DIR / "thumbnail.png",
+        title=script_data.get("title", ""),
     )
     if not thumb_path:
         # フォールバック: 従来のテキストサムネ

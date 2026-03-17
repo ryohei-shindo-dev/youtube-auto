@@ -892,26 +892,29 @@ THUMB_HEIGHT = 720
 def generate_shorts_thumbnail(
     scenes: list,
     output_path: pathlib.Path,
+    title: str = "",
 ) -> pathlib.Path | None:
     """Shortsサムネイル（16:9横型）を生成する。
 
-    テキスト: resolve > data（意味が通る結論メッセージ）
+    テキスト: data > タイトル（各動画で異なる具体的な内容）
     写真: hook > empathy（顔が大きい人物写真が多いカテゴリ）
     """
-    # テキスト: resolve/data から選択（意味が通るもの優先）
-    text_scene = None
-    for preferred_role in ("resolve", "data"):
-        for s in scenes:
-            if s.get("role") == preferred_role and s.get("slide_text"):
-                text_scene = s
-                break
-        if text_scene:
+    # テキスト: dataのslide_text（各動画で異なる具体データ）
+    text = ""
+    for s in scenes:
+        if s.get("role") == "data" and s.get("slide_text"):
+            text = s.get("slide_text", "").rstrip("。")
             break
 
-    if not text_scene:
-        return None
+    # フォールバック: タイトル（ユニーク保証）
+    if not text and title:
+        # タイトルから「|」「#Shorts」以前の部分を取得
+        text = title.split("|")[0].split("｜")[0].split("#")[0].strip()
+        if len(text) > 18:
+            text = text[:18]
 
-    text = text_scene.get("slide_text", "").rstrip("。")
+    if not text:
+        return None
 
     # 写真: hook/empathy から選択（顔が大きい人物写真が多い）
     photo = None

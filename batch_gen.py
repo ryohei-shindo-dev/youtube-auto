@@ -321,7 +321,10 @@ def generate_one(
 
     # Step 5: サムネイル + 字幕
     print("  [5/7] サムネイル・字幕生成...")
-    thumb = slide_gen.generate_shorts_thumbnail(scenes, PENDING_DIR / "thumbnail.png")
+    thumb = slide_gen.generate_shorts_thumbnail(
+        scenes, PENDING_DIR / "thumbnail.png",
+        title=script_data.get("title", ""),
+    )
     if not thumb:
         scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
         thumbnail_gen.generate_thumbnail(
