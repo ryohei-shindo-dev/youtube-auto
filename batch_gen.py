@@ -74,14 +74,36 @@ def _is_batch_data_duplicate(script_data: dict, batch_data_texts: list) -> bool:
 def _check_candidate(
     candidate: dict, topic: str,
     batch_data_texts: list, batch_hook_texts: list, batch_resolve_texts: list,
+    queue_registry=None,
 ) -> dict:
     """1つの候補をスコアリング・重複・トピック一致チェックする。
 
     戻り値: {"ok": bool, "reason_type": str, "reason": str,
              "score_result": dict, "candidate": dict}
     reason_type: "score_low" / "duplicate" / "topic_mismatch" /
-                 "batch_duplicate" / "" (合格時)
+                 "batch_duplicate" / "style_error" / "scene_error" /
+                 "queue_guard" / "" (合格時)
     """
+    # ── 表記揺れチェック（style_rules） ──
+    import style_rules
+    style_issues = style_rules.lint_script(candidate)
+    style_errors = [v for v in style_issues if v["level"] == "error"]
+    if style_errors:
+        print(style_rules.format_report(style_issues))
+        return {"ok": False, "reason_type": "style_error",
+                "reason": f"表記エラー: {style_errors[0]['found']}",
+                "score_result": {}, "candidate": candidate}
+
+    # ── シーン品質チェック（scene_linter） ──
+    import scene_linter
+    scene_issues = scene_linter.lint_all_scenes(candidate)
+    scene_errors = [i for i in scene_issues if i["level"] == "error"]
+    if scene_errors:
+        print(scene_linter.format_report(scene_issues))
+        return {"ok": False, "reason_type": "scene_error",
+                "reason": f"シーンエラー: {scene_errors[0]['message']}",
+                "score_result": {}, "candidate": candidate}
+
     result = candidate_ranker.score_script(candidate)
     print(candidate_ranker.format_report(result))
 
@@ -117,6 +139,16 @@ def _check_candidate(
                 "reason": f"バッチ内resolve重複:「{_get_scene_text(candidate, 'resolve')}」",
                 "score_result": result, "candidate": candidate}
 
+    # ── キュー重複チェック（queue_guard） ──
+    if queue_registry is not None:
+        import queue_guard
+        guard = queue_guard.check_candidate(candidate, queue_registry)
+        if not guard["ok"]:
+            print(queue_guard.format_report(guard))
+            return {"ok": False, "reason_type": "queue_guard",
+                    "reason": guard["reason"],
+                    "score_result": result, "candidate": candidate}
+
     return {"ok": True, "reason_type": "", "reason": "",
             "score_result": result, "candidate": candidate}
 
@@ -124,6 +156,7 @@ def _check_candidate(
 def _select_best_candidate(
     topic: str, theme: str, effective_retries: int,
     batch_data_texts: list, batch_hook_texts: list, batch_resolve_texts: list,
+    queue_registry=None,
 ) -> dict:
     """3候補一括生成 → ローカル選別 → フォールバックリトライ。
 
@@ -147,6 +180,7 @@ def _select_best_candidate(
         print(f"\n  --- 候補 {ci+1}/{len(candidates)} チェック ---")
         check = _check_candidate(
             cand, topic, batch_data_texts, batch_hook_texts, batch_resolve_texts,
+            queue_registry=queue_registry,
         )
         checked.append(check)
 
@@ -158,6 +192,8 @@ def _select_best_candidate(
         print(f"\n  [Phase1] {len(passed)}/{len(checked)}候補が合格 → 最高スコアを採用"
               f"（{best['score_result']['total_score']}/{best['score_result']['max_score']}）")
         dedupe_check.register_accepted(best["candidate"])
+        if queue_registry is not None:
+            queue_registry.register(best["candidate"], "batch_new")
         return best["candidate"]
 
     # 全候補不合格の理由を表示
@@ -180,10 +216,13 @@ def _select_best_candidate(
 
         check = _check_candidate(
             candidate, topic, batch_data_texts, batch_hook_texts, batch_resolve_texts,
+            queue_registry=queue_registry,
         )
         if check["ok"]:
             print(f"  [Phase2] リトライ{attempt}回目で合格")
             dedupe_check.register_accepted(candidate)
+            if queue_registry is not None:
+                queue_registry.register(candidate, "batch_new")
             return candidate
 
         # 同じ理由で連続失敗 → API節約のため即スキップ
@@ -207,6 +246,8 @@ def _select_best_candidate(
         print(f"  [採用] リトライ上限。Phase1のスコア不足候補を採用"
               f"（{best_fallback['score_result']['total_score']}/{best_fallback['score_result']['max_score']}）")
         dedupe_check.register_accepted(best_fallback["candidate"])
+        if queue_registry is not None:
+            queue_registry.register(best_fallback["candidate"], "batch_new")
         return best_fallback["candidate"]
 
     raise RuntimeError(
@@ -253,6 +294,7 @@ def generate_one(
     script_data = _select_best_candidate(
         topic, theme, effective_retries,
         batch_data_texts, batch_hook_texts, batch_resolve_texts,
+        queue_registry=queue_registry,
     )
 
     scenes = script_data["scenes"]
@@ -342,6 +384,11 @@ def main():
     batch_data_texts = []     # 同一バッチ内のdataテキスト（重複防止用）
     batch_hook_texts = []     # 同一バッチ内のhookテキスト
     batch_resolve_texts = []  # 同一バッチ内のresolveテキスト
+
+    # キュー重複チェック用レジストリ
+    from queue_guard import DataRegistry
+    queue_registry = DataRegistry()
+    print(f"  キューレジストリ: {len(queue_registry.entries)}本読み込み済み")
 
     print(f"\n{'#'*60}")
     print(f"  量産開始: {target}本")

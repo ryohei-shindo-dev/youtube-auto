@@ -823,10 +823,9 @@ def extract_scene_texts(script_data: dict, *roles: str) -> dict:
 
 
 def normalize_preferred_spelling(text: str) -> str:
-    """ブランド表記の揺れを正規化する。"""
-    if not isinstance(text, str):
-        return text
-    return text.replace("積立", "積み立て")
+    """ブランド表記の揺れを正規化する。style_rules に委譲。"""
+    from style_rules import normalize_text
+    return normalize_text(text)
 
 
 def normalize_script_spelling(script_data: dict) -> dict:
