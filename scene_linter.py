@@ -15,18 +15,32 @@ from __future__ import annotations
 import re
 
 # ── hookチェック用 ──
-# メディア専門用語（単独hookだと視聴者に伝わらない）
+# メディア専門用語（hookに含まれていたらエラー）
 _MEDIA_JARGON = {
     "退場", "相場", "指数", "分散", "配分", "金融",
     "PER", "PBR", "ボラティリティ", "複利", "遺言",
+    "利確", "円高", "円安", "元本割れ", "損切り", "約定",
+}
+
+# 文脈なしでは意味が伝わらない曖昧ワード（単独hookだとNG）
+_VAGUE_HOOKS = {
+    "損してる", "差がない", "増えない", "変わらない",
+    "何もない", "実感がない", "今日も同じ",
 }
 
 # 感情・痛みワード（hookに最低1つ欲しい）
 _EMOTION_WORDS = {
     "含み損", "暴落", "売りたい", "不安", "怖い", "つらい", "眠れない",
-    "後悔", "焦る", "損", "溶けた", "増えない", "待てない", "やめたい",
+    "後悔", "焦る", "損した", "溶けた", "増えない", "待てない", "やめたい",
     "無理", "しんどい", "迷う", "疲れ", "揺れ", "崩れ",
     "下がった", "減って", "続かない", "見たくない",
+}
+
+# hookに投資文脈を与えるワード（感情ワードと組み合わさって初めて意味が通る）
+_INVESTMENT_CONTEXT = {
+    "投資", "積み立て", "NISA", "口座", "配当", "株",
+    "資産", "運用", "証券", "インデックス", "S&P",
+    "万円", "年", "老後", "含み",
 }
 
 # ── closingチェック用 ──
@@ -103,17 +117,41 @@ def _lint_hook(text: str, slide_text: str) -> list[dict]:
     issues: list[dict] = []
     clean = text.rstrip("。？！ ")
 
-    # メディア専門用語だけで構成されていないか
-    if clean in _MEDIA_JARGON:
-        issues.append(_issue("error", "hook", "media_jargon_only",
-                             f"hookがメディア用語のみ: 「{clean}」。初見の視聴者に伝わりません"))
+    # 1. メディア専門用語が含まれていたらエラー（部分一致）
+    for jargon in _MEDIA_JARGON:
+        if jargon in clean:
+            issues.append(_issue("error", "hook", "media_jargon",
+                                 f"hookにメディア用語「{jargon}」が含まれています: 「{clean}」。"
+                                 f"初見の視聴者に伝わりません"))
+            break
 
-    # 感情・痛みワードが含まれているか
-    has_emotion = any(w in text for w in _EMOTION_WORDS)
+    # 2. 曖昧ワード単独（投資文脈なし）→ エラー
+    if clean in _VAGUE_HOOKS:
+        has_context = any(w in text for w in _INVESTMENT_CONTEXT)
+        if not has_context:
+            issues.append(_issue("error", "hook", "vague_no_context",
+                                 f"hookが曖昧で投資文脈がありません: 「{clean}」。"
+                                 f"「積み立て3年、増えない」のように文脈をつけてください"))
+
+    # 3. 数字だけで文脈なし（「1800万円」「100円。」等）→ エラー
     has_number = bool(_RE_NUMBER.search(text))
-    if not has_emotion and not has_number:
-        issues.append(_issue("warning", "hook", "no_emotion_or_number",
-                             f"hookに感情ワードも数字もありません: 「{clean}」"))
+    clean_no_num = _RE_NUMBER.sub("", clean).strip("、。 の")
+    if has_number and len(clean_no_num) <= 2:
+        issues.append(_issue("error", "hook", "number_only",
+                             f"hookが数字だけで文脈がありません: 「{clean}」。"
+                             f"「1800万円の機会損失」のように意味を持たせてください"))
+
+    # 4. 短すぎるhook（5文字以下で投資文脈も感情もない）→ エラー
+    has_emotion = any(w in text for w in _EMOTION_WORDS)
+    has_context = any(w in text for w in _INVESTMENT_CONTEXT)
+    if len(clean) <= 5 and not has_emotion and not has_number:
+        issues.append(_issue("error", "hook", "too_short_no_context",
+                             f"hookが短すぎて意味が伝わりません: 「{clean}」"))
+
+    # 5. 感情も数字も投資文脈もない → 警告
+    if not has_emotion and not has_number and not has_context:
+        issues.append(_issue("warning", "hook", "no_hook_power",
+                             f"hookに感情・数字・投資文脈がありません: 「{clean}」"))
 
     return issues
 
