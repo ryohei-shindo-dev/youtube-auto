@@ -585,12 +585,13 @@ def publish_entry(
         try:
             print("\n  [Instagram] 投稿中...")
             import instagram_upload
-            # カバー画像: thumbnail_frame.png優先、なければthumbnail.png
+            # カバー画像: thumbnail_frame.png（縦長1080x1920）のみ使用
+            # 横長 thumbnail.png はInstagramでクロップされて文字が切れるため使わない
             ig_cover = None
             if thumbnail_frame_path.exists():
                 ig_cover = str(thumbnail_frame_path)
-            elif thumbnail_path.exists():
-                ig_cover = str(thumbnail_path)
+            else:
+                print("  [Instagram] 警告: thumbnail_frame.png がありません。カバー画像なしで投稿します")
             ig_url = instagram_upload.upload_video(
                 video_path=str(video_path),
                 caption=ig_caption,
