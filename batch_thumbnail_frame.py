@@ -1,7 +1,7 @@
 """キュー内の全動画に thumbnail_frame.png を一括生成するスクリプト。
 
 Usage:
-    python batch_thumbnail_frame.py [--dry-run]
+    python batch_thumbnail_frame.py [--dry-run] [--force]
 """
 from __future__ import annotations
 
@@ -14,20 +14,22 @@ import slide_gen
 
 def main():
     dry_run = "--dry-run" in sys.argv
+    force = "--force" in sys.argv
 
     queue_path = pathlib.Path("publish_queue.json")
     queue = json.loads(queue_path.read_text())
 
-    missing = []
+    targets = []
     for folder in queue:
         frame_path = pathlib.Path("done") / folder / "thumbnail_frame.png"
-        if not frame_path.exists():
-            missing.append(folder)
+        if force or not frame_path.exists():
+            targets.append(folder)
 
-    print(f"キュー総数: {len(queue)}, thumbnail_frame.png なし: {len(missing)}")
+    label = "対象（force）" if force else "thumbnail_frame.png なし"
+    print(f"キュー総数: {len(queue)}, {label}: {len(targets)}")
 
     if dry_run:
-        for f in missing:
+        for f in targets:
             print(f"  [dry-run] {f}")
         return
 
@@ -35,7 +37,7 @@ def main():
     fail = 0
     used_texts: list[str] = []
 
-    for folder in missing:
+    for folder in targets:
         transcript_path = pathlib.Path("done") / folder / "transcript.json"
         if not transcript_path.exists():
             print(f"  [スキップ] {folder}: transcript.json なし")

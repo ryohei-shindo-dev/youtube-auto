@@ -1076,6 +1076,21 @@ def _save_thumbnail_registry(registry: list[dict]) -> None:
     )
 
 
+def _thumb_frame_font_size(text: str, max_size: int = 160, min_size: int = 90) -> int:
+    """文字数に応じてサムネフレームのフォントサイズを自動調整する。"""
+    n = len(text)
+    if n <= 2:
+        return max_size
+    elif n <= 4:
+        return max_size - 20
+    elif n <= 6:
+        return max_size - 40
+    elif n <= 8:
+        return max_size - 60
+    else:
+        return min_size
+
+
 def _pick_thumbnail_photo(registry: list[dict]) -> pathlib.Path | None:
     """thumbnail/ フォルダからサムネ用写真を1枚選ぶ（直近で使った写真を避ける）。"""
     if not THUMBNAIL_DIR.exists():
@@ -1246,28 +1261,34 @@ def generate_thumbnail_frame(
 
     draw = ImageDraw.Draw(photo)
 
-    # テキスト描画
+    # テキスト描画（1行目は大きく、2行目はやや小さく — thumbnail_gen と同方式）
     lines = thumb_text.split("\n")
-    font_size = 100 if max(len(l) for l in lines) <= 8 else 80
-    font = _load_font(FONT_PATH_HEAVY, font_size)
+    fonts = []
+    for i, line in enumerate(lines):
+        if i == 0:
+            sz = _thumb_frame_font_size(line, max_size=160, min_size=90)
+        else:
+            sz = _thumb_frame_font_size(line, max_size=120, min_size=70)
+        fonts.append(_load_font(FONT_PATH_HEAVY, sz))
 
     line_heights = []
     line_widths = []
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=fonts[i])
         line_widths.append(bbox[2] - bbox[0])
         line_heights.append(bbox[3] - bbox[1])
 
-    gap = 20
+    gap = 24
     total_h = sum(line_heights) + gap * (len(lines) - 1)
     start_y = int(SHORTS_HEIGHT * 0.65) - total_h // 2
 
+    cur_y = start_y
     for i, line in enumerate(lines):
         x = (SHORTS_WIDTH - line_widths[i]) // 2
-        y = start_y + i * (line_heights[0] + gap)
         color = (240, 200, 60) if i == 0 else (255, 255, 255)
-        draw.text((x, y), line, font=font, fill=color,
+        draw.text((x, cur_y), line, font=fonts[i], fill=color,
                   stroke_width=5, stroke_fill=(0, 0, 0))
+        cur_y += line_heights[i] + gap
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     photo.save(str(output_path), "PNG", optimize=True)
