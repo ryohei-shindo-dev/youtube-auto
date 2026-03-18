@@ -894,36 +894,118 @@ def generate_shorts_thumbnail(
     output_path: pathlib.Path,
     title: str = "",
 ) -> pathlib.Path | None:
-    """Shortsサムネイル（縦型9:16）を生成する。
+    """Shortsサムネイル専用画像（縦型1080x1920）を新規生成する。
 
-    動画内のスライド（人物写真+テキスト）をそのままサムネとして使う。
-    優先順: data > resolve（各動画で異なるテキストを持つシーン）
+    動画スライドの流用はしない。
+    顔が大きい人物写真 + titleから生成した短いテキスト で構成。
     """
-    import shutil
+    from PIL import ImageEnhance
 
-    # dataまたはresolveのスライドをサムネとしてコピー
-    # slide_path が記録されていない場合、フォルダ内のスライドファイルから推定
-    for preferred_role in ("data", "resolve"):
-        for i, s in enumerate(scenes):
-            if s.get("role") != preferred_role:
-                continue
+    # ── テキスト: titleから短いサムネ専用文を作る ──
+    thumb_text = _make_thumbnail_text(title, scenes)
+    if not thumb_text:
+        return None
 
-            # 1. slide_path が記録されていればそれを使う
-            slide_path = pathlib.Path(s["slide_path"]) if s.get("slide_path") else None
-            if slide_path and slide_path.exists():
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(slide_path, output_path)
-                size_kb = output_path.stat().st_size // 1024
-                print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB、{preferred_role}スライド）")
-                return output_path
+    # ── 写真: 顔が大きい人物写真を選ぶ ──
+    # hookの写真（anxiety/comparison）は顔アップが多い
+    photo = None
+    for photo_role in ("hook", "empathy"):
+        for s in scenes:
+            if s.get("role") == photo_role and s.get("photo_asset"):
+                category = ROLE_PHOTO_CATEGORY.get(photo_role, "anxiety")
+                photo_path = PHOTOS_DIR / category / s["photo_asset"]
+                if photo_path.exists():
+                    try:
+                        photo = Image.open(photo_path)
+                    except Exception:
+                        continue
+                break
+        if photo:
+            break
 
-            # 2. フォルダ内の slide_XX.png から推定
-            slide_file = output_path.parent / f"slide_{i+1:02d}.png"
-            if slide_file.exists():
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(slide_file, output_path)
-                size_kb = output_path.stat().st_size // 1024
-                print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB、{preferred_role}スライド推定）")
-                return output_path
+    # フォールバック: anxietyからランダム取得
+    if photo is None:
+        photo, _ = _get_photo("hook")
+    if photo is None:
+        return None
 
-    return None
+    # ── サムネ画像を組み立て ──
+    photo = photo.convert("RGB")
+    photo = _fit_photo_to_area(photo, SHORTS_WIDTH, SHORTS_HEIGHT)
+
+    # 明るさ調整（暗くしすぎない）
+    photo = ImageEnhance.Brightness(photo).enhance(0.88)
+
+    # 下部にグラデーション（テキスト読みやすく、でも暗すぎない）
+    _blend_gradient(photo, start_y=int(SHORTS_HEIGHT * 0.55),
+                    bg_color=(20, 20, 30), exponent=1.2)
+
+    draw = ImageDraw.Draw(photo)
+
+    # テキスト描画（下寄せ中央、2行、太字）
+    lines = thumb_text.split("\n")
+    font_size = 100 if max(len(l) for l in lines) <= 8 else 80
+    font = _load_font(FONT_PATH_HEAVY, font_size)
+
+    # 各行の描画位置を計算
+    line_heights = []
+    line_widths = []
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_widths.append(bbox[2] - bbox[0])
+        line_heights.append(bbox[3] - bbox[1])
+
+    gap = 20
+    total_h = sum(line_heights) + gap * (len(lines) - 1)
+    # 下から30%の位置に配置
+    start_y = int(SHORTS_HEIGHT * 0.65) - total_h // 2
+
+    for i, line in enumerate(lines):
+        x = (SHORTS_WIDTH - line_widths[i]) // 2
+        y = start_y + i * (line_heights[0] + gap)
+        # 1行目は黄色（強調）、2行目は白
+        color = (240, 200, 60) if i == 0 else (255, 255, 255)
+        draw.text((x, y), line, font=font, fill=color,
+                  stroke_width=5, stroke_fill=(0, 0, 0))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    photo.save(str(output_path), "PNG", optimize=True)
+    size_kb = output_path.stat().st_size // 1024
+    print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB）")
+    return output_path
+
+
+def _make_thumbnail_text(title: str, scenes: list) -> str:
+    """タイトルからサムネ用の短文（2行、10〜18文字）を生成する。
+
+    タイトルが最も動画の主題に近いので、それを短縮する。
+    """
+    if not title:
+        # フォールバック: resolveのslide_text
+        for s in scenes:
+            if s.get("role") == "resolve" and s.get("slide_text"):
+                return s["slide_text"].rstrip("。")
+        return ""
+
+    # タイトルから「|」「｜」「#Shorts」以降を除去
+    clean = title.split("|")[0].split("｜")[0].split("#")[0].strip()
+    # 句読点で分割
+    clean = clean.rstrip("。、！？!? ")
+
+    # 短いならそのまま
+    if len(clean) <= 10:
+        return clean
+
+    # 「。」「、」「。」で分割して2行にする
+    for sep in ["。", "、", "…", "―"]:
+        if sep in clean:
+            parts = clean.split(sep, 1)
+            line1 = parts[0].strip().rstrip("。、 ")
+            line2 = parts[1].strip().rstrip("。、 ") if len(parts) > 1 else ""
+            if line1 and line2 and len(line1) <= 12 and len(line2) <= 12:
+                return f"{line1}\n{line2}"
+            if line1 and len(line1) <= 12:
+                return line1
+
+    # 分割できない場合、先頭12文字
+    return clean[:12]
