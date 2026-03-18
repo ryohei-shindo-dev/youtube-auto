@@ -32,6 +32,7 @@ import textwrap
 from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from thumbnail_gen import _auto_font_size
 
 # Shorts 解像度（縦型 9:16）
 SHORTS_WIDTH = 1080
@@ -1076,21 +1077,6 @@ def _save_thumbnail_registry(registry: list[dict]) -> None:
     )
 
 
-def _thumb_frame_font_size(text: str, max_size: int = 160, min_size: int = 90) -> int:
-    """文字数に応じてサムネフレームのフォントサイズを自動調整する。"""
-    n = len(text)
-    if n <= 2:
-        return max_size
-    elif n <= 4:
-        return max_size - 20
-    elif n <= 6:
-        return max_size - 40
-    elif n <= 8:
-        return max_size - 60
-    else:
-        return min_size
-
-
 def _pick_thumbnail_photo(registry: list[dict]) -> pathlib.Path | None:
     """thumbnail/ フォルダからサムネ用写真を1枚選ぶ（直近で使った写真を避ける）。"""
     if not THUMBNAIL_DIR.exists():
@@ -1266,9 +1252,9 @@ def generate_thumbnail_frame(
     fonts = []
     for i, line in enumerate(lines):
         if i == 0:
-            sz = _thumb_frame_font_size(line, max_size=160, min_size=90)
+            sz = _auto_font_size(line, max_size=160, min_size=90)
         else:
-            sz = _thumb_frame_font_size(line, max_size=120, min_size=70)
+            sz = _auto_font_size(line, max_size=120, min_size=70)
         fonts.append(_load_font(FONT_PATH_HEAVY, sz))
 
     line_heights = []
