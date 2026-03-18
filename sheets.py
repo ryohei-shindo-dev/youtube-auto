@@ -228,9 +228,14 @@ def update_published(
             # target_platforms 未指定なら従来動作（即座に公開済み）
             all_filled = True
 
+        # 公開日は最初のURL記録時に書き込む（空欄の場合のみ）
+        if urls:
+            existing_date = _read_cell(spreadsheet_id, f"{SHEET_NAME}!J{row}")
+            if not existing_date:
+                data.append({"range": f"{SHEET_NAME}!J{row}", "values": [[today]]})
+
         if all_filled:
             data.append({"range": f"{SHEET_NAME}!G{row}", "values": [[STATUS_PUBLISHED]]})
-            data.append({"range": f"{SHEET_NAME}!J{row}", "values": [[today]]})
 
     if data:
         service.spreadsheets().values().batchUpdate(
@@ -245,6 +250,16 @@ def update_published(
     else:
         written = [p for p, url in (urls or {}).items() if url]
         print(f"  シート更新完了（行{row}: URL書き込み {', '.join(written)}）")
+
+
+def _read_cell(spreadsheet_id: str, range_str: str) -> str:
+    """シートから1セルの値を読み取る。空なら空文字を返す。"""
+    service = get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id, range=range_str,
+    ).execute()
+    values = result.get("values", [[]])
+    return values[0][0] if values and values[0] else ""
 
 
 def _read_platform_urls(spreadsheet_id: str, row: int) -> dict:
