@@ -894,82 +894,36 @@ def generate_shorts_thumbnail(
     output_path: pathlib.Path,
     title: str = "",
 ) -> pathlib.Path | None:
-    """Shortsサムネイル（16:9横型）を生成する。
+    """Shortsサムネイル（縦型9:16）を生成する。
 
-    テキスト: data > タイトル（各動画で異なる具体的な内容）
-    写真: hook > empathy（顔が大きい人物写真が多いカテゴリ）
+    動画内のスライド（人物写真+テキスト）をそのままサムネとして使う。
+    優先順: data > resolve（各動画で異なるテキストを持つシーン）
     """
-    # テキスト: dataのslide_text（各動画で異なる具体データ）
-    text = ""
-    for s in scenes:
-        if s.get("role") == "data" and s.get("slide_text"):
-            text = s.get("slide_text", "").rstrip("。")
-            break
+    import shutil
 
-    # フォールバック: タイトル（ユニーク保証）
-    if not text and title:
-        # タイトルから「|」「#Shorts」以前の部分を取得
-        text = title.split("|")[0].split("｜")[0].split("#")[0].strip()
-        if len(text) > 18:
-            text = text[:18]
+    # dataまたはresolveのスライドをサムネとしてコピー
+    # slide_path が記録されていない場合、フォルダ内のスライドファイルから推定
+    for preferred_role in ("data", "resolve"):
+        for i, s in enumerate(scenes):
+            if s.get("role") != preferred_role:
+                continue
 
-    if not text:
-        return None
+            # 1. slide_path が記録されていればそれを使う
+            slide_path = pathlib.Path(s["slide_path"]) if s.get("slide_path") else None
+            if slide_path and slide_path.exists():
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(slide_path, output_path)
+                size_kb = output_path.stat().st_size // 1024
+                print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB、{preferred_role}スライド）")
+                return output_path
 
-    # 写真: hook/empathy から選択（顔が大きい人物写真が多い）
-    photo = None
-    for photo_role in ("hook", "empathy"):
-        for s in scenes:
-            if s.get("role") == photo_role and s.get("photo_asset"):
-                category = ROLE_PHOTO_CATEGORY.get(photo_role, "anxiety")
-                photo_path = PHOTOS_DIR / category / s["photo_asset"]
-                if photo_path.exists():
-                    try:
-                        photo = Image.open(photo_path)
-                    except Exception:
-                        continue
-                break
-        if photo:
-            break
+            # 2. フォルダ内の slide_XX.png から推定
+            slide_file = output_path.parent / f"slide_{i+1:02d}.png"
+            if slide_file.exists():
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(slide_file, output_path)
+                size_kb = output_path.stat().st_size // 1024
+                print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB、{preferred_role}スライド推定）")
+                return output_path
 
-    # フォールバック: anxiety カテゴリからランダム取得
-    if photo is None:
-        photo, _ = _get_photo("hook")
-    if photo is None:
-        return None
-
-    # 16:9にクロップ
-    photo = photo.convert("RGB")
-    photo = _fit_photo_to_area(photo, THUMB_WIDTH, THUMB_HEIGHT)
-    photo = _apply_photo_correction(photo, role="resolve")
-
-    # 明るさ調整（サムネは少し明るめ）
-    from PIL import ImageEnhance
-    photo = ImageEnhance.Brightness(photo).enhance(0.90)
-
-    draw = ImageDraw.Draw(photo)
-
-    # テキスト描画（左寄せ、縁取り付き）
-    n = len(text)
-    if n <= 6:
-        font_size = 110
-    elif n <= 10:
-        font_size = 90
-    else:
-        font_size = 72
-    font = _load_font(FONT_PATH_HEAVY, font_size)
-
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_h = bbox[3] - bbox[1]
-    x = 60
-    y = (THUMB_HEIGHT - text_h) // 2
-
-    # 黒縁付きテキスト
-    draw.text((x, y), text, font=font,
-              fill=(240, 200, 60), stroke_width=6, stroke_fill=(0, 0, 0))
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    photo.save(str(output_path), "PNG", optimize=True)
-    size_kb = output_path.stat().st_size // 1024
-    print(f"  サムネイル生成完了: {output_path.name}（{size_kb}KB）")
-    return output_path
+    return None

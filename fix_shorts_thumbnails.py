@@ -50,9 +50,7 @@ def main():
         title = data.get("title", "")[:35]
         output_path = folder / "thumbnail.png"
 
-        result = slide_gen.generate_shorts_thumbnail(
-            scenes, output_path, title=data.get("title", ""),
-        )
+        result = slide_gen.generate_shorts_thumbnail(scenes, output_path)
         if result:
             success += 1
         else:
