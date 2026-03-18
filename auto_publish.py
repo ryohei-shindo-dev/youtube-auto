@@ -453,6 +453,7 @@ def publish_entry(
     folder = DONE_DIR / entry["folder"]
     video_path = folder / "output.mp4"
     thumbnail_path = folder / "thumbnail.png"
+    thumbnail_frame_path = folder / "thumbnail_frame.png"
     transcript_path = folder / "transcript.json"
 
     if not video_path.exists():
@@ -584,9 +585,16 @@ def publish_entry(
         try:
             print("\n  [Instagram] 投稿中...")
             import instagram_upload
+            # カバー画像: thumbnail_frame.png優先、なければthumbnail.png
+            ig_cover = None
+            if thumbnail_frame_path.exists():
+                ig_cover = str(thumbnail_frame_path)
+            elif thumbnail_path.exists():
+                ig_cover = str(thumbnail_path)
             ig_url = instagram_upload.upload_video(
                 video_path=str(video_path),
                 caption=ig_caption,
+                thumbnail_path=ig_cover,
             )
             if ig_url:
                 results["instagram"] = True

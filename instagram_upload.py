@@ -52,7 +52,7 @@ def upload_video(
     Args:
         video_path: 動画ファイルのパス（.mp4）
         caption: 投稿キャプション（ハッシュタグ含む、最大2200文字）
-        thumbnail_path: サムネイル画像のパス（未使用、将来対応）
+        thumbnail_path: サムネイル画像のパス（カバー画像として使用）
 
     Returns:
         投稿のパーマリンクURL（成功時）、None（失敗時）
@@ -81,10 +81,22 @@ def upload_video(
         print("  [エラー] 動画の公開URL化に失敗しました。")
         return None
 
+    # Step 1.5: カバー画像があれば公開URL化
+    cover_url = None
+    if thumbnail_path:
+        thumb_file = pathlib.Path(thumbnail_path)
+        if thumb_file.exists():
+            print("  Instagram: カバー画像を公開URL化中...")
+            cover_url = _upload_to_temp_hosting(thumb_file)
+            if cover_url:
+                print(f"  Instagram: カバー画像URL取得: {cover_url}")
+            else:
+                print("  [警告] カバー画像のURL化失敗。thumb_offset=0にフォールバック")
+
     # Step 2: メディアコンテナを作成
     print("  Instagram: Reelsコンテナ作成中...")
     container_id = _create_media_container(
-        access_token, user_id, video_url, caption
+        access_token, user_id, video_url, caption, cover_url=cover_url,
     )
     if not container_id:
         return None
@@ -110,17 +122,20 @@ def upload_video(
     return permalink or media_id
 
 
-def _upload_to_temp_hosting(video_file: pathlib.Path) -> str:
+def _upload_to_temp_hosting(file_path: pathlib.Path) -> str:
     """
-    一時ファイルホスティング（litterbox.catbox.moe）に動画をアップロードし、
+    一時ファイルホスティング（litterbox.catbox.moe）にファイルをアップロードし、
     直接ダウンロード可能なURLを返す。ファイルは72時間後に自動削除される。
+    動画（.mp4）と画像（.png/.jpg）の両方に対応。
     """
+    mime_types = {".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg"}
+    mime = mime_types.get(file_path.suffix.lower(), "application/octet-stream")
     try:
-        with open(video_file, "rb") as f:
+        with open(file_path, "rb") as f:
             resp = requests.post(
                 "https://litterbox.catbox.moe/resources/internals/api.php",
                 data={"reqtype": "fileupload", "time": "72h"},
-                files={"fileToUpload": (video_file.name, f, "video/mp4")},
+                files={"fileToUpload": (file_path.name, f, mime)},
                 timeout=120,
             )
 
@@ -138,18 +153,26 @@ def _upload_to_temp_hosting(video_file: pathlib.Path) -> str:
 
 
 def _create_media_container(
-    access_token: str, user_id: str, video_url: str, caption: str
+    access_token: str, user_id: str, video_url: str, caption: str,
+    cover_url: str = None,
 ) -> str:
     """Instagram Reels のメディアコンテナを作成する。"""
+    data = {
+        "media_type": "REELS",
+        "video_url": video_url,
+        "caption": caption[:2200],  # Instagram上限
+        "share_to_feed": "true",
+        "access_token": access_token,
+    }
+    if cover_url:
+        data["cover_url"] = cover_url
+    else:
+        # カバー画像がない場合、動画先頭フレームをカバーに指定
+        data["thumb_offset"] = "0"
+
     resp = requests.post(
         f"{GRAPH_API_BASE}/{user_id}/media",
-        data={
-            "media_type": "REELS",
-            "video_url": video_url,
-            "caption": caption[:2200],  # Instagram上限
-            "share_to_feed": "true",
-            "access_token": access_token,
-        },
+        data=data,
         timeout=60,
     )
 
