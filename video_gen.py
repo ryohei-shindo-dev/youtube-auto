@@ -30,10 +30,14 @@ BGM_VOLUME = 0.08  # ナレーション対比のBGM音量（0.08 ≈ -22dB、か
 MIN_SCENE_SEC = 2.0  # スライドの最低表示時間（短すぎるとテキストが読めない）
 
 
+THUMBNAIL_FRAME_SEC = 0.5  # サムネフレームの表示時間（秒）
+
+
 def compose_shorts_video(
     scenes: list,
     output_path: pathlib.Path,
     use_photo: bool = False,
+    thumbnail_frame_path: str = "",
 ) -> Optional[pathlib.Path]:
     """
     各シーンの画像+音声を結合して Shorts 動画を生成する。
@@ -42,6 +46,7 @@ def compose_shorts_video(
         scenes: audio_path と slide 情報を含む scenes リスト
         output_path: 出力する動画ファイルパス
         use_photo: True で v2（写真型）レイアウト。字幕を写真エリア内に配置。
+        thumbnail_frame_path: サムネフレーム画像パス。指定時は先頭0.5秒に差し込む。
 
     Returns:
         動画パス。失敗時は None。
@@ -57,6 +62,15 @@ def compose_shorts_video(
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp = pathlib.Path(tmp_dir)
         clip_paths = []
+
+        # Step 0: サムネフレームを先頭に差し込む
+        if thumbnail_frame_path and pathlib.Path(thumbnail_frame_path).exists():
+            thumb_clip = tmp / "clip_00_thumb.mp4"
+            print(f"  サムネフレームを先頭{THUMBNAIL_FRAME_SEC}秒に差し込み中...")
+            if _make_silence_clip(thumbnail_frame_path, THUMBNAIL_FRAME_SEC, thumb_clip):
+                clip_paths.append(thumb_clip)
+            else:
+                print("    [警告] サムネフレームの差し込みに失敗。スキップします。")
 
         # Step 1: 各シーンのクリップを生成
         for i, scene in enumerate(valid_scenes):

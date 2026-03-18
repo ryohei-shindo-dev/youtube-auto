@@ -142,27 +142,31 @@ def main():
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
-    # ── Step 4: 動画合成 ──
-    print("\n[Step 4/9] 動画合成")
-    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4", use_photo=True)
+    # ── Step 4: サムネフレーム生成（動画先頭に埋め込む） ──
+    print("\n[Step 4/9] サムネフレーム生成")
+    thumb_frame_path = ""
+    thumb_result = slide_gen.generate_thumbnail_frame(
+        scenes, PENDING_DIR / "thumbnail_frame.png",
+        title=script_data.get("title", ""),
+    )
+    if thumb_result:
+        thumb_frame_path = thumb_result["path"]
+        # transcript.json に保存するためにscript_dataに記録
+        script_data["thumbnail_text"] = thumb_result["text"]
+        script_data["thumbnail_photo"] = thumb_result["photo"]
+    else:
+        print("  [警告] サムネフレーム生成失敗。サムネなしで動画生成します。")
+
+    # ── Step 5: 動画合成 ──
+    print("\n[Step 5/9] 動画合成")
+    video_path = video_gen.compose_shorts_video(
+        scenes, PENDING_DIR / "output.mp4",
+        use_photo=True,
+        thumbnail_frame_path=thumb_frame_path,
+    )
     if not video_path:
         print("\n[失敗] 動画合成に失敗しました。終了します。")
         sys.exit(1)
-
-    # ── Step 5: サムネイル生成 ──
-    print("\n[Step 5/9] サムネイル生成")
-    # Shorts用サムネ（16:9、dataテキスト+hookの人物写真）
-    thumb_path = slide_gen.generate_shorts_thumbnail(
-        scenes, PENDING_DIR / "thumbnail.png",
-        title=script_data.get("title", ""),
-    )
-    if not thumb_path:
-        # フォールバック: 従来のテキストサムネ
-        scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
-        thumb_path = thumbnail_gen.generate_thumbnail(
-            script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
-            hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
-        )
 
     # ── Step 6: 字幕・文字起こし生成 ──
     print("\n[Step 6/9] 字幕・文字起こし生成")
@@ -186,8 +190,8 @@ def main():
     print(f"  タイプ:       {video_type}" + (f"（{theme}）" if not is_long else ""))
     print(f"  タイトル:     {script_data['title']}")
     print(f"  動画:         {video_path}")
-    if thumb_path:
-        print(f"  サムネイル:   {thumb_path}")
+    if thumb_frame_path:
+        print(f"  サムネフレーム: {thumb_frame_path}（動画先頭0.5秒に埋め込み済み）")
     print(f"  字幕(SRT):    {sub_files.get('srt_path', 'なし')}")
     if note_path:
         print(f"  note記事:     {note_path}")

@@ -378,19 +378,30 @@ def _run_video_pipeline(script_data: dict, theme: str) -> None:
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
+    # サムネフレーム生成（動画先頭に埋め込む）
+    print("  [4/7] サムネフレーム生成...")
+    thumb_frame_path = ""
+    thumb_result = slide_gen.generate_thumbnail_frame(
+        scenes, PENDING_DIR / "thumbnail_frame.png",
+        title=script_data.get("title", ""),
+    )
+    if thumb_result:
+        thumb_frame_path = thumb_result["path"]
+        script_data["thumbnail_text"] = thumb_result["text"]
+        script_data["thumbnail_photo"] = thumb_result["photo"]
+
     # 動画合成
-    print("  [4/7] 動画合成...")
-    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4", use_photo=True)
+    print("  [5/7] 動画合成...")
+    video_path = video_gen.compose_shorts_video(
+        scenes, PENDING_DIR / "output.mp4",
+        use_photo=True,
+        thumbnail_frame_path=thumb_frame_path,
+    )
     if not video_path:
         raise RuntimeError("動画合成に失敗")
 
-    # サムネイル + 字幕
-    print("  [5/7] サムネイル・字幕生成...")
-    scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
-    thumbnail_gen.generate_thumbnail(
-        script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
-        hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
-    )
+    # 字幕生成
+    print("  [6/7] 字幕生成...")
     subtitle_gen.generate_subtitle_files(script_data, scenes, PENDING_DIR)
 
     # note記事生成

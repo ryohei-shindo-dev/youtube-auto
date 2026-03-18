@@ -260,6 +260,7 @@ def generate_one(
     batch_data_texts: list = None,
     batch_hook_texts: list = None,
     batch_resolve_texts: list = None,
+    used_texts: list = None,
 ) -> dict:
     """1本のShortsを生成する。成功時はファイル情報を返す。"""
     print(f"\n{'='*60}")
@@ -290,7 +291,7 @@ def generate_one(
     # Step 1: 台本生成 + スコアリング
     # まず3候補を1回のAPI呼び出しで生成し、ローカルで選別する（コスト削減）
     # 全候補が不合格なら従来の1候補リトライにフォールバック
-    print("\n  [1/5] 台本生成...")
+    print("\n  [1/7] 台本生成...")
     script_data = _select_best_candidate(
         topic, theme, effective_retries,
         batch_data_texts, batch_hook_texts, batch_resolve_texts,
@@ -301,44 +302,53 @@ def generate_one(
     print(f"    タイトル: {script_data['title']}")
 
     # Step 2: 音声生成
-    print("  [2/5] 音声生成...")
+    print("  [2/7] 音声生成...")
     scenes = voice_gen.generate_voice_for_scenes(scenes, PENDING_DIR)
     if not any(s.get("audio_path") for s in scenes):
         raise RuntimeError("音声が1つも生成できなかった")
 
     # Step 3: スライド画像生成
-    print("  [3/5] スライド画像生成...")
+    print("  [3/7] スライド画像生成...")
     slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
     for i, scene in enumerate(scenes):
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
-    # Step 4: 動画合成
-    print("  [4/5] 動画合成...")
-    video_path = video_gen.compose_shorts_video(scenes, PENDING_DIR / "output.mp4", use_photo=True)
+    # Step 4: サムネフレーム生成（動画先頭に埋め込む）
+    print("  [4/7] サムネフレーム生成...")
+    thumb_frame_path = ""
+    thumb_result = slide_gen.generate_thumbnail_frame(
+        scenes, PENDING_DIR / "thumbnail_frame.png",
+        title=script_data.get("title", ""),
+        used_texts=used_texts,
+    )
+    if thumb_result:
+        thumb_frame_path = thumb_result["path"]
+        script_data["thumbnail_text"] = thumb_result["text"]
+        script_data["thumbnail_photo"] = thumb_result["photo"]
+        if used_texts is not None:
+            used_texts.append(thumb_result["text"])
+
+    # Step 5: 動画合成
+    print("  [5/7] 動画合成...")
+    video_path = video_gen.compose_shorts_video(
+        scenes, PENDING_DIR / "output.mp4",
+        use_photo=True,
+        thumbnail_frame_path=thumb_frame_path,
+    )
     if not video_path:
         raise RuntimeError("動画合成に失敗")
 
-    # Step 5: サムネイル + 字幕
-    print("  [5/7] サムネイル・字幕生成...")
-    thumb = slide_gen.generate_shorts_thumbnail(
-        scenes, PENDING_DIR / "thumbnail.png",
-        title=script_data.get("title", ""),
-    )
-    if not thumb:
-        scene_texts = script_gen.extract_scene_texts(script_data, "hook", "resolve")
-        thumbnail_gen.generate_thumbnail(
-            script_data["title"], PENDING_DIR / "thumbnail.png", theme=theme,
-            hook_text=scene_texts["hook"], resolve_text=scene_texts["resolve"],
-        )
+    # Step 6: 字幕生成
+    print("  [6/7] 字幕生成...")
     subtitle_gen.generate_subtitle_files(script_data, scenes, PENDING_DIR)
 
-    # Step 6: note記事生成
-    print("  [6/7] note記事生成...")
+    # Step 7: note記事生成
+    print("  [7/7] note記事生成...")
     note_gen.generate_note_article(script_data, PENDING_DIR)
 
-    # Step 7: SNSキャプション生成
-    print("  [7/7] SNSキャプション生成...")
+    # SNSキャプション生成
+    print("  SNSキャプション生成...")
     social_gen.generate_social_captions(script_data, PENDING_DIR)
 
     return script_data
@@ -389,6 +399,7 @@ def main():
     batch_data_texts = []     # 同一バッチ内のdataテキスト（重複防止用）
     batch_hook_texts = []     # 同一バッチ内のhookテキスト
     batch_resolve_texts = []  # 同一バッチ内のresolveテキスト
+    batch_thumb_texts = []    # 同一バッチ内のサムネテキスト
 
     # キュー重複チェック用レジストリ
     from queue_guard import DataRegistry
@@ -424,6 +435,7 @@ def main():
             script_data = generate_one(
                 topic, theme, i, target,
                 batch_data_texts, batch_hook_texts, batch_resolve_texts,
+                used_texts=batch_thumb_texts,
             )
 
             # アーカイブ（フォルダ名確定）

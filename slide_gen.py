@@ -906,26 +906,45 @@ def generate_shorts_thumbnail(
     if not thumb_text:
         return None
 
-    # ── 写真: 顔が大きい人物写真を選ぶ ──
-    # hookの写真（anxiety/comparison）は顔アップが多い
+    # ── 写真: 縦型で顔が大きい人物写真を優先 ──
     photo = None
-    for photo_role in ("hook", "empathy"):
+    # まず各シーンの写真から縦型を探す
+    for photo_role in ("hook", "empathy", "hook", "empathy"):
         for s in scenes:
             if s.get("role") == photo_role and s.get("photo_asset"):
                 category = ROLE_PHOTO_CATEGORY.get(photo_role, "anxiety")
                 photo_path = PHOTOS_DIR / category / s["photo_asset"]
                 if photo_path.exists():
                     try:
-                        photo = Image.open(photo_path)
+                        candidate = Image.open(photo_path)
+                        # 縦型写真を優先（横型だと顔が切れる）
+                        if candidate.height >= candidate.width:
+                            photo = candidate
+                            break
+                        elif photo is None:
+                            photo = candidate  # 横型でもフォールバックとして保持
                     except Exception:
                         continue
-                break
-        if photo:
+        if photo and photo.height >= photo.width:
             break
 
-    # フォールバック: anxietyからランダム取得
-    if photo is None:
-        photo, _ = _get_photo("hook")
+    # フォールバック: anxietyから縦型写真をランダム取得
+    if photo is None or photo.height < photo.width:
+        portrait_photos = []
+        for cat in ("anxiety", "comparison", "recovery"):
+            cat_dir = PHOTOS_DIR / cat
+            if cat_dir.exists():
+                for p in cat_dir.glob("*.jpg"):
+                    try:
+                        img = Image.open(p)
+                        if img.height >= img.width:
+                            portrait_photos.append(p)
+                    except Exception:
+                        continue
+        if portrait_photos:
+            selected = random.choice(portrait_photos)
+            photo = Image.open(selected)
+
     if photo is None:
         return None
 
@@ -976,36 +995,296 @@ def generate_shorts_thumbnail(
 
 
 def _make_thumbnail_text(title: str, scenes: list) -> str:
-    """タイトルからサムネ用の短文（2行、10〜18文字）を生成する。
+    """タイトルからサムネ用見出しを再構成する（2行、各行14文字以内）。
 
-    タイトルが最も動画の主題に近いので、それを短縮する。
+    タイトルを機械的に切るのではなく、主題語を抽出して見出しを作り直す。
     """
     if not title:
-        # フォールバック: resolveのslide_text
-        for s in scenes:
-            if s.get("role") == "resolve" and s.get("slide_text"):
-                return s["slide_text"].rstrip("。")
         return ""
 
     # タイトルから「|」「｜」「#Shorts」以降を除去
     clean = title.split("|")[0].split("｜")[0].split("#")[0].strip()
-    # 句読点で分割
     clean = clean.rstrip("。、！？!? ")
 
     # 短いならそのまま
     if len(clean) <= 10:
         return clean
 
-    # 「。」「、」「。」で分割して2行にする
+    # 1. 句読点で自然に2行に分割できるか
+    for sep in ["。", "、", "…", "―"]:
+        if sep in clean:
+            parts = clean.split(sep, 1)
+            line1 = parts[0].strip().rstrip("。、 ")
+            line2 = parts[1].strip().rstrip("。、 ") if len(parts) > 1 else ""
+            if line1 and line2 and len(line1) <= 14 and len(line2) <= 14:
+                return f"{line1}\n{line2}"
+            if line1 and len(line1) <= 14:
+                return line1
+
+    # 2. dataのslide_text（各動画固有の数字データ、意味が通りやすい）
+    for s in scenes:
+        if s.get("role") == "data" and s.get("slide_text"):
+            data_text = s["slide_text"].rstrip("。")
+            if len(data_text) <= 14:
+                return data_text
+
+    # 3. タイトルの助詞で自然に区切る
+    for m in re.finditer(r"[をにでとは]", clean):
+        pos = m.end()
+        if 6 <= pos <= 14:
+            return clean[:pos]
+
+    # 4. resolveのslide_text（結論、ただしempathyは使わない）
+    for s in scenes:
+        if s.get("role") == "resolve" and s.get("slide_text"):
+            resolve_text = s["slide_text"].rstrip("。")
+            if len(resolve_text) <= 14:
+                return resolve_text
+
+    # 5. hookのslide_text
+    for s in scenes:
+        if s.get("role") == "hook" and s.get("slide_text"):
+            hook_text = s["slide_text"].rstrip("。")
+            if len(hook_text) <= 14:
+                return hook_text
+
+    return clean[:14]
+
+
+# ── サムネフレーム（動画内埋め込み用） ──────────────────────
+
+THUMBNAIL_DIR = PHOTOS_DIR / "thumbnail"
+THUMBNAIL_REGISTRY_PATH = pathlib.Path(__file__).parent / "thumbnail_registry.json"
+_THUMBNAIL_NO_REUSE_WINDOW = 30  # 直近30本で同じ写真を使わない
+
+
+def _load_thumbnail_registry() -> list[dict]:
+    """thumbnail_registry.json を読み込む。"""
+    if THUMBNAIL_REGISTRY_PATH.exists():
+        try:
+            return json.loads(THUMBNAIL_REGISTRY_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return []
+
+
+def _save_thumbnail_registry(registry: list[dict]) -> None:
+    """thumbnail_registry.json を保存する（直近100件に切り詰め）。"""
+    registry = registry[-100:]
+    THUMBNAIL_REGISTRY_PATH.write_text(
+        json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+
+
+def _pick_thumbnail_photo(registry: list[dict]) -> pathlib.Path | None:
+    """thumbnail/ フォルダからサムネ用写真を1枚選ぶ（直近で使った写真を避ける）。"""
+    if not THUMBNAIL_DIR.exists():
+        return None
+
+    all_photos = sorted(THUMBNAIL_DIR.glob("*.jpg"))
+    if not all_photos:
+        return None
+
+    # 直近N本で使った写真パスを集める
+    recent_photos = set()
+    for entry in registry[-_THUMBNAIL_NO_REUSE_WINDOW:]:
+        p = entry.get("thumbnail_photo", "")
+        if p:
+            recent_photos.add(pathlib.Path(p).name)
+
+    # 未使用の写真を優先
+    available = [p for p in all_photos if p.name not in recent_photos]
+    if not available:
+        # 全部使い切った場合は最も古い使用のものから再利用
+        available = all_photos
+
+    return random.choice(available)
+
+
+def _make_thumbnail_text_v2(title: str, scenes: list) -> str:
+    """タイトルからサムネ用見出しを再構成する（2行、合計10〜18文字）。
+
+    タイトルの「短縮」ではなく、主題語を使った見出しの「再構成」を行う。
+    empathyのslide_textへのフォールバックは禁止。
+    """
+    if not title:
+        return ""
+
+    # タイトルから「|」「｜」「#Shorts」以降を除去
+    clean = title.split("|")[0].split("｜")[0].split("#")[0].strip()
+    clean = clean.rstrip("。、！？!? ")
+
+    # ── 1. 句読点で自然に2行分割 ──
     for sep in ["。", "、", "…", "―"]:
         if sep in clean:
             parts = clean.split(sep, 1)
             line1 = parts[0].strip().rstrip("。、 ")
             line2 = parts[1].strip().rstrip("。、 ") if len(parts) > 1 else ""
             if line1 and line2 and len(line1) <= 12 and len(line2) <= 12:
-                return f"{line1}\n{line2}"
-            if line1 and len(line1) <= 12:
-                return line1
+                total = len(line1) + len(line2)
+                if 8 <= total <= 20:
+                    return f"{line1}\n{line2}"
 
-    # 分割できない場合、先頭12文字
-    return clean[:12]
+    # ── 2. タイトル全体が短ければそのまま ──
+    if 10 <= len(clean) <= 18:
+        # 助詞で2行に分割を試みる
+        for m in re.finditer(r"[をにでとはがも]", clean):
+            pos = m.end()
+            if 4 <= pos <= 12 and 4 <= len(clean) - pos <= 12:
+                return f"{clean[:pos]}\n{clean[pos:]}"
+        # 分割できなければ1行で
+        if len(clean) <= 12:
+            return clean
+
+    # ── 3. タイトルから主題語を抽出して2行に再構成 ──
+    # dataのslide_text（各動画固有の数字データ）
+    data_text = ""
+    for s in scenes:
+        if s.get("role") == "data" and s.get("slide_text"):
+            data_text = s["slide_text"].rstrip("。")
+            break
+
+    # hookのslide_text
+    hook_text = ""
+    for s in scenes:
+        if s.get("role") == "hook" and s.get("slide_text"):
+            hook_text = s["slide_text"].rstrip("。")
+            break
+
+    # resolveのslide_text
+    resolve_text = ""
+    for s in scenes:
+        if s.get("role") == "resolve" and s.get("slide_text"):
+            resolve_text = s["slide_text"].rstrip("。")
+            break
+
+    # ── 3a. dataテキストが使えるなら、hook+dataの組み合わせ ──
+    if data_text and hook_text and len(hook_text) <= 12 and len(data_text) <= 12:
+        total = len(hook_text) + len(data_text)
+        if 8 <= total <= 20:
+            return f"{hook_text}\n{data_text}"
+
+    # ── 3b. dataテキスト単体（14文字以内で意味が通る） ──
+    if data_text and 6 <= len(data_text) <= 14:
+        return data_text
+
+    # ── 3c. 助詞でタイトルを区切る ──
+    for m in re.finditer(r"[をにでとはがも]", clean):
+        pos = m.end()
+        line1 = clean[:pos]
+        line2 = clean[pos:]
+        if 4 <= len(line1) <= 12 and 4 <= len(line2) <= 12:
+            total = len(line1) + len(line2)
+            if 8 <= total <= 20:
+                return f"{line1}\n{line2}"
+
+    # ── 3d. resolveテキスト（結論）── ただしempathyは使わない
+    if resolve_text and 6 <= len(resolve_text) <= 14:
+        return resolve_text
+
+    # ── 4. フォールバック: タイトル先頭14文字 ──
+    if len(clean) > 14:
+        # 助詞の位置で切る
+        for m in re.finditer(r"[をにでとはがも]", clean[:15]):
+            pos = m.end()
+            if 6 <= pos:
+                return clean[:pos]
+        return clean[:14]
+
+    return clean
+
+
+def generate_thumbnail_frame(
+    scenes: list,
+    output_path: pathlib.Path,
+    title: str = "",
+    used_texts: list[str] | None = None,
+) -> dict | None:
+    """サムネフレーム画像を生成する（動画先頭に埋め込み用）。
+
+    Returns:
+        {"path": output_path, "text": thumb_text, "photo": photo_name}
+        失敗時は None。
+    """
+    registry = _load_thumbnail_registry()
+
+    # ── テキスト生成 ──
+    thumb_text = _make_thumbnail_text_v2(title, scenes)
+    if not thumb_text:
+        print("  [サムネフレーム] テキスト生成失敗")
+        return None
+
+    # 同一バッチ内のテキスト重複チェック
+    if used_texts is not None:
+        normalized_used = {t.replace("\n", "") for t in used_texts}
+        if thumb_text.replace("\n", "") in normalized_used:
+            print(f"  [サムネフレーム] テキスト重複: {thumb_text.replace(chr(10), ' ')}")
+            # data → resolve → hookの順でフォールバック
+            for role in ("data", "resolve", "hook"):
+                for s in scenes:
+                    if s.get("role") == role and s.get("slide_text"):
+                        alt = s["slide_text"].rstrip("。")
+                        if 6 <= len(alt) <= 14 and alt not in normalized_used:
+                            thumb_text = alt
+                            break
+                else:
+                    continue
+                break
+
+    # ── 写真選択 ──
+    photo_path = _pick_thumbnail_photo(registry)
+    if not photo_path:
+        print("  [サムネフレーム] サムネ用写真がありません（assets/photos/thumbnail/）")
+        return None
+
+    # ── 画像生成 ──
+    photo = Image.open(photo_path).convert("RGB")
+    photo = _fit_photo_to_area(photo, SHORTS_WIDTH, SHORTS_HEIGHT)
+    photo = ImageEnhance.Brightness(photo).enhance(0.88)
+    _blend_gradient(photo, start_y=int(SHORTS_HEIGHT * 0.55),
+                    bg_color=(20, 20, 30), exponent=1.2)
+
+    draw = ImageDraw.Draw(photo)
+
+    # テキスト描画
+    lines = thumb_text.split("\n")
+    font_size = 100 if max(len(l) for l in lines) <= 8 else 80
+    font = _load_font(FONT_PATH_HEAVY, font_size)
+
+    line_heights = []
+    line_widths = []
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_widths.append(bbox[2] - bbox[0])
+        line_heights.append(bbox[3] - bbox[1])
+
+    gap = 20
+    total_h = sum(line_heights) + gap * (len(lines) - 1)
+    start_y = int(SHORTS_HEIGHT * 0.65) - total_h // 2
+
+    for i, line in enumerate(lines):
+        x = (SHORTS_WIDTH - line_widths[i]) // 2
+        y = start_y + i * (line_heights[0] + gap)
+        color = (240, 200, 60) if i == 0 else (255, 255, 255)
+        draw.text((x, y), line, font=font, fill=color,
+                  stroke_width=5, stroke_fill=(0, 0, 0))
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    photo.save(str(output_path), "PNG", optimize=True)
+    size_kb = output_path.stat().st_size // 1024
+    print(f"  サムネフレーム生成: {thumb_text.replace(chr(10), ' / ')}（{size_kb}KB）")
+
+    # ── レジストリ更新 ──
+    from datetime import datetime
+    registry.append({
+        "thumbnail_photo": photo_path.name,
+        "thumbnail_text": thumb_text,
+        "generated_at": datetime.now().isoformat(),
+    })
+    _save_thumbnail_registry(registry)
+
+    return {
+        "path": str(output_path),
+        "text": thumb_text,
+        "photo": photo_path.name,
+    }
