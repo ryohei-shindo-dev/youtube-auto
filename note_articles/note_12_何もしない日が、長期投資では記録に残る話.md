@@ -1,4 +1,4 @@
-# 何もしなかった日が、積み上げの記録になっている
+# 何もしない日は投資で意味がある｜積み立てを続ける日の考え方
 
 **何もしていないのに、本当にこれでいいのか——そう思う夜が、長期投資には何度もあります。**
 
@@ -42,5 +42,5 @@
 ---
 
 あわせて読みたい
-・[何もしないことが不安になる日に、確認したいこと](https://note.com/gachiho_motive/n/n2290cc8db4bb)
-・[何も起きない日が、いちばん長期投資らしい](https://note.com/gachiho_motive/n/n6d7b1fd958cb)
+https://note.com/gachiho_motive/n/n2290cc8db4bb
+https://note.com/gachiho_motive/n/n6d7b1fd958cb

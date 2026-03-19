@@ -27,5 +27,5 @@
 ---
 
 あわせて読みたい
-・[取り崩しまで20年あるのに不安になる理由](https://note.com/gachiho_motive/n/n782f98a0aad9)
-・[派手さゼロ。でも20年後、それが最強になる](https://note.com/gachiho_motive/n/n58f2bca424ca)
+https://note.com/gachiho_motive/n/n782f98a0aad9
+https://note.com/gachiho_motive/n/n58f2bca424ca

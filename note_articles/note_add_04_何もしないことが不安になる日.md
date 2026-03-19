@@ -43,5 +43,5 @@
 ---
 
 あわせて読みたい
-・[何もしなかった日が、積み上げの記録になっている](https://note.com/gachiho_motive/n/n1cd6891269fc)
-・[画面を見なかった日が、一番いい投資判断だった](https://note.com/gachiho_motive/n/n1471248624c0)
+https://note.com/gachiho_motive/n/n1cd6891269fc
+https://note.com/gachiho_motive/n/n1471248624c0

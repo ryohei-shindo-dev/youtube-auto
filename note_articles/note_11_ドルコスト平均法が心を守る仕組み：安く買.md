@@ -42,8 +42,7 @@
 ---
 
 あわせて読みたい
-・[下がった月に積立を止めると、平均取得単価に何が起きるか](https://note.com/gachiho_motive/n/n25373ba26ab4)
-・[相場が冷え込む時こそ、積み立ては本当の出番です](https://note.com/gachiho_motive/n/nb2beda1db1b4)
-
+https://note.com/gachiho_motive/n/n25373ba26ab4
+https://note.com/gachiho_motive/n/nb2beda1db1b4
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

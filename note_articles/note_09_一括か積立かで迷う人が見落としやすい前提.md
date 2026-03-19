@@ -53,5 +53,5 @@
 ---
 
 あわせて読みたい
-・[一括投資が怖い、その「怖さ」の正体は何か](https://note.com/gachiho_motive/n/n4962f0177e3a)
-・[積立なのに「今買って大丈夫？」と思う夜が来る理由](https://note.com/gachiho_motive/n/nb9c4114faecf)
+https://note.com/gachiho_motive/n/n4962f0177e3a
+https://note.com/gachiho_motive/n/nb9c4114faecf

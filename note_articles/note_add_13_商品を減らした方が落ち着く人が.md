@@ -27,5 +27,5 @@
 ---
 
 あわせて読みたい
-・[投資信託を増やしすぎると不安になる理由｜商品数を減らすと気持ちが整う話](https://note.com/gachiho_motive/n/n89e9fc715f94)
-・[勉強するほど迷う投資脳を、シンプルに戻す方法](https://note.com/gachiho_motive/n/n8ead55c0ffab)
+https://note.com/gachiho_motive/n/n89e9fc715f94
+https://note.com/gachiho_motive/n/n8ead55c0ffab

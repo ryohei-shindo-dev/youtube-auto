@@ -1,4 +1,4 @@
-# 他人の爆益を見た夜に、軸が揺れるのは自然です
+# SNSで他人の爆益を見ると軸が揺れる理由｜比較で不安なときの整理
 
 **誰かの爆益を見るたびに、自分の積み立てが小さく見える夜があります。**
 
@@ -41,5 +41,5 @@
 ---
 
 あわせて読みたい
-・[SNSで他人の爆益を見ると焦る理由｜積み立て投資で比較がつらいときに読む話](https://note.com/gachiho_motive/n/n83ea2fd1656d)
-・[SNSで正解を見すぎた日に、心が疲れる理由](https://note.com/gachiho_motive/n/ne8bb791383e5)
+https://note.com/gachiho_motive/n/n83ea2fd1656d
+https://note.com/gachiho_motive/n/ne8bb791383e5

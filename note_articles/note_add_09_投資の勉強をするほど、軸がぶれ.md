@@ -40,8 +40,7 @@
 ---
 
 あわせて読みたい
-・[投資信託を増やしすぎると不安になる理由｜商品数を減らすと気持ちが整う話](https://note.com/gachiho_motive/n/n89e9fc715f94)
-・[投資商品を減らしたら、なぜか心が落ち着いた話](https://note.com/gachiho_motive/n/nd0fb56defb64)
-
+https://note.com/gachiho_motive/n/n89e9fc715f94
+https://note.com/gachiho_motive/n/nd0fb56defb64
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

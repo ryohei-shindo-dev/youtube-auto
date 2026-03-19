@@ -1,4 +1,4 @@
-# 引き落とされた。それで十分です
+# 積み立て投資は引き落とされた日が大切｜続ける意味を整理する
 
 毎月の積み立てがちゃんと引き落とされるたびに、「これで本当にいいのか」と不安が湧きませんか。
 
@@ -23,5 +23,5 @@
 ---
 
 あわせて読みたい
-・[気づいたら続いていた。それが長期投資の正体](https://note.com/gachiho_motive/n/n270ff52be0d5)
-・[何も起きない日が、いちばん長期投資らしい](https://note.com/gachiho_motive/n/n6d7b1fd958cb)
+https://note.com/gachiho_motive/n/n270ff52be0d5
+https://note.com/gachiho_motive/n/n6d7b1fd958cb

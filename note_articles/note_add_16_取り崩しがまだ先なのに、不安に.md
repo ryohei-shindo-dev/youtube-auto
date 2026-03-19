@@ -31,5 +31,5 @@
 ---
 
 あわせて読みたい
-・[老後資金が「間に合わない」と感じたときに見てほしい「65歳まで」の計算](https://note.com/gachiho_motive/n/nb75366073634)
-・[積み立て20年、ゴールが見えない焦燥感への向き合い方](https://note.com/gachiho_motive/n/n524d55cb6892)
+https://note.com/gachiho_motive/n/nb75366073634
+https://note.com/gachiho_motive/n/n524d55cb6892

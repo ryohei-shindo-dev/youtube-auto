@@ -34,8 +34,7 @@
 ---
 
 あわせて読みたい
-・[含み損で眠れない夜、確認回数を1日1回に減らした人の話](https://note.com/gachiho_motive/n/nab06c9c68ffa)
-・[画面を見なかった日が、一番いい投資判断だった](https://note.com/gachiho_motive/n/n1471248624c0)
-
+https://note.com/gachiho_motive/n/nab06c9c68ffa
+https://note.com/gachiho_motive/n/n1471248624c0
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

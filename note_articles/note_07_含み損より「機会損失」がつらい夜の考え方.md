@@ -41,5 +41,5 @@
 ---
 
 あわせて読みたい
-・[SNSで他人の爆益を見ると焦る理由｜積み立て投資で比較がつらいときに読む話](https://note.com/gachiho_motive/n/n83ea2fd1656d)
-・[「自分だけ遅い」と感じたら、比較を静かにする](https://note.com/gachiho_motive/n/nf9f32a55d872)
+https://note.com/gachiho_motive/n/n83ea2fd1656d
+https://note.com/gachiho_motive/n/nf9f32a55d872

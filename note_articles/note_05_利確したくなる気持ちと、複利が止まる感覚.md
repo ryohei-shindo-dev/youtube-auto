@@ -40,8 +40,7 @@ JPモルガン・アセット・マネジメントの分析（Guide to the Marke
 ---
 
 あわせて読みたい
-・[「つい売ってしまった」人の多くが、直前にやっていたこと](https://note.com/gachiho_motive/n/ne2d4103bd377)
-・[「増えてない」と感じる10年間に、複利は静かに動いている](https://note.com/gachiho_motive/n/n75c64c99af7e)
-
+https://note.com/gachiho_motive/n/ne2d4103bd377
+https://note.com/gachiho_motive/n/n75c64c99af7e
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

@@ -42,8 +42,7 @@
 ---
 
 あわせて読みたい
-・[暴落後に売らなかった人の、1年後の回復率](https://note.com/gachiho_motive/n/nd81c29d3880b)
-・[含み損で眠れない夜、確認回数を1日1回に減らした人の話](https://note.com/gachiho_motive/n/nab06c9c68ffa)
-
+https://note.com/gachiho_motive/n/nd81c29d3880b
+https://note.com/gachiho_motive/n/nab06c9c68ffa
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

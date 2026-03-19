@@ -51,5 +51,5 @@
 ---
 
 あわせて読みたい
-・[取り崩しまで20年あるのに不安になる理由](https://note.com/gachiho_motive/n/n782f98a0aad9)
-・[40代から新NISA・積み立て投資を始めるのは遅い？ 不安になる理由を整理](https://note.com/gachiho_motive/n/nd93ee5e8ee67)
+https://note.com/gachiho_motive/n/n782f98a0aad9
+https://note.com/gachiho_motive/n/nd93ee5e8ee67

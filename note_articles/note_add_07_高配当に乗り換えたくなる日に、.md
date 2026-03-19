@@ -30,8 +30,7 @@
 ---
 
 あわせて読みたい
-・[NASDAQ100に乗り換えたくなる理由｜積み立て投資で目移りするときの整理](https://note.com/gachiho_motive/n/na8d70975ffda)
-・[投資信託を増やしすぎると不安になる理由｜商品数を減らすと気持ちが整う話](https://note.com/gachiho_motive/n/n89e9fc715f94)
-
+https://note.com/gachiho_motive/n/na8d70975ffda
+https://note.com/gachiho_motive/n/n89e9fc715f94
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

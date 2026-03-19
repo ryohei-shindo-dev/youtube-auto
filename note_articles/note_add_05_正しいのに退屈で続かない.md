@@ -43,5 +43,5 @@
 ---
 
 あわせて読みたい
-・[「増えてない」と感じる10年間に、複利は静かに動いている](https://note.com/gachiho_motive/n/n75c64c99af7e)
-・[何も起きない日が、いちばん長期投資らしい](https://note.com/gachiho_motive/n/n6d7b1fd958cb)
+https://note.com/gachiho_motive/n/n75c64c99af7e
+https://note.com/gachiho_motive/n/n6d7b1fd958cb

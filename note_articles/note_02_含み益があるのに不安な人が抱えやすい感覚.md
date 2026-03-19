@@ -45,5 +45,5 @@
 ---
 
 あわせて読みたい
-・[投資で毎日口座を見てしまうのはなぜ？ 確認するほど不安が増える理由と対策](https://note.com/gachiho_motive/n/n33fd4ca91227)
-・[利確したいのに動けない。その「複利が止まる感覚」の正体](https://note.com/gachiho_motive/n/nf563fcddab41)
+https://note.com/gachiho_motive/n/n33fd4ca91227
+https://note.com/gachiho_motive/n/nf563fcddab41

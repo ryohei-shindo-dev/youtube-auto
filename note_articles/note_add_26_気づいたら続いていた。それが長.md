@@ -1,4 +1,4 @@
-# 気づいたら続いていた。それが長期投資の正体
+# 長期投資が続く人の共通点｜気づいたら続いていた状態を作る
 
 **毎月の積み立て、もう何年続いてるか数えたことありますか？**
 
@@ -41,5 +41,5 @@
 ---
 
 あわせて読みたい
-・[引き落とされた。それで十分です](https://note.com/gachiho_motive/n/n0a93c27a5888)
-・[派手さゼロ。でも20年後、それが最強になる](https://note.com/gachiho_motive/n/n58f2bca424ca)
+https://note.com/gachiho_motive/n/n0a93c27a5888
+https://note.com/gachiho_motive/n/n58f2bca424ca

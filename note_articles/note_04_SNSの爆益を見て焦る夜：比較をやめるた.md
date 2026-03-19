@@ -42,8 +42,7 @@ SNSを見る時間を、今日だけ30分減らしてみると落ち着きやす
 ---
 
 あわせて読みたい
-・[他人の爆益を見た夜に、軸が揺れるのは自然です](https://note.com/gachiho_motive/n/n071fff295d4a)
-・[SNSで正解を見すぎた日に、心が疲れる理由](https://note.com/gachiho_motive/n/ne8bb791383e5)
-
+https://note.com/gachiho_motive/n/n071fff295d4a
+https://note.com/gachiho_motive/n/ne8bb791383e5
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

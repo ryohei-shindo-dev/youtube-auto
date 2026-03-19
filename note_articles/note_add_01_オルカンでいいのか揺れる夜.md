@@ -51,5 +51,5 @@
 ---
 
 あわせて読みたい
-・[オルカンを持っているのに、置いていかれる気がするとき](https://note.com/gachiho_motive/n/n62f895db3407)
-・[NASDAQ100に乗り換えたくなる理由｜積み立て投資で目移りするときの整理](https://note.com/gachiho_motive/n/na8d70975ffda)
+https://note.com/gachiho_motive/n/n62f895db3407
+https://note.com/gachiho_motive/n/na8d70975ffda

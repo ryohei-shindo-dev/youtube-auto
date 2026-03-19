@@ -40,8 +40,7 @@
 ---
 
 あわせて読みたい
-・[「あのとき買っておけば」と後悔するときの考え方｜積み立て投資で焦る日の整理](https://note.com/gachiho_motive/n/n055a1a851adf)
-・[気づいたら続いていた。それが長期投資の正体](https://note.com/gachiho_motive/n/n270ff52be0d5)
-
+https://note.com/gachiho_motive/n/n055a1a851adf
+https://note.com/gachiho_motive/n/n270ff52be0d5
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

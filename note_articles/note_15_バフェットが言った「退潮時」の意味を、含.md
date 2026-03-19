@@ -52,8 +52,7 @@
 ---
 
 あわせて読みたい
-・[円高で含み損が増えても、20年で見れば薄まる理由](https://note.com/gachiho_motive/n/n478b97505a3a)
-・[暴落から1年、売らなかった人の数字](https://note.com/gachiho_motive/n/ne3e9c8393de9)
-
+https://note.com/gachiho_motive/n/n478b97505a3a
+https://note.com/gachiho_motive/n/ne3e9c8393de9
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

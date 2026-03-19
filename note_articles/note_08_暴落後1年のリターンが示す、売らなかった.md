@@ -46,8 +46,7 @@ S&P500の過去データでは、リーマンショックの底値（2009年3月
 ---
 
 あわせて読みたい
-・[暴落後に売らなかった人の、1年後の回復率](https://note.com/gachiho_motive/n/nd81c29d3880b)
-・[バフェットの「退潮時」が教える、下がった日の過ごし方](https://note.com/gachiho_motive/n/n5a0c54a0884e)
-
+https://note.com/gachiho_motive/n/nd81c29d3880b
+https://note.com/gachiho_motive/n/n5a0c54a0884e
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

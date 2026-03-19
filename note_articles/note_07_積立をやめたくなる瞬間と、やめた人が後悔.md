@@ -36,8 +36,7 @@
 ---
 
 あわせて読みたい
-・[新NISAをやめたいと感じるのはなぜ？ 1年目に不安が強くなりやすい理由](https://note.com/gachiho_motive/n/n1dbe97f73b8b)
-・[積み立て額を減らしたくなった夜に、まず確認したい「3ヶ月前の自分の気持ち」](https://note.com/gachiho_motive/n/n428c4dfb3313)
-
+https://note.com/gachiho_motive/n/n1dbe97f73b8b
+https://note.com/gachiho_motive/n/n428c4dfb3313
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。
