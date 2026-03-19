@@ -342,6 +342,285 @@ def _upload_one(page, art: dict, img_path: pathlib.Path) -> str:
 
 # ========== show ==========
 
+# ========== 本文更新 ==========
+
+NOTE_URL_RE = re.compile(r"^https://note\.com/gachiho_motive/n/[a-z0-9]+$")
+NOTE_KEY_RE = re.compile(r"https://note\.com/gachiho_motive/n/([a-z0-9]+)")
+
+
+def _check_published(manifest: dict[int, dict]) -> set[str]:
+    """manifest内の全記事の公開状態をチェックし、公開済みの note_key を返す。"""
+    import urllib.request
+    import urllib.error
+
+    published: set[str] = set()
+    total = len(manifest)
+    print(f"  公開状態チェック中（{total}本）...")
+    for sn in sorted(manifest.keys()):
+        row = manifest[sn]
+        url = row["url"]
+        key = row["note_key"]
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            req.add_header("User-Agent", "Mozilla/5.0")
+            resp = urllib.request.urlopen(req, timeout=10)
+            if resp.getcode() == 200:
+                published.add(key)
+        except Exception:
+            pass
+        time.sleep(0.2)
+    print(f"  公開済み: {len(published)}/{total}本")
+    return published
+
+
+def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> list[dict]:
+    """Markdown を「HTMLブロック」と「URL行」のセグメントに分割する。
+
+    返り値:
+        [{"type": "html", "content": "<p>...</p>..."}, {"type": "url", "content": "https://..."}, ...]
+    """
+    from html import escape as _html_escape
+
+    html_parts: list[str] = []
+    segments: list[dict] = []
+
+    def flush_html():
+        if html_parts:
+            segments.append({"type": "html", "content": "\n".join(html_parts)})
+            html_parts.clear()
+
+    for raw_line in body.split("\n"):
+        line = raw_line.rstrip()
+
+        # note 内部リンク URL → 公開済みならカード用セグメント、未公開ならスキップ
+        if NOTE_URL_RE.match(line.strip()):
+            url = line.strip()
+            m = NOTE_KEY_RE.match(url)
+            if m and published_keys is not None and m.group(1) not in published_keys:
+                # 未公開記事 → カード化しない（リンク切れ防止）
+                continue
+            flush_html()
+            segments.append({"type": "url", "content": url})
+            continue
+
+        # --- → 区切り線
+        if re.match(r"^-{3,}$", line.strip()):
+            html_parts.append("<hr>")
+            continue
+        # ## 見出し → h3
+        m = re.match(r"^##\s+(.+)$", line)
+        if m:
+            heading = re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(1))
+            html_parts.append(f"<h3>{_html_escape(heading)}</h3>")
+            continue
+        # 空行
+        if not line.strip():
+            html_parts.append("<p><br></p>")
+            continue
+        # 太字 → b タグ、通常行 → p
+        escaped = _html_escape(line)
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+        html_parts.append(f"<p>{text}</p>")
+
+    flush_html()
+
+    # URL セグメントの前後にある空段落を除去（カード間の余白をなくす）
+    empty = "<p><br></p>"
+    for i, seg in enumerate(segments):
+        if seg["type"] == "html":
+            # 直後が URL → 末尾の空段落を除去
+            if i + 1 < len(segments) and segments[i + 1]["type"] == "url":
+                while seg["content"].endswith(f"\n{empty}"):
+                    seg["content"] = seg["content"][: -len(f"\n{empty}")]
+            # 直前が URL → 先頭の空段落を除去
+            if i > 0 and segments[i - 1]["type"] == "url":
+                while seg["content"].startswith(f"{empty}\n"):
+                    seg["content"] = seg["content"][len(f"{empty}\n"):]
+
+    # 連続する空段落を最大2個に制限（各HTMLセグメント内）
+    for seg in segments:
+        if seg["type"] == "html":
+            html = seg["content"]
+            while f"{empty}\n{empty}\n{empty}" in html:
+                html = html.replace(
+                    f"{empty}\n{empty}\n{empty}", f"{empty}\n{empty}"
+                )
+            seg["content"] = html.strip()
+
+    return segments
+
+
+def _update_body_one(page, art: dict, published_keys: Optional[set[str]] = None) -> str:
+    """1記事の本文を更新する。"""
+    key = art["note_key"]
+    md_path = SCRIPT_DIR / art["md_path"]
+    # manifest の sheet_title を正とする（タイトル保護用）
+    original_title = art.get("sheet_title", "")
+
+    if not md_path.exists():
+        print(f"    mdファイルが見つかりません: {md_path}")
+        return "fail"
+
+    # md を読み込み、タイトル行（1行目 # ...）を除いた本文を取得
+    raw = md_path.read_text(encoding="utf-8")
+    lines = raw.split("\n")
+    # 先頭の # タイトル行をスキップ
+    body_start = 0
+    for i, ln in enumerate(lines):
+        if ln.startswith("# "):
+            body_start = i + 1
+            break
+    body = "\n".join(lines[body_start:]).strip()
+    segments = _md_to_segments(body, published_keys=published_keys)
+
+    if not segments:
+        print("    本文セグメントが空です")
+        return "fail"
+
+    # エディタを開く
+    edit_url = f"https://editor.note.com/notes/{key}/edit/"
+    page.goto(edit_url)
+    page.wait_for_load_state("networkidle")
+    time.sleep(3)
+
+    try:
+        # 本文エリアをクリック
+        body_sel = 'div.ProseMirror[role="textbox"]'
+        body_el = page.wait_for_selector(body_sel, timeout=10000)
+        body_el.click()
+        time.sleep(0.5)
+
+        # 全選択 → 削除
+        page.keyboard.press("Meta+a")
+        time.sleep(0.3)
+        page.keyboard.press("Backspace")
+        time.sleep(0.5)
+
+        # セグメントを順番に挿入
+        prev_type = None
+        for seg in segments:
+            if seg["type"] == "html":
+                page.evaluate(
+                    """html => {
+                        document.execCommand('insertHTML', false, html);
+                    }""",
+                    seg["content"],
+                )
+                time.sleep(0.3)
+            elif seg["type"] == "url":
+                # 前のセグメントがURLでない場合のみ改行を追加
+                # （連続URLの場合はカード化Enterで既に改行済み）
+                if prev_type != "url":
+                    page.keyboard.press("Enter")
+                    time.sleep(0.3)
+                # クリップボード経由でペースト → Enter でカード化
+                page.evaluate(
+                    """url => navigator.clipboard.writeText(url)""",
+                    seg["content"],
+                )
+                time.sleep(0.2)
+                page.keyboard.press("Meta+v")
+                time.sleep(0.5)
+                page.keyboard.press("Enter")
+                time.sleep(3)  # カード展開を待つ
+            prev_type = seg["type"]
+
+        time.sleep(1)
+
+        # タイトルが変更されていないか確認・復元
+        title_el = page.query_selector('textarea[placeholder="記事タイトル"]')
+        if title_el and original_title:
+            current_title = title_el.input_value()
+            if current_title != original_title:
+                print(f"    タイトル復元: {current_title[:30]}… → {original_title[:30]}…")
+                title_el.fill(original_title)
+                time.sleep(0.5)
+
+        # 保存: Escape → 「公開に進む」→「更新する」
+        page.keyboard.press("Escape")
+        time.sleep(1)
+
+        publish_nav = page.wait_for_selector(
+            'button:has-text("公開に進む")', timeout=10000
+        )
+        publish_nav.click()
+        page.wait_for_load_state("networkidle")
+        time.sleep(2)
+
+        update_btn = page.wait_for_selector(
+            'button:has-text("更新する")', timeout=10000
+        )
+        update_btn.click()
+        time.sleep(5)
+
+        print(f"    OK")
+        return "ok"
+
+    except Exception as e:
+        print(f"    失敗: {e}")
+        ss_path = DEBUG_DIR / f"update_body_{art['sheet_no']:03d}.png"
+        page.screenshot(path=str(ss_path))
+        print(f"    スクリーンショット: {ss_path}")
+        return "fail"
+
+
+def update_body(sheet_nos: list[int]):
+    """指定した sheet_no の記事本文を更新する。"""
+    from note_publish import _launch_browser, _close_browser
+
+    manifest = load_manifest()
+
+    # 全記事の公開状態をチェック（リンク切れ防止）
+    published_keys = _check_published(manifest)
+
+    targets = []
+    for sn in sheet_nos:
+        art = manifest.get(sn)
+        if not art:
+            print(f"  #{sn}: manifest に存在しません。スキップ。")
+            continue
+        if not art.get("note_key"):
+            print(f"  #{sn}: note_key がありません。スキップ。")
+            continue
+        if not art.get("md_path"):
+            print(f"  #{sn}: md_path がありません。スキップ。")
+            continue
+        targets.append((sn, art))
+
+    if not targets:
+        print("更新対象がありません。")
+        return
+
+    print(f"\n本文更新: {len(targets)}本\n")
+    pw, context, page = _launch_browser(headless=False)
+
+    try:
+        ok = fail = 0
+        for i, (sn, art) in enumerate(targets):
+            print(f"[{i+1}/{len(targets)}] #{sn} {art['sheet_title'][:35]}…")
+            result = _update_body_one(page, art, published_keys=published_keys)
+            if result == "ok":
+                ok += 1
+            else:
+                fail += 1
+
+            if i < len(targets) - 1:
+                time.sleep(5)
+            # 5記事ごとにページをリフレッシュ（メモリ対策）
+            if (i + 1) % 5 == 0 and i < len(targets) - 1:
+                page.close()
+                page = context.new_page()
+                time.sleep(2)
+
+        print(f"\n完了: 成功 {ok} / 失敗 {fail}")
+        _close_browser(pw, context, wait_for_user=False)
+    except Exception:
+        _close_browser(pw, context, wait_for_user=False)
+        raise
+
+
+# ========== show ==========
+
 def show_article(sheet_no: int):
     """manifest の内容を表示する。"""
     art = get_article(sheet_no)
@@ -362,12 +641,18 @@ def main():
     parser.add_argument("--regen-and-upload", nargs="+", type=int,
                         metavar="SHEET_NO",
                         help="画像再生成 → アップロードを一括実行")
+    parser.add_argument("--update-body", nargs="+", type=int,
+                        metavar="SHEET_NO",
+                        help="記事本文を更新する sheet_no（複数指定可）")
+    parser.add_argument("--update-body-all", action="store_true",
+                        help="全記事の本文を更新する")
     parser.add_argument("--show", type=int, metavar="SHEET_NO",
                         help="manifest の内容を表示")
     args = parser.parse_args()
 
     if not any([args.regen_images, args.upload_images,
-                args.regen_and_upload, args.show]):
+                args.regen_and_upload, args.update_body,
+                args.update_body_all, args.show]):
         parser.print_help()
         return
 
@@ -385,6 +670,14 @@ def main():
         generated = regen_images(args.regen_and_upload)
         if generated:
             upload_images(generated)
+
+    if args.update_body:
+        update_body(args.update_body)
+
+    if args.update_body_all:
+        manifest = load_manifest()
+        all_nos = sorted(manifest.keys())
+        update_body(all_nos)
 
 
 if __name__ == "__main__":
