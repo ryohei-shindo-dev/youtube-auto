@@ -34,6 +34,10 @@ analytics_log.json
 
 # Claude Code ローカル設定
 .claude/settings.local.json
+.claude/projects/
+
+# 再生リストサムネイル
+assets/playlist_thumbnails/
 
 # macOS
 .DS_Store
