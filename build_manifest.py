@@ -63,7 +63,8 @@ def build():
     md_files = sorted(ARTICLES_DIR.glob("*.md"))
     md_data = []
     for md in md_files:
-        first_line = md.read_text(encoding="utf-8").split("\n")[0]
+        with md.open(encoding="utf-8") as f:
+            first_line = f.readline()
         h1 = first_line.lstrip("# ").strip()
         rel = str(md.relative_to(SCRIPT_DIR))
         md_data.append({"path": rel, "h1": h1, "used": False})

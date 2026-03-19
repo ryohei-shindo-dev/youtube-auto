@@ -21,8 +21,6 @@ import json
 import pathlib
 import re
 import time
-from typing import Optional
-
 from dotenv import load_dotenv
 
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()

@@ -23,14 +23,12 @@ import json
 import os
 import pathlib
 import re
-import sys
 import time
 
 from dotenv import load_dotenv
 from playwright.sync_api import Page
 
 from note_publish import _launch_browser, _close_browser
-from note_selectors import JS_DUMP_SELECTORS
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 
