@@ -131,7 +131,6 @@ def add_to_playlists(
     with open(_PLAYLISTS_PATH, encoding="utf-8") as f:
         config = json.load(f)
 
-    all_id = config.get("all_playlist_id", "")
     mapping = config.get("topic_mapping", {})
     title_kw = config.get("title_keywords", {})
 
@@ -149,10 +148,6 @@ def add_to_playlists(
         for keyword, pids in title_kw.items():
             if keyword in title:
                 playlist_ids.update(pids)
-
-    # 全動画リストを追加
-    if all_id:
-        playlist_ids.add(all_id)
 
     if not playlist_ids:
         return
