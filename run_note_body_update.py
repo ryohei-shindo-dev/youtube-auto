@@ -10,43 +10,19 @@
 from __future__ import annotations
 
 import json
-import re
 import time
-import urllib.request
-import urllib.error
 from pathlib import Path
 
+from note_article_updater import (
+    load_manifest,
+    NOTE_KEY_RE,
+    _check_published,
+)
+
 SCRIPT_DIR = Path(__file__).parent.resolve()
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 STATE_FILE = SCRIPT_DIR / "note_body_update_state.json"
 
-NOTE_KEY_RE = re.compile(r"https://note\.com/gachiho_motive/n/([a-z0-9]+)")
 NOTE_URL_FMT = "https://note.com/gachiho_motive/n/{key}"
-
-
-def load_manifest():
-    rows = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    return {int(r["sheet_no"]): r for r in rows}
-
-
-def check_published(manifest):
-    """全記事の公開状態をチェックし、公開済みの note_key セットを返す。"""
-    published_keys: set[str] = set()
-    published_sns: set[int] = set()
-    for sn in sorted(manifest.keys()):
-        row = manifest[sn]
-        url = row["url"]
-        try:
-            req = urllib.request.Request(url, method="HEAD")
-            req.add_header("User-Agent", "Mozilla/5.0")
-            resp = urllib.request.urlopen(req, timeout=10)
-            if resp.getcode() == 200:
-                published_keys.add(row["note_key"])
-                published_sns.add(sn)
-        except Exception:
-            pass
-        time.sleep(0.2)
-    return published_sns, published_keys
 
 
 def load_state():
@@ -87,11 +63,10 @@ def get_md_link_keys(manifest, sn):
 
 def main():
     manifest = load_manifest()
-    key_to_sn = {r["note_key"]: int(r["sheet_no"]) for r in manifest.values()}
     prev_published_sns, cards_state = load_state()
 
     print("公開状態チェック中...")
-    current_published_sns, current_published_keys = check_published(manifest)
+    current_published_sns, current_published_keys = _check_published(manifest)
     print(f"  公開済み: {len(current_published_sns)}/{len(manifest)}本")
 
     # 新しく公開された記事を検出
@@ -108,37 +83,29 @@ def main():
     new_keys = {manifest[sn]["note_key"] for sn in newly_published}
 
     # 差分追加が必要な記事を収集
-    # { sheet_no: [追加すべきURL, ...] }
     append_tasks: dict[int, list[str]] = {}
 
-    # (1) 新規公開記事自体: mdに書かれたリンク先のうち、
-    #     投稿時に未公開だったが今は公開済みのもの
-    for sn in newly_published:
+    def _collect_missing_cards(sn: int, candidate_keys: set[str]):
+        """mdのリンクのうち、candidate_keysに含まれ未追加のものを収集する。"""
         sn_str = str(sn)
-        already_embedded = set(cards_state.get(sn_str, []))
+        already = set(cards_state.get(sn_str, []))
         md_keys = get_md_link_keys(manifest, sn)
-        new_urls = []
+        urls = []
         for k in md_keys:
-            if k in current_published_keys and k not in already_embedded:
-                new_urls.append(NOTE_URL_FMT.format(key=k))
-                already_embedded.add(k)
-        if new_urls:
-            append_tasks[sn] = new_urls
-        cards_state[sn_str] = sorted(already_embedded)
+            if k in candidate_keys and k not in already:
+                urls.append(NOTE_URL_FMT.format(key=k))
+                already.add(k)
+        if urls:
+            append_tasks[sn] = urls
+        cards_state[sn_str] = sorted(already)
 
-    # (2) 既存公開記事: mdに新規公開記事へのリンクがあるもの
+    # (1) 新規公開記事: 今公開済みの関連記事カードを追加
+    for sn in newly_published:
+        _collect_missing_cards(sn, current_published_keys)
+
+    # (2) 既存公開記事: 新規公開記事へのカードを追加
     for sn in current_published_sns - newly_published:
-        sn_str = str(sn)
-        already_embedded = set(cards_state.get(sn_str, []))
-        md_keys = get_md_link_keys(manifest, sn)
-        new_urls = []
-        for k in md_keys:
-            if k in new_keys and k not in already_embedded:
-                new_urls.append(NOTE_URL_FMT.format(key=k))
-                already_embedded.add(k)
-        if new_urls:
-            append_tasks[sn] = new_urls
-        cards_state[sn_str] = sorted(already_embedded)
+        _collect_missing_cards(sn, new_keys)
 
     if not append_tasks:
         print("\nカード追加の必要はありません。")

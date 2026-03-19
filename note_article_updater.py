@@ -348,12 +348,17 @@ NOTE_URL_RE = re.compile(r"^https://note\.com/gachiho_motive/n/[a-z0-9]+$")
 NOTE_KEY_RE = re.compile(r"https://note\.com/gachiho_motive/n/([a-z0-9]+)")
 
 
-def _check_published(manifest: dict[int, dict]) -> set[str]:
-    """manifest内の全記事の公開状態をチェックし、公開済みの note_key を返す。"""
+def _check_published(manifest: dict[int, dict]) -> tuple[set[int], set[str]]:
+    """manifest内の全記事の公開状態をチェックする。
+
+    Returns:
+        (published_sns, published_keys) — 公開済みの sheet_no セットと note_key セット
+    """
     import urllib.request
     import urllib.error
 
-    published: set[str] = set()
+    published_sns: set[int] = set()
+    published_keys: set[str] = set()
     total = len(manifest)
     print(f"  公開状態チェック中（{total}本）...")
     for sn in sorted(manifest.keys()):
@@ -365,12 +370,13 @@ def _check_published(manifest: dict[int, dict]) -> set[str]:
             req.add_header("User-Agent", "Mozilla/5.0")
             resp = urllib.request.urlopen(req, timeout=10)
             if resp.getcode() == 200:
-                published.add(key)
+                published_sns.add(sn)
+                published_keys.add(key)
         except Exception:
             pass
         time.sleep(0.2)
-    print(f"  公開済み: {len(published)}/{total}本")
-    return published
+    print(f"  公開済み: {len(published_keys)}/{total}本")
+    return published_sns, published_keys
 
 
 def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> list[dict]:
@@ -450,6 +456,18 @@ def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> lis
     return segments
 
 
+def _paste_url_card(page, url: str):
+    """URLをクリップボード経由でペーストし、Enterでカード化する。"""
+    page.evaluate(
+        """url => navigator.clipboard.writeText(url)""", url,
+    )
+    time.sleep(0.2)
+    page.keyboard.press("Meta+v")
+    time.sleep(0.5)
+    page.keyboard.press("Enter")
+    time.sleep(3)
+
+
 def _insert_segments(page, segments: list[dict]):
     """セグメントリストをnoteエディタに入力する（共通関数）。
 
@@ -469,15 +487,7 @@ def _insert_segments(page, segments: list[dict]):
             if prev_type != "url":
                 page.keyboard.press("Enter")
                 time.sleep(0.3)
-            page.evaluate(
-                """url => navigator.clipboard.writeText(url)""",
-                seg["content"],
-            )
-            time.sleep(0.2)
-            page.keyboard.press("Meta+v")
-            time.sleep(0.5)
-            page.keyboard.press("Enter")
-            time.sleep(3)
+            _paste_url_card(page, seg["content"])
         prev_type = seg["type"]
     time.sleep(1)
 
@@ -524,15 +534,7 @@ def _append_card_links(page, art: dict, urls: list[str]) -> str:
         for url in urls:
             page.keyboard.press("Enter")
             time.sleep(0.3)
-            page.evaluate(
-                """url => navigator.clipboard.writeText(url)""",
-                url,
-            )
-            time.sleep(0.2)
-            page.keyboard.press("Meta+v")
-            time.sleep(0.5)
-            page.keyboard.press("Enter")
-            time.sleep(3)
+            _paste_url_card(page, url)
 
         time.sleep(1)
         btn_text = _save_article(page)
@@ -626,7 +628,7 @@ def update_body(sheet_nos: list[int]):
     manifest = load_manifest()
 
     # 全記事の公開状態をチェック（リンク切れ防止）
-    published_keys = _check_published(manifest)
+    _, published_keys = _check_published(manifest)
 
     targets = []
     for sn in sheet_nos:
