@@ -450,6 +450,103 @@ def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> lis
     return segments
 
 
+def _insert_segments(page, segments: list[dict]):
+    """セグメントリストをnoteエディタに入力する（共通関数）。
+
+    HTML部分はinsertHTML、URL部分はクリップボード経由ペースト+Enterでカード化。
+    """
+    prev_type = None
+    for seg in segments:
+        if seg["type"] == "html":
+            page.evaluate(
+                """html => {
+                    document.execCommand('insertHTML', false, html);
+                }""",
+                seg["content"],
+            )
+            time.sleep(0.3)
+        elif seg["type"] == "url":
+            if prev_type != "url":
+                page.keyboard.press("Enter")
+                time.sleep(0.3)
+            page.evaluate(
+                """url => navigator.clipboard.writeText(url)""",
+                seg["content"],
+            )
+            time.sleep(0.2)
+            page.keyboard.press("Meta+v")
+            time.sleep(0.5)
+            page.keyboard.press("Enter")
+            time.sleep(3)
+        prev_type = seg["type"]
+    time.sleep(1)
+
+
+def _save_article(page):
+    """エディタの内容を保存する（公開に進む → 更新する/予約投稿）。"""
+    page.keyboard.press("Escape")
+    time.sleep(1)
+
+    publish_nav = page.wait_for_selector(
+        'button:has-text("公開に進む")', timeout=10000
+    )
+    publish_nav.click()
+    page.wait_for_load_state("networkidle")
+    time.sleep(2)
+
+    save_btn = page.wait_for_selector(
+        'button:has-text("更新する"), button:has-text("予約投稿")',
+        timeout=10000,
+    )
+    btn_text = save_btn.text_content().strip()
+    save_btn.click()
+    time.sleep(5)
+    return btn_text
+
+
+def _append_card_links(page, art: dict, urls: list[str]) -> str:
+    """既存記事の末尾にカードリンクを差分追加する（全上書きしない）。"""
+    key = art["note_key"]
+    edit_url = f"https://editor.note.com/notes/{key}/edit/"
+    page.goto(edit_url)
+    page.wait_for_load_state("networkidle")
+    time.sleep(3)
+
+    try:
+        body_sel = 'div.ProseMirror[role="textbox"]'
+        page.wait_for_selector(body_sel, timeout=10000)
+
+        # 本文末尾にカーソルを移動
+        page.keyboard.press("Meta+End")
+        time.sleep(0.5)
+
+        # URLをカード化して追加
+        for url in urls:
+            page.keyboard.press("Enter")
+            time.sleep(0.3)
+            page.evaluate(
+                """url => navigator.clipboard.writeText(url)""",
+                url,
+            )
+            time.sleep(0.2)
+            page.keyboard.press("Meta+v")
+            time.sleep(0.5)
+            page.keyboard.press("Enter")
+            time.sleep(3)
+
+        time.sleep(1)
+        btn_text = _save_article(page)
+        print(f"    OK（{btn_text}、カード{len(urls)}件追加）")
+        return "ok"
+
+    except Exception as e:
+        print(f"    失敗: {e}")
+        ss_path = DEBUG_DIR / f"append_card_{art['sheet_no']:03d}.png"
+        page.screenshot(path=str(ss_path))
+        print(f"    スクリーンショット: {ss_path}")
+        return "fail"
+
+
 def _update_body_one(page, art: dict, published_keys: Optional[set[str]] = None) -> str:
     """1記事の本文を更新する。"""
     key = art["note_key"]
@@ -497,35 +594,7 @@ def _update_body_one(page, art: dict, published_keys: Optional[set[str]] = None)
         time.sleep(0.5)
 
         # セグメントを順番に挿入
-        prev_type = None
-        for seg in segments:
-            if seg["type"] == "html":
-                page.evaluate(
-                    """html => {
-                        document.execCommand('insertHTML', false, html);
-                    }""",
-                    seg["content"],
-                )
-                time.sleep(0.3)
-            elif seg["type"] == "url":
-                # 前のセグメントがURLでない場合のみ改行を追加
-                # （連続URLの場合はカード化Enterで既に改行済み）
-                if prev_type != "url":
-                    page.keyboard.press("Enter")
-                    time.sleep(0.3)
-                # クリップボード経由でペースト → Enter でカード化
-                page.evaluate(
-                    """url => navigator.clipboard.writeText(url)""",
-                    seg["content"],
-                )
-                time.sleep(0.2)
-                page.keyboard.press("Meta+v")
-                time.sleep(0.5)
-                page.keyboard.press("Enter")
-                time.sleep(3)  # カード展開を待つ
-            prev_type = seg["type"]
-
-        time.sleep(1)
+        _insert_segments(page, segments)
 
         # タイトルが変更されていないか確認・復元
         title_el = page.query_selector('textarea[placeholder="記事タイトル"]')
@@ -536,22 +605,8 @@ def _update_body_one(page, art: dict, published_keys: Optional[set[str]] = None)
                 title_el.fill(original_title)
                 time.sleep(0.5)
 
-        # 保存: Escape → 「公開に進む」→「更新する」
-        page.keyboard.press("Escape")
-        time.sleep(1)
-
-        publish_nav = page.wait_for_selector(
-            'button:has-text("公開に進む")', timeout=10000
-        )
-        publish_nav.click()
-        page.wait_for_load_state("networkidle")
-        time.sleep(2)
-
-        update_btn = page.wait_for_selector(
-            'button:has-text("更新する")', timeout=10000
-        )
-        update_btn.click()
-        time.sleep(5)
+        # 保存
+        _save_article(page)
 
         print(f"    OK")
         return "ok"
