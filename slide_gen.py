@@ -1248,6 +1248,9 @@ def generate_thumbnail_frame(
     draw = ImageDraw.Draw(photo)
 
     # テキスト描画（1行目は大きく、2行目はやや小さく — thumbnail_gen と同方式）
+    # 左右マージン確保（テキストが画面幅をはみ出さないように）
+    text_max_width = SHORTS_WIDTH - 80  # 左右40pxずつ余白
+
     lines = thumb_text.split("\n")
     fonts = []
     for i, line in enumerate(lines):
@@ -1255,6 +1258,13 @@ def generate_thumbnail_frame(
             sz = _auto_font_size(line, max_size=160, min_size=90)
         else:
             sz = _auto_font_size(line, max_size=120, min_size=70)
+        # 画面幅に収まるまでフォントサイズを縮小
+        while sz > 40:
+            font = _load_font(FONT_PATH_HEAVY, sz)
+            bbox = draw.textbbox((0, 0), line, font=font)
+            if (bbox[2] - bbox[0]) <= text_max_width:
+                break
+            sz -= 4
         fonts.append(_load_font(FONT_PATH_HEAVY, sz))
 
     line_heights = []
