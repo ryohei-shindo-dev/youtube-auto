@@ -1195,6 +1195,160 @@ def _make_thumbnail_text_v2(title: str, scenes: list) -> str:
     return clean
 
 
+# ========== サムネフレーム用 禁則処理 ==========
+# ChatGPT組版レビュー（2026-03-19）に基づく
+
+# 行頭禁止文字（句読点・閉じ括弧・助詞・機能語の一部）
+_NO_HEAD_CHARS = set("、。，．・：；！？）」』】〉》!?,.)]}%‰+をにへとがはもでの")
+
+# 行末禁止文字（開き括弧・「第」「約」など）
+_NO_TAIL_CHARS = set("（「『【〈《([{第約")
+
+# 2行目先頭に来てはいけない2文字機能語
+_NO_HEAD_BIGRAMS = {
+    "より", "では", "とは", "にも", "でも", "への",
+    "から", "まで", "だけ", "ほど", "など", "のは",
+}
+
+# 分割してはいけないパターン（数字+単位・分数・英数字語）
+_NO_SPLIT_PATTERNS = re.compile(
+    r"\d+/\d+"                                       # 分数 1/3
+    r"|\d+\.\d+"                                     # 小数 2.5
+    r"|\d+(?:年目|ヶ月目|か月目|年|ヶ月|か月|月|日|時間"
+    r"|分|秒|回|人|倍|割|％|%|万|億|円|ドル|点|歳|代|本|枚|件)"  # 数字+単位
+    r"|[+\-]\d+[%％]?"                               # +40%, -3%
+    r"|S&P500|NASDAQ100|NISA|iDeCo"                  # 英数字混在語
+)
+
+# 3文字以上のカタカナ語（途中で切らない）
+_KATAKANA_WORD = re.compile(r"[ァ-ヶー]{3,}")
+
+# 保護語辞書（複合語の途中で切らない）
+_PROTECTED_WORDS = [
+    "非課税効果", "元本割れ", "長期投資家", "長期投資", "積み立て",
+    "積立投資", "配当再投資", "信託報酬", "平均取得単価",
+    "ドルコスト平均法", "インデックス投資", "インフレ",
+    "レバレッジ", "リターン", "バフェット", "資産", "複利",
+]
+
+# 各行の最小文字数
+_MIN_LINE_CHARS = 5
+
+
+def _find_split_pos(text: str) -> int | None:
+    """テキストの適切な分割位置を返す。禁則処理付き。
+
+    ChatGPT組版レビューに基づく3段方式:
+    1. 絶対に切らない塊を守る
+    2. 切るなら助詞・読点の直後だけに寄せる
+    3. 不自然に短い行を禁止する
+    """
+    n = len(text)
+    if n <= 6:
+        return None
+
+    # --- 分割禁止区間を収集 ---
+    no_split: set[int] = set()
+
+    # 数字+単位、英数字語
+    for m in _NO_SPLIT_PATTERNS.finditer(text):
+        for i in range(m.start(), m.end()):
+            no_split.add(i)
+
+    # カタカナ語
+    for m in _KATAKANA_WORD.finditer(text):
+        for i in range(m.start(), m.end()):
+            no_split.add(i)
+
+    # 保護語辞書
+    for word in _PROTECTED_WORDS:
+        start = 0
+        while True:
+            idx = text.find(word, start)
+            if idx == -1:
+                break
+            for i in range(idx, idx + len(word)):
+                no_split.add(i)
+            start = idx + 1
+
+    # 2文字機能語の途中分割を禁止
+    for bigram in _NO_HEAD_BIGRAMS:
+        start = 0
+        while True:
+            idx = text.find(bigram, start)
+            if idx == -1:
+                break
+            # bigram の途中（idx + 1）での分割を禁止
+            no_split.add(idx + 1)
+            start = idx + 1
+
+    def _is_valid_split(pos: int) -> bool:
+        """pos の位置で分割したとき、禁則違反がないか。"""
+        if pos <= 0 or pos >= n:
+            return False
+        # 各行の最小文字数チェック
+        if pos < _MIN_LINE_CHARS or (n - pos) < _MIN_LINE_CHARS:
+            return False
+        # 分割禁止区間の途中でないか
+        if pos in no_split:
+            return False
+        # 2行目の先頭が行頭禁止文字でないか
+        if text[pos] in _NO_HEAD_CHARS:
+            return False
+        # 2行目の先頭が2文字機能語でないか
+        if text[pos:pos + 2] in _NO_HEAD_BIGRAMS:
+            return False
+        # 1行目の末尾が行末禁止文字でないか
+        if text[pos - 1] in _NO_TAIL_CHARS:
+            return False
+        return True
+
+    # --- 候補を集めてスコア付け（中央に近いほど良い） ---
+    center = n // 2
+    best_pos = None
+    best_score = float("inf")
+
+    # 1. 助詞・読点の後で分割（最も自然）
+    for m in re.finditer(r"[をにとがの、]|(?<=[ぁ-んァ-ヶ\u4e00-\u9fff0-9])[でもは]", text):
+        pos = m.end()
+        if _is_valid_split(pos):
+            score = abs(center - pos)
+            if score < best_score:
+                best_score = score
+                best_pos = pos
+
+    # 助詞・読点の後で適切な分割位置が見つからなければ分割しない
+    # （フォント縮小で対応する方が、不自然な位置で切るより良い）
+    return best_pos
+
+
+def _split_long_lines_for_thumb(
+    lines: list[str], draw, max_width: int,
+) -> list[str]:
+    """はみ出す行を自動改行で分割する。禁則処理付き。"""
+    result = []
+    for line in lines:
+        sz = _auto_font_size(line, max_size=160, min_size=90)
+        font = _load_font(FONT_PATH_HEAVY, sz)
+        bbox = draw.textbbox((0, 0), line, font=font)
+        w = bbox[2] - bbox[0]
+
+        if w <= max_width:
+            result.append(line)
+            continue
+
+        # 分割位置を探す
+        split_pos = _find_split_pos(line)
+        if split_pos is not None:
+            result.append(line[:split_pos].strip())
+            result.append(line[split_pos:].strip())
+        else:
+            # 分割できない場合はそのまま（フォント縮小で対応）
+            result.append(line)
+
+    return result
+
+
 def generate_thumbnail_frame(
     scenes: list,
     output_path: pathlib.Path,
@@ -1251,14 +1405,16 @@ def generate_thumbnail_frame(
     # 左右マージン確保（テキストが画面幅をはみ出さないように）
     text_max_width = SHORTS_WIDTH - 80  # 左右40pxずつ余白
 
-    lines = thumb_text.split("\n")
+    # はみ出す行を自動改行で分割
+    lines = _split_long_lines_for_thumb(thumb_text.split("\n"), draw, text_max_width)
+
     fonts = []
     for i, line in enumerate(lines):
         if i == 0:
             sz = _auto_font_size(line, max_size=160, min_size=90)
         else:
             sz = _auto_font_size(line, max_size=120, min_size=70)
-        # 画面幅に収まるまでフォントサイズを縮小
+        # 改行で収まらなかった場合のフォールバック: フォントサイズ縮小
         while sz > 40:
             font = _load_font(FONT_PATH_HEAVY, sz)
             bbox = draw.textbbox((0, 0), line, font=font)
