@@ -121,10 +121,18 @@
 - こつこつ系 note 記事 8本を生成+予約投稿完了（note_add_22〜29、3/26〜3/30）
 - 縦型没入レイアウト統一+274枚素材で117本の動画再生成完了
 
-**次のアクション**:
-1. 一時ファイル削除: `add_note_images.py`, `regen_all.py`, `publish_note_kotsukotsu.py`
+**実績（2026-03-19）**:
+- SEOリライト Phase 1 完了: タイトル+見出し+冒頭文リライト10本 → noteに反映済み
+- SEOリライト Phase 2 完了: H2見出しリライト46本 → noteに反映済み
+- 運用手順書: `docs/note-rewrite-runbook.md`
 
-**関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`
+**次のアクション**:
+1. SEOタイトルリライト残り3本（優先度中: #7 SNS爆益、#13 あのとき買っておけば、#34 配当利回り5%）
+2. 記事間の内部リンク追加（関連テーマ同士をnote本文中でつなぐ）
+3. Q&Aを記事ごとに絞る（毎回3問→検索意図が強い記事だけ1〜2問）
+4. カバーできていないキーワードの新記事（新NISA損切り / オルカンS&P500どっち / 暴落続けるべきか）
+
+**関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`, `docs/note-rewrite-runbook.md`
 
 ---
 
