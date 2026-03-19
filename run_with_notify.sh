@@ -22,7 +22,8 @@ cd "$SCRIPT_DIR"
 mkdir -p logs
 
 # コマンド実行（stdout/stderrを一時ファイルに集約）
-TMPLOG=$(mktemp /tmp/youtube-auto-XXXXXX.log)
+TMPLOG=$(mktemp /tmp/youtube-auto-XXXXXX)
+# ↑ macOS の mktemp はテンプレート末尾が X でないとランダム化されない
 "$@" > "$TMPLOG" 2>&1
 EXIT_CODE=$?
 
