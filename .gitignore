@@ -10,6 +10,7 @@ _tiktok_cert.pem
 _tiktok_key.pem
 instagram_token.json
 x_token.json
+threads_token.json
 
 # Python仮想環境
 venv/
