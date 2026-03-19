@@ -121,10 +121,22 @@
 - SEOリライト Phase 2 完了: H2見出しリライト46本 → noteに反映済み
 - 運用手順書: `docs/note-rewrite-runbook.md`
 
-**次のアクション**:
-1. カバーできていないキーワードの新記事（新NISA損切り / オルカンS&P500どっち / 暴落続けるべきか）
+**実績（2026-03-19 SEOレビュー）**:
+- ChatGPT SEOレビュー実施（テーマ選定8.5/タイトルSEO6.5/冒頭文7.5/見出し7/キーワード戦略7/SNS導線7.5）
+- タイトル修正5本（検索キーワード強化: 記事23/30/49/50/53）→ noteに反映済み
+- ハッシュタグ全56本再設定（共通3タグ+記事別1-2タグ）→ noteに反映済み
+- ヘッダー画像5本再生成+noteアップロード完了（タイトル変更に合わせて）
+- 内部リンクテキスト更新（旧タイトル→新タイトル）
+- note_manifest.json 導入（sheet_noを唯一の主キーとした一元管理、ChatGPT設計レビュー済み）
+- note_article_updater.py 作成（画像再生成+アップロード汎用スクリプト）
+- note_update_seo.py 作成（タイトル・タグ更新スクリプト）
 
-**関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`, `docs/note-rewrite-runbook.md`
+**次のアクション**:
+1. カバーできていないキーワードの新記事6本（新NISA含み損 / 何を買う / オルカンvsS&P500どっち / 月いくら / 暴落時どうする / iDeCo vs 新NISA）
+2. 構成を4型に分散（検索解説型 / 比較整理型 / 不安共感型 / こつこつ肯定型）
+3. manifest基準にコードを移行（フェーズ2: 新規記事はsheet_XXX方式）
+
+**関連ファイル**: `note_publish.py`, `note_gen.py`, `note_image_gen.py`, `note_articles/`, `note_images/`, `note_manifest.json`, `note_article_updater.py`, `note_update_seo.py`, `build_manifest.py`, `docs/note-rewrite-runbook.md`
 
 ---
 
