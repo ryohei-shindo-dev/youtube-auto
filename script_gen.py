@@ -197,6 +197,9 @@ def _apply_loop_closing(scenes: list, hook_word: str, theme_name: str = "") -> t
     tpl_text, tpl_slide = _pick_loop_closing(hook_word, theme_name)
     closing = tpl_text.format(hook=hook_word)
     closing_slide = tpl_slide.format(hook=hook_word)
+    # 「まだ待つのでも」のように「の」+「でも」が繋がる場合、句点を挿入
+    closing = re.sub(r"のでも([、。])", r"の。でも\1", closing)
+    closing_slide = re.sub(r"のでも([、。])", r"の。でも\1", closing_slide)
     # 4本に1本だけ弱いCTAを付加
     if random.random() < _SHORTS_CTA_RATIO:
         cta = random.choice(CLOSING_PHRASES_LIST)

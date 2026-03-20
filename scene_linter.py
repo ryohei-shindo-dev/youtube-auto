@@ -92,6 +92,52 @@ def lint_all_scenes(script_data: dict) -> list[dict]:
         elif role == "closing":
             issues.extend(_lint_closing(text, slide_text))
 
+    # シーン横断チェック: 同一フレーズが3回以上出現
+    issues.extend(_lint_phrase_repetition(scenes))
+
+    return issues
+
+
+def _lint_phrase_repetition(scenes: list) -> list[dict]:
+    """シーン間で同じフレーズが繰り返し出現していないかチェックする。"""
+    issues: list[dict] = []
+    all_texts = []
+    for s in scenes:
+        text = s.get("text", "")
+        if text:
+            all_texts.append(text)
+
+    # 4文字以上の連続部分文字列をシーン横断でカウント
+    from collections import Counter
+    phrase_count: Counter = Counter()
+    min_len = 4
+    for text in all_texts:
+        # テキストから句読点を除去して部分文字列を抽出
+        clean = re.sub(r"[、。？！「」…]", "", text)
+        seen_in_text: set = set()
+        for length in range(min_len, min(len(clean) + 1, 20)):
+            for start in range(len(clean) - length + 1):
+                phrase = clean[start:start + length]
+                if phrase not in seen_in_text:
+                    seen_in_text.add(phrase)
+                    phrase_count[phrase] += 1
+
+    # 3回以上出現するフレーズを検出（最長のフレーズだけ報告）
+    flagged: set = set()
+    # 長い順にソートして最長マッチだけ残す
+    repeated = [(p, c) for p, c in phrase_count.items() if c >= 3]
+    repeated.sort(key=lambda x: len(x[0]), reverse=True)
+    for phrase, count in repeated:
+        # 既にフラグ済みのフレーズの部分文字列はスキップ
+        if any(phrase in f for f in flagged):
+            continue
+        flagged.add(phrase)
+        issues.append(_issue(
+            "error", "全体", "phrase_repetition",
+            f"「{phrase}」が{count}シーンで繰り返し出現しています。"
+            f"フレーズに変化をつけてください"
+        ))
+
     return issues
 
 
@@ -161,10 +207,11 @@ def _lint_empathy(text: str, slide_text: str) -> list[dict]:
     issues: list[dict] = []
     clean = text.rstrip("。？！ ")
 
-    # 一語だけ（「あなたも。」等）
-    if len(clean) <= 4:
+    # 短すぎる（「あなたも。」「その「まだ？。」等 — 文として不完全）
+    if len(clean) <= 7:
         issues.append(_issue("error", "empathy", "too_short",
-                             f"empathyが短すぎます（{len(clean)}文字）: 「{clean}」"))
+                             f"empathyが短すぎます（{len(clean)}文字）: 「{clean}」。"
+                             f"文として成立する最低8文字が必要です"))
 
     return issues
 
