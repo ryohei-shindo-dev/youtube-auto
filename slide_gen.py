@@ -1059,6 +1059,21 @@ THUMBNAIL_REGISTRY_PATH = pathlib.Path(__file__).parent / "thumbnail_registry.js
 _THUMBNAIL_NO_REUSE_WINDOW = 30  # 直近30本で同じ写真を使わない
 
 
+def _normalize_thumb_text(text: str) -> str:
+    """サムネテキストを正規化して類似判定に使う。
+
+    改行除去 + 文末の「です」「だ」「ですね」等を除去して比較する。
+    例: 「時間が最大の武器です」→「時間が最大の武器」
+    """
+    t = text.replace("\n", "")
+    # 文末の丁寧表現・断定表現を除去（長い順にマッチ）
+    for suffix in ("ですね", "です", "だね", "だよ", "だ", "ね", "よ"):
+        if t.endswith(suffix) and len(t) > len(suffix) + 2:
+            t = t[: -len(suffix)]
+            break
+    return t
+
+
 def _load_thumbnail_registry() -> list[dict]:
     """thumbnail_registry.json を読み込む。"""
     if THUMBNAIL_REGISTRY_PATH.exists():
@@ -1369,22 +1384,30 @@ def generate_thumbnail_frame(
         print("  [サムネフレーム] テキスト生成失敗")
         return None
 
-    # 同一バッチ内のテキスト重複チェック
+    # サムネテキスト重複チェック（バッチ内 + レジストリの過去100本）
+    all_existing: set[str] = set()
+    # レジストリ（公開済み・キュー内）のテキストを正規化して追加
+    for entry in registry:
+        if entry.get("thumbnail_text"):
+            all_existing.add(_normalize_thumb_text(entry["thumbnail_text"]))
+    # バッチ内のテキストも追加
     if used_texts is not None:
-        normalized_used = {t.replace("\n", "") for t in used_texts}
-        if thumb_text.replace("\n", "") in normalized_used:
-            print(f"  [サムネフレーム] テキスト重複: {thumb_text.replace(chr(10), ' ')}")
-            # data → resolve → hookの順でフォールバック
-            for role in ("data", "resolve", "hook"):
-                for s in scenes:
-                    if s.get("role") == role and s.get("slide_text"):
-                        alt = s["slide_text"].rstrip("。")
-                        if 6 <= len(alt) <= 14 and alt not in normalized_used:
-                            thumb_text = alt
-                            break
-                else:
-                    continue
-                break
+        for t in used_texts:
+            all_existing.add(_normalize_thumb_text(t))
+
+    if _normalize_thumb_text(thumb_text) in all_existing:
+        print(f"  [サムネフレーム] テキスト重複: {thumb_text.replace(chr(10), ' ')}")
+        # data → resolve → hookの順でフォールバック
+        for role in ("data", "resolve", "hook"):
+            for s in scenes:
+                if s.get("role") == role and s.get("slide_text"):
+                    alt = s["slide_text"].rstrip("。")
+                    if 6 <= len(alt) <= 14 and _normalize_thumb_text(alt) not in all_existing:
+                        thumb_text = alt
+                        break
+            else:
+                continue
+            break
 
     # ── 写真選択 ──
     photo_path = _pick_thumbnail_photo(registry)
