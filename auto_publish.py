@@ -243,7 +243,7 @@ def _build_x_text_from_transcript(meta: dict) -> str:
 # ── シートからエントリを取得する関数群 ──
 
 def _read_sheet_rows() -> list[list[str]]:
-    """投稿管理シートの全行を取得する（A列〜N列）。"""
+    """投稿管理シートの全行を取得する（A列〜AC列）。"""
     import sheets
     sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
     if not sheet_id:
@@ -251,7 +251,7 @@ def _read_sheet_rows() -> list[list[str]]:
     svc = sheets.get_service()
     result = svc.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range="投稿管理!A:N",
+        range="投稿管理!A:AC",
     ).execute()
     return result.get("values", [])
 
@@ -272,6 +272,7 @@ def _row_to_entry(row: list, sheet_row: int) -> dict:
         "instagram_url": sheets.get_cell(row, C["instagram_url"]),
         "x_url": sheets.get_cell(row, C["x_url"]),
         "tiktok_url": sheets.get_cell(row, C["tiktok_url"]),
+        "content_id": sheets.get_cell(row, C["content_id"]),
     }
 
 
@@ -507,6 +508,7 @@ def publish_entry(
 
     results = {}
     urls = {}
+    platform_ids = {}  # プラットフォーム別ID（シートの独立列に保存用）
 
     # --- YouTube ---
     if "youtube" in platforms:
@@ -524,6 +526,7 @@ def publish_entry(
             if video_id:
                 youtube_url = f"https://youtube.com/shorts/{video_id}"
                 urls["youtube"] = youtube_url
+                platform_ids["youtube"] = video_id
                 results["youtube"] = True
                 print(f"  [YouTube] 投稿完了: {youtube_url}")
 
@@ -572,6 +575,7 @@ def publish_entry(
             if publish_id:
                 results["tiktok"] = True
                 urls["tiktok"] = f"tiktok:publish_id={publish_id}"
+                platform_ids["tiktok"] = publish_id
                 print(f"  [TikTok] 投稿完了")
             else:
                 results["tiktok"] = False
@@ -592,15 +596,19 @@ def publish_entry(
                 ig_cover = str(thumbnail_frame_path)
             else:
                 print("  [Instagram] 警告: thumbnail_frame.png がありません。カバー画像なしで投稿します")
-            ig_url = instagram_upload.upload_video(
+            ig_result = instagram_upload.upload_video(
                 video_path=str(video_path),
                 caption=ig_caption,
                 thumbnail_path=ig_cover,
             )
-            if ig_url:
+            if ig_result:
                 results["instagram"] = True
-                urls["instagram"] = ig_url
-                print(f"  [Instagram] 投稿完了: {ig_url}")
+                urls["instagram"] = ig_result
+                # 戻り値が permalink（URL）の場合も media_id の場合もある
+                # URL でなければ media_id そのもの
+                if not ig_result.startswith("http"):
+                    platform_ids["instagram"] = ig_result
+                print(f"  [Instagram] 投稿完了: {ig_result}")
             else:
                 results["instagram"] = False
                 print("  [Instagram] 投稿失敗")
@@ -641,6 +649,7 @@ def publish_entry(
                 tweet_url = f"https://x.com/{X_HANDLE}/status/{tweet_id}"
                 results["x"] = True
                 urls["x"] = tweet_url
+                platform_ids["x"] = tweet_id
                 print(f"  [X] 投稿完了: {tweet_url}")
             else:
                 results["x"] = False
@@ -669,6 +678,7 @@ def publish_entry(
                 urls=urls or None,
                 failed_platforms=failed if not any_success else None,
                 target_platforms=DEFAULT_PLATFORMS,
+                platform_ids=platform_ids or None,
             )
         except Exception as e:
             print(f"  [警告] シート更新に失敗: {e}")

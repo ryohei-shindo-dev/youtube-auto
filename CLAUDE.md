@@ -69,14 +69,18 @@ Sheets(投稿管理) → script_gen → voice_gen → slide_gen → video_gen
 
 ### 投稿管理シート列構成（正本）
 ```
-A: No.（通番、人間用） B: フォルダ名（コードの唯一のキー）
+A: No.（通番、人間用） B: フォルダ名（ローカルファイル用キー）
 C: 種別  D: トピック  E: 検索KW  F: 狙い
 G: ステータス（未生成/生成済み/公開済み/投稿失敗）
 H: タイトル  I: 生成日  J: 公開日
 K: YouTube URL  L: Instagram URL  M: X URL  N: TikTok URL
 O: 再生数  P: 備考  Q-V: レビュー列
+W: YouTube video ID
+X: content_id（永続主キー。例: gachiho_000001）
+Y: Instagram media ID  Z: X post ID  AA: TikTok post ID
+AB: created_at  AC: updated_at
 ```
-- **コードは B列（フォルダ名）のみをキーに使う。A列・タイトル検索は禁止。**
+- **content_id が永続主キー。B列（フォルダ名）はローカルファイル操作用。A列・タイトル検索は禁止。**
 
 ## Rules & Commands
 
