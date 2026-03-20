@@ -63,7 +63,7 @@ _PARTICLE_ENDING = re.compile(r"[はがをにでとも]$")
 _RE_NUMBER = re.compile(r"\d+[万億円%年ヶ月倍本歳]?")
 
 # 感情テーマ（数字チェックを緩める）
-_EMOTION_THEMES = {"継続モチベ系", "積立疲れ系", "比較焦り系", "あるある"}
+_EMOTION_THEMES = {"継続モチベ系", "積立疲れ系", "比較焦り系", "あるある", "動いて崩した系"}
 
 
 def lint_all_scenes(script_data: dict) -> list[dict]:
