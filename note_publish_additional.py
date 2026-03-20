@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import time
 
 from playwright.sync_api import Page
@@ -261,6 +262,39 @@ def _upload_header_image(page: Page, image_path: pathlib.Path):
     time.sleep(2)
 
 
+_URL_LINE_RE = re.compile(r"^https?://\S+$")
+
+# noteエディタ内の埋め込みカード検出用セレクタ
+_EMBED_SELECTORS = [
+    'div.ProseMirror iframe',
+    'div.ProseMirror [data-embed-card]',
+    'div.ProseMirror .embed-card',
+    'div.ProseMirror [class*="embed"]',
+]
+
+
+def _wait_for_embed_card(page: Page, before_count: int, timeout: int = 5000) -> bool:
+    """埋め込みカードが新たに出現したかを判定する。"""
+    import time as _time
+    deadline = _time.time() + timeout / 1000
+    while _time.time() < deadline:
+        for sel in _EMBED_SELECTORS:
+            count = page.locator(sel).count()
+            if count > before_count:
+                return True
+        _time.sleep(0.3)
+    return False
+
+
+def _count_embed_cards(page: Page) -> int:
+    """現在の埋め込みカード数を返す。"""
+    for sel in _EMBED_SELECTORS:
+        count = page.locator(sel).count()
+        if count > 0:
+            return count
+    return 0
+
+
 def _fill_editor(page: Page, title: str, body_text: str):
     title_el = page.wait_for_selector('textarea[placeholder="記事タイトル"]', timeout=10000)
     title_el.click()
@@ -270,14 +304,38 @@ def _fill_editor(page: Page, title: str, body_text: str):
     if current_title != title:
         raise RuntimeError(f"タイトル入力未反映: {current_title!r}")
 
-    body_el = page.wait_for_selector('div.ProseMirror[role="textbox"]', timeout=10000)
-    body_el.click()
-    page.keyboard.insert_text(body_text)
+    body = page.locator('div.ProseMirror[role="textbox"]')
+    body.click()
+
+    # 全行を1行ずつ入力。URL行は press_sequentially + Enter でカード変換。
+    # insert_text は使わない（noteのProseMirrorで改行・カード変換が不安定になるため）。
+    for line in body_text.splitlines():
+        stripped = line.strip()
+
+        if _URL_LINE_RE.match(stripped):
+            # URL行: タイプ → Enter → カードDOM出現待ち
+            before = _count_embed_cards(page)
+            body.press_sequentially(stripped, delay=15)
+            body.press("Enter")
+
+            embedded = _wait_for_embed_card(page, before, timeout=5000)
+            if embedded:
+                print(f"    カード変換成功: {stripped[:50]}")
+            else:
+                print(f"    [警告] カード変換未確認: {stripped[:50]}")
+                # 失敗時もう1回 Enter を試す
+                body.press("Enter")
+                time.sleep(1)
+        else:
+            if line:
+                body.press_sequentially(line, delay=3)
+            body.press("Enter")
+
     time.sleep(1)
-    current_body = page.locator('div.ProseMirror[role="textbox"]').inner_text().strip()
+    current_body = body.inner_text().strip()
     if len(current_body) < 50:
         raise RuntimeError("本文入力がnote側で確定していません")
-    page.keyboard.press("Escape")
+    body.press("Escape")
     time.sleep(0.5)
 
 
