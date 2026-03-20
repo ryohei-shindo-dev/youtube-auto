@@ -153,53 +153,88 @@ CLOSING_SLIDE_TEXTS = [
 ]
 
 # ── ループ再生用closingテンプレート ──
-# {hook} にhookワードが埋め込まれる。closing→hookが自然に繋がりループ再生を誘発。
-# 名詞系hook用（暴落、含み損…）: 「{hook}でも」が自然
-_LOOP_CLOSING_NOUN = [
-    ("{hook}でも、そのままでいい。", "{hook}でも、そのままで"),
-    ("{hook}でも、続いている。", "{hook}でも、続いている"),
-    ("{hook}でも、静かに持つ。", "{hook}でも、静かに持つ"),
+# hook文字列を直接埋め込まない設計。hookの感情タイプに応じた余韻句を使う。
+# 焦り系hook用（含み損、売りたい、増えない…）
+_LOOP_CLOSING_ANXIETY = [
+    ("焦る日があっても、そのままでいい。", "そのままでいい"),
+    ("不安な日でも、続いている。", "続いている"),
+    ("揺れても、静かに持つ。", "静かに持つ"),
+    ("怖くても、まだ降りなくていい。", "降りなくていい"),
 ]
-# 形容詞系hook用（眠れない、つらい、怖い、虚しい…）: 「{hook}。それでも」が自然
-_LOOP_CLOSING_ADJ = [
-    ("{hook}。それでも続いている。", "{hook}。それでも続いている"),
-    ("{hook}。それでも持っている。", "{hook}。それでも持っている"),
-    ("{hook}。それでも、そのままで。", "{hook}。そのままで"),
+# 比較・目移り系hook用
+_LOOP_CLOSING_COMPARISON = [
+    ("比べたくなる日でも、そのままでいい。", "そのままでいい"),
+    ("誰かと比べても、あなたのペースでいい。", "あなたのペースで"),
+    ("周りが気になっても、自分の道で。", "自分の道で"),
 ]
-# 共通（どちらでも使える）
+# 停滞・退屈系hook用
+_LOOP_CLOSING_STAGNATION = [
+    ("変わらない日でも、そのままでいい。", "そのままでいい"),
+    ("退屈でも、それが一番強い。", "それが一番強い"),
+    ("実感がなくても、続いている。", "続いている"),
+    ("地味でも、それでいい。", "それでいい"),
+]
+# 暴落・下落系hook用
+_LOOP_CLOSING_CRASH = [
+    ("下がっても、まだ降りなくていい。", "降りなくていい"),
+    ("荒れた日でも、そのままでいい。", "そのままでいい"),
+    ("怖い日でも、続いている人がいる。", "続いている人がいる"),
+]
+# 共通（どのタイプでも使える）
 _LOOP_CLOSING_COMMON = [
-    ("{hook}…それでも持つ。", "{hook}…それでも持つ"),
-]
-# 継続モチベ系（hook非再掲・穏やかな締め専用文）
-_LOOP_CLOSING_CONTINUATION = [
-    ("それでも、今日もそのままでいい。", "そのままでいい"),
+    ("それでも、そのままでいい。", "そのままでいい"),
     ("でも、それで十分です。", "それで十分です"),
     ("焦らなくて大丈夫。", "焦らなくて大丈夫"),
     ("今日も続いている。それでいい。", "続いている。それでいい"),
-    ("今夜は変えなくていい。", "変えなくていい"),
 ]
-# 形容詞・動詞系hookの判定語尾（「暴落」「含み損」等の名詞は非マッチ→NOUN用）
-_ADJ_HOOK_ENDINGS = ["ない", "たい", "しい", "つい", "にくい", "づらい"]
+
+# テーマ名 → closing候補群のマッピング
+_THEME_CLOSING_MAP = {
+    "継続モチベ系": _LOOP_CLOSING_STAGNATION,
+    "積立疲れ系": _LOOP_CLOSING_STAGNATION,
+    "比較焦り系": _LOOP_CLOSING_COMPARISON,
+    "あるある": _LOOP_CLOSING_ANXIETY,
+}
+
+# hookキーワードによる感情タイプ判定
+_HOOK_TYPE_KEYWORDS = {
+    "crash": ["暴落", "下落", "急落", "崩壊", "リーマン", "コロナ"],
+    "comparison": ["比べ", "比較", "SNS", "儲かって", "目移り", "隣の", "周り"],
+    "stagnation": ["変わらない", "増えない", "退屈", "実感", "地味"],
+}
+
+
+def _classify_hook_type(hook: str) -> str:
+    """hookの感情タイプを判定する。"""
+    for hook_type, keywords in _HOOK_TYPE_KEYWORDS.items():
+        if any(kw in hook for kw in keywords):
+            return hook_type
+    return "anxiety"  # デフォルトは焦り系
+
+
+_HOOK_TYPE_TO_CLOSINGS = {
+    "crash": _LOOP_CLOSING_CRASH,
+    "comparison": _LOOP_CLOSING_COMPARISON,
+    "stagnation": _LOOP_CLOSING_STAGNATION,
+    "anxiety": _LOOP_CLOSING_ANXIETY,
+}
 
 
 def _pick_loop_closing(hook: str, theme_name: str = "") -> tuple:
-    """hookの品詞・テーマに応じてループ再生用closingテンプレートを選択する。"""
-    # 継続モチベ系: hook非再掲の穏やか専用文
-    if theme_name == "継続モチベ系":
-        return random.choice(_LOOP_CLOSING_CONTINUATION)
-    is_adj = any(hook.endswith(e) for e in _ADJ_HOOK_ENDINGS)
-    pool = (_LOOP_CLOSING_ADJ if is_adj else _LOOP_CLOSING_NOUN) + _LOOP_CLOSING_COMMON
+    """hookの感情タイプ・テーマに応じてclosing余韻句を選択する。"""
+    # テーマ名で直接マッチすればそれを優先
+    if theme_name in _THEME_CLOSING_MAP:
+        pool = _THEME_CLOSING_MAP[theme_name] + _LOOP_CLOSING_COMMON
+        return random.choice(pool)
+    # hookキーワードから感情タイプを判定
+    hook_type = _classify_hook_type(hook)
+    pool = _HOOK_TYPE_TO_CLOSINGS[hook_type] + _LOOP_CLOSING_COMMON
     return random.choice(pool)
 
 
 def _apply_loop_closing(scenes: list, hook_word: str, theme_name: str = "") -> tuple:
-    """hookワードからループ再生用closingを生成してscenesに反映する。"""
-    tpl_text, tpl_slide = _pick_loop_closing(hook_word, theme_name)
-    closing = tpl_text.format(hook=hook_word)
-    closing_slide = tpl_slide.format(hook=hook_word)
-    # 「まだ待つのでも」のように「の」+「でも」が繋がる場合、句点を挿入
-    closing = re.sub(r"のでも([、。])", r"の。でも\1", closing)
-    closing_slide = re.sub(r"のでも([、。])", r"の。でも\1", closing_slide)
+    """hookの感情タイプからclosing余韻句を生成してscenesに反映する。"""
+    closing, closing_slide = _pick_loop_closing(hook_word, theme_name)
     # 4本に1本だけ弱いCTAを付加
     if random.random() < _SHORTS_CTA_RATIO:
         cta = random.choice(CLOSING_PHRASES_LIST)
@@ -323,9 +358,21 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
 出力表記ルールとして、ユーザー向けの文面では `積立` ではなく `積み立て` を使うこと。
 
 ★全シーンの繋がりルール:
-  基本型: hook（痛み）→ empathy（共感）→ data（でも希望がある）→ resolve（だから大丈夫）→ closing
+  基本型: hook（痛み）→ empathy（心の声）→ data（事実で視点を変える）→ resolve（気持ちを整える）→ closing（余韻）
   前のシーンの内容を受けて、次のシーンが自然に続くこと。
-  各シーンを単独で読んでも意味が通じ、かつ続けて読むと1つの物語になること。
+  各シーンは単独でも大意が伝わること。ただし最優先は、5シーンを通して自然な一続きの感情の流れになること。
+
+★表現の重複禁止:
+  5シーンを通して、同じ中核フレーズや象徴的な名詞句を繰り返し使わないこと。
+  同じ意味を扱う場合も、別の角度・別の言い方に言い換えること。
+  hookで使った強い語句をdataやclosingでそのまま反復しないこと。
+  例: hook「積み立て10年目」→ data「10年目から加速する」→ closing「積み立て10年目」は禁止。
+  hookの核心を別の表現で受け継ぐこと。
+
+★読み上げ適性:
+  音声合成で一息に自然に読める文にすること。
+  「〜のでも」「〜がが」「〜をを」など不自然な接続を作らないこと。
+  引用符や記号に頼りすぎないこと。
 
   ★継続モチベ系のテーマでは、以下の代替曲線も使える:
   曲線A: hook（静かな違和感）→ empathy（整理）→ data（事実）→ resolve（肯定）→ closing
@@ -402,20 +449,28 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    hookは必ず「恐怖・後悔・焦り」のどれかを刺せ。
    ★画面表示用のslide_textは文末の句点不要。「含み損」「3年、増えない」のように止める。
 
-2. empathy（2〜3秒）: hookの痛みを受けて、視聴者の気持ちを代弁する共感1文。{opening}
+2. empathy（2〜3秒）: hookの痛みを受けて、視聴者の心の声を代弁する共感1文。{opening}
    【前シーンとの繋がり】hookで提示した痛みに直接応答すること。
    {opening}がある場合 → 共感文の後に「{opening}」を付ける。例: 「あなただけじゃない。{opening}」
    {opening}が空の場合 → 共感文だけでOK。
-   最大15文字。
+   目安は8〜18文字、最大20文字。
+   empathyは説明ではなく、その瞬間に頭の中でつぶやく心の声を書くこと。
+   必ず自然な日本語の完全文にすること。
    共感の型（毎回同じにならないよう変えること）:
    ■ 共有型: 「あなただけじゃない。」「みんな通る道。」
    ■ 肯定型: 「その感覚は普通です。」「そこで迷う人は多い。」
    ■ 代弁型: 「それで揺れるのは当然。」「誰だって怖い。」
+   ■ 心の声型: 「これ、意味あるのかな。」「私だけ遅い気がした。」
    良い: hook「含み損。」→ empathy「あなただけじゃない。」← hookの痛みに直接応答。
    良い: hook「積立3年、増えない。」→ empathy「そこで迷う人は多い。」← 「増えない」への共感。
+   良い: hook「積立3年、増えない。」→ empathy「これ、意味あるのかな。」← 心の声として自然。
    悪い: hook「暴落。」→ empathy「つらいですよね。」← 何がつらい？hookの内容を受けていない。
    悪い: hook「含み損。」→ empathy「投資は難しいですよね。」← 一般論。hookの痛みと無関係。
-   ★NG: empathyが「あなたも」「あなたも。」だけの一語は禁止。必ず文にすること。
+   ★NG:
+   - 一語のみ（例: 「あなたも。」）
+   - 途中で切れた文（例: 「その「まだ？。」）
+   - 説明語だけの断片
+   - 主述のない共感ラベル
    ★「あなただけじゃない」は使ってよいが、前に投資あるあるの文脈（含み損・積立疲れ・比較焦り等）を必ず含めること。
 
 3. data（4秒）: 数字1つで希望を見せる。教えるな。
@@ -517,8 +572,16 @@ Shortsは説明動画ではない。15秒の感情ストーリーだ。
    悪い: data「でも、月3万の積立、30年後に6000万。」→ resolve「暴落は味方だ。」
      ← 積立の話なのに暴落の結論。因果関係がない。
 
-5. closing（2秒）: 固定。textは「{closing}」のみ。
-   closingはresolveの余韻を壊さないこと。命令口調ではなく、静かに終えること。
+5. closing（2秒）: resolveを受けて静かに終わる余韻の一文。textは「{closing}」のみ。
+   新情報を足さないこと。hookのキーワードをそのまま繰り返さないこと。
+   命令口調ではなく、音声で自然に読める短文にすること。
+
+━━━ 出力前チェック ━━━
+出力する前に以下を確認すること:
+- 5シーン内で同じ4文字以上の中核フレーズを3回以上使っていないか
+- empathyが自然な完全文になっているか（断片や一語ではないか）
+- closingがhookの言い換えではなく余韻になっているか
+- 音声で一息に不自然に読まれる接続がないか
 
 ━━━ 絶対禁止 ━━━
 - 説明文（「〜は〜です」型の文）
