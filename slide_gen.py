@@ -53,7 +53,7 @@ FONT_PATH_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 PHOTOS_DIR = ASSETS_DIR / "photos"
 PHOTO_HISTORY_PATH = pathlib.Path(__file__).parent / "debug" / "photo_history.json"
-PHOTO_HISTORY_KEEP = 12
+PHOTO_HISTORY_KEEP = 30
 
 CHANNEL_NAME = "ガチホのモチベ"
 BRAND_LABEL_COLOR = (180, 180, 180)
@@ -447,7 +447,7 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
     history = _load_photo_history()
     blocked_names = set(history.get(category, [])[-PHOTO_HISTORY_KEEP:])
     if role == "hook":
-        blocked_names.update(_get_recent_published_hook_photo_names(limit=1))
+        blocked_names.update(_get_recent_published_hook_photo_names(limit=6))
     candidates = [p for p in photos if p.name not in blocked_names] or photos
     selected = random.choice(candidates)
 
