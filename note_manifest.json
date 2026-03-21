@@ -766,5 +766,89 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null
+  },
+  {
+    "sheet_no": 65,
+    "note_key": "ne16fb9dfd529",
+    "sheet_title": "売ったら上がった。長期投資でタイミングを計りたくなるときの整理法",
+    "md_path": "note_articles/note_ugokite_01_売ったら上がった.md",
+    "image_path": "note_images/note_ugokite_01.png",
+    "url": "https://note.com/gachiho_motive/n/ne16fb9dfd529",
+    "image_title": "売ったら上がった",
+    "image_subtitle": "タイミングを計りたくなるときの整理法",
+    "image_bg": "売却",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 66,
+    "note_key": "nccf6170767e8",
+    "sheet_title": "押し目待ちで買えなくなる理由｜下がるのを待つほど動けなくなる理由",
+    "md_path": "note_articles/note_ugokite_02_下がるのを待っていたら買えなか.md",
+    "image_path": "note_images/note_ugokite_02.png",
+    "url": "https://note.com/gachiho_motive/n/nccf6170767e8",
+    "image_title": "下がるのを待っていたら",
+    "image_subtitle": "買えなくなる理由",
+    "image_bg": "行動",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 67,
+    "note_key": "n1f3ac52a9bd7",
+    "sheet_title": "積み立てをやめたあとに相場が戻ったとき｜後悔が強くなりやすい理由と、仕組みに戻す方法",
+    "md_path": "note_articles/note_ugokite_03_積立をやめたあとに相場が戻った.md",
+    "image_path": "note_images/note_ugokite_03.png",
+    "url": "https://note.com/gachiho_motive/n/n1f3ac52a9bd7",
+    "image_title": "積立をやめたあとに",
+    "image_subtitle": "相場が戻ったとき",
+    "image_bg": "積立",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 68,
+    "note_key": "n5b632a4334b4",
+    "sheet_title": "口座を見すぎて余計な売買をしてしまう人へ｜確認癖が判断を増やす理由",
+    "md_path": "note_articles/note_ugokite_04_口座を見すぎて余計な売買をして.md",
+    "image_path": "note_images/note_ugokite_04.png",
+    "url": "https://note.com/gachiho_motive/n/n5b632a4334b4",
+    "image_title": "口座を見すぎて余計な",
+    "image_subtitle": "売買をしてしまう",
+    "image_bg": "不安",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 69,
+    "note_key": "ne52954281487",
+    "sheet_title": "乗り換えたら前の銘柄のほうが伸びた｜投資先を変えて後悔するときの考え方",
+    "md_path": "note_articles/note_ugokite_05_乗り換えたら前のほうが伸びた。.md",
+    "image_path": "note_images/note_ugokite_05.png",
+    "url": "https://note.com/gachiho_motive/n/ne52954281487",
+    "image_title": "乗り換えたら前のほうが",
+    "image_subtitle": "伸びた",
+    "image_bg": "比較",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 70,
+    "note_key": "ne5895d1788cf",
+    "sheet_title": "全売りしたあと、投資を再開できないのはなぜ｜後悔と怖さを整理する",
+    "md_path": "note_articles/note_ugokite_06_怖くなって全部売ったあと、戻れ.md",
+    "image_path": "note_images/note_ugokite_06.png",
+    "url": "https://note.com/gachiho_motive/n/ne5895d1788cf",
+    "image_title": "怖くなって全部売った",
+    "image_subtitle": "戻れなくなった",
+    "image_bg": "不安",
+    "photo_path": null
+  },
+  {
+    "sheet_no": 71,
+    "note_key": "ne76cf4ddce58",
+    "sheet_title": "投資で迷った日に、AIで「何に不安なのか」を整理する方法",
+    "md_path": "note_articles/note_ai_test_投資で迷った日にAIで何に不安なのかを整理する方法.md",
+    "image_path": null,
+    "url": "https://note.com/gachiho_motive/n/ne76cf4ddce58",
+    "image_title": "投資の不安を\nAIで整理する",
+    "image_subtitle": "揺れた日のためのメモ",
+    "image_bg": "希望",
+    "photo_path": null
   }
 ]
