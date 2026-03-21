@@ -47,3 +47,8 @@ assets/playlist_thumbnails/
 __pycache__/
 *.pyc
 note_images/
+
+# note一時データ
+all_notes.json
+scheduled_notes.json
+threads_post_history.jsonl
