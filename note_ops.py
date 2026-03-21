@@ -467,11 +467,12 @@ def set_tags(page: Page, tags: list[str]):
         print(f"    [警告] タグ設定失敗: {e}")
 
 
-def add_to_magazine(page: Page):
+def add_to_magazine(page: Page, magazine_name: str | None = None):
     """マガジンに追加する。"""
+    name = magazine_name or NOTE_MAGAZINE
     try:
         btn = page.wait_for_selector(
-            f'button:has-text("追加"):near(:text("{NOTE_MAGAZINE}"))', timeout=5000
+            f'button:has-text("追加"):near(:text("{name}"))', timeout=5000
         )
         btn.click()
         time.sleep(1)

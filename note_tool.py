@@ -292,6 +292,174 @@ def cmd_discard_draft(args):
         ops.close(pw, context)
 
 
+def cmd_publish_queue(args):
+    """note_publish_queue.json の記事を一括予約投稿する。"""
+    queue_path = SCRIPT_DIR / "note_publish_queue.json"
+    if not queue_path.exists():
+        print("note_publish_queue.json がありません")
+        print("先に note_schedule_mixer.py plan --write を実行してください")
+        return
+
+    queue = json.loads(queue_path.read_text(encoding="utf-8"))
+
+    # フィルタ
+    if args.failed_only:
+        targets = [q for q in queue if q.get("status") == "failed"]
+        print(f"失敗分リトライ: {len(targets)}本")
+    else:
+        targets = [q for q in queue if q.get("status") == "planned"]
+        print(f"計画済み: {len(targets)}本")
+
+    if args.limit:
+        targets = targets[:args.limit]
+        print(f"  --limit {args.limit} → {len(targets)}本に制限")
+
+    if not targets:
+        print("対象記事がありません")
+        return
+
+    if args.dry_run:
+        print(f"\n[プレビュー] 以下の {len(targets)} 本を投稿します:")
+        for i, t in enumerate(targets, 1):
+            print(f"  {i}. [{t['category']:8s}] {t['schedule_at']} {t['title'][:40]}")
+        return
+
+    # manifest を読み込み（成功時に反映するため）
+    manifest_path = SCRIPT_DIR / "note_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_by_no = {m["sheet_no"]: m for m in manifest}
+
+    pw, context, page = ops.launch()
+    success = fail = 0
+    try:
+        for i, entry in enumerate(targets, 1):
+            title_short = entry["title"][:35]
+            print(f"\n{'=' * 50}")
+            print(f"  [{i}/{len(targets)}] {title_short}")
+            print(f"  カテゴリ: {entry['category']} / 予約: {entry['schedule_at']}")
+            print(f"{'=' * 50}")
+
+            md_path = pathlib.Path(entry["md_path"])
+            image_path = pathlib.Path(entry["image_path"]) if entry.get("image_path") else None
+
+            if not md_path.exists():
+                print(f"  [スキップ] MDファイルなし: {md_path}")
+                entry["status"] = "failed"
+                entry["last_step"] = "file_check"
+                entry["last_error"] = f"MDファイルなし: {md_path}"
+                entry["attempts"] = entry.get("attempts", 0) + 1
+                fail += 1
+                _save_queue(queue_path, queue)
+                continue
+
+            entry["status"] = "processing"
+            entry["attempts"] = entry.get("attempts", 0) + 1
+            _save_queue(queue_path, queue)
+
+            try:
+                title, body = ops.load_article(md_path)
+
+                entry["last_step"] = "open_editor"
+                page.goto("https://note.com/new")
+                page.wait_for_load_state("networkidle")
+                time.sleep(3)
+                ops.dismiss_modals(page)
+
+                # 画像アップロード
+                entry["last_step"] = "upload_image"
+                if image_path and image_path.exists():
+                    ops.upload_header_image(page, image_path)
+                    print("  画像アップロード完了")
+
+                # 本文入力
+                entry["last_step"] = "fill_editor"
+                ops.fill_editor(page, title, body)
+                print("  本文入力完了")
+
+                # 下書き保存
+                entry["last_step"] = "draft_save"
+                save_btn = page.wait_for_selector(
+                    'button:has-text("下書き保存"), button:has-text("一時保存")',
+                    timeout=10000,
+                )
+                save_btn.click()
+                time.sleep(3)
+
+                # 公開設定
+                entry["last_step"] = "go_to_publish"
+                ops.go_to_publish(page)
+
+                # タグ設定
+                entry["last_step"] = "set_tags"
+                tags = entry.get("tags") or ops.NOTE_TAGS
+                ops.set_tags(page, tags)
+
+                # マガジン追加
+                entry["last_step"] = "add_to_magazine"
+                magazine = entry.get("magazine")
+                ops.add_to_magazine(page, magazine)
+
+                # 予約日時設定
+                entry["last_step"] = "set_schedule"
+                ops.go_to_detail_settings(page)
+                ops.set_schedule(page, entry["schedule_at"])
+                print(f"  予約設定完了: {entry['schedule_at']}")
+
+                # 確定
+                entry["last_step"] = "finalize"
+                ops.finalize(page)
+                print("  予約投稿完了 ✅")
+
+                entry["status"] = "scheduled"
+                entry["last_error"] = None
+                success += 1
+                ops.log_result(
+                    f"queue_{entry['sheet_no']}", "publish-queue",
+                    ops.RESULT_SUCCESS, extra={"title": title},
+                )
+
+                # manifest に反映（note_key は投稿後に collect-ids で取得）
+                m = manifest_by_no.get(entry["sheet_no"])
+                if m:
+                    m["scheduled_at"] = entry["schedule_at"]
+
+            except Exception as e:
+                print(f"  [エラー] {e}")
+                ops.take_debug_snapshot(page, f"publish_queue_{entry['sheet_no']}")
+                entry["status"] = "failed"
+                entry["last_error"] = str(e)[:200]
+                fail += 1
+                ops.log_result(
+                    f"queue_{entry['sheet_no']}", "publish-queue",
+                    ops.RESULT_ERROR, error_message=str(e),
+                )
+
+            # 都度保存（途中停止に備える）
+            _save_queue(queue_path, queue)
+            time.sleep(2)
+
+    finally:
+        ops.close(pw, context)
+
+    # manifest を保存
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    print(f"\n{'=' * 50}")
+    print(f"  完了: 成功 {success}, 失敗 {fail}")
+    print(f"{'=' * 50}")
+
+
+def _save_queue(path: pathlib.Path, queue: list[dict]):
+    """キューファイルを保存する。"""
+    path.write_text(
+        json.dumps(queue, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def cmd_inspect(args):
     """記事を開いて状態を確認する。"""
     pw, context, page = ops.launch()
@@ -354,6 +522,11 @@ def main():
     p = sub.add_parser("discard-draft", help="下書きを破棄")
     p.add_argument("--note-id", required=True)
 
+    p = sub.add_parser("publish-queue", help="note_publish_queue.json の記事を一括予約投稿")
+    p.add_argument("--limit", type=int, help="最大処理本数")
+    p.add_argument("--failed-only", action="store_true", help="失敗したものだけリトライ")
+    p.add_argument("--dry-run", action="store_true", help="対象確認のみ")
+
     p = sub.add_parser("inspect", help="記事を開いて手動確認")
     p.add_argument("--note-id", required=True)
 
@@ -366,6 +539,7 @@ def main():
         "collect-ids": cmd_collect_ids,
         "sync-manifest": cmd_sync_manifest,
         "publish": cmd_publish,
+        "publish-queue": cmd_publish_queue,
         "replace-images": cmd_replace_images,
         "rewrite-body": cmd_rewrite_body,
         "fix-link-cards": cmd_fix_link_cards,
