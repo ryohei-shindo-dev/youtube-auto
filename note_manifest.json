@@ -9,7 +9,8 @@
     "image_title": "含み損の夜に",
     "image_subtitle": "確認回数を減らすだけで変わること",
     "image_bg": "含み損",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 2,
@@ -21,7 +22,8 @@
     "image_title": "積立3年目の壁",
     "image_subtitle": "一番地味な時期をどう越えるか",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 3,
@@ -33,7 +35,8 @@
     "image_title": "暴落の夜に\n思い出す数字",
     "image_subtitle": "15年持ち続けた人のデータ",
     "image_bg": "暴落",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 4,
@@ -45,7 +48,8 @@
     "image_title": "爆益を見て焦る夜",
     "image_subtitle": "比較をやめるための1つの視点",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 5,
@@ -57,7 +61,8 @@
     "image_title": "利確と複利の境目",
     "image_subtitle": "売った後に起きていること",
     "image_bg": "利確",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 6,
@@ -69,7 +74,8 @@
     "image_title": "毎日口座を見る人へ",
     "image_subtitle": "確認するたび不安が増える理由",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 7,
@@ -81,7 +87,8 @@
     "image_title": "積立をやめたくなる瞬間",
     "image_subtitle": "やめた人が口にする後悔",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 8,
@@ -93,7 +100,8 @@
     "image_title": "暴落から1年後",
     "image_subtitle": "売らなかった人が受け取った数字",
     "image_bg": "暴落",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 9,
@@ -105,7 +113,8 @@
     "image_title": "20年と元本割れ",
     "image_subtitle": "眠れない夜に思い出す数字",
     "image_bg": "長期",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 10,
@@ -117,7 +126,8 @@
     "image_title": "初めての暴落の夜",
     "image_subtitle": "売りたくなるのは正常です",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 11,
@@ -129,7 +139,8 @@
     "image_title": "下がった時こそ",
     "image_subtitle": "ドルコスト平均法の安く買える期間",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 12,
@@ -141,7 +152,8 @@
     "image_title": "増えない10年間",
     "image_subtitle": "複利は静かに動いている",
     "image_bg": "複利",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 13,
@@ -153,7 +165,8 @@
     "image_title": "退場しない人の共通点",
     "image_subtitle": "特別なことは何もない",
     "image_bg": "退場",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 14,
@@ -165,7 +178,8 @@
     "image_title": "つい売った人へ",
     "image_subtitle": "直前にやっていたこと",
     "image_bg": "売却",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 15,
@@ -177,7 +191,8 @@
     "image_title": "バフェットの退潮時",
     "image_subtitle": "含み損の夜に読む意味",
     "image_bg": "余韻",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 16,
@@ -189,7 +204,8 @@
     "image_title": "新NISAをやめたい夜",
     "image_subtitle": "1〜2年目の離脱が一番多い傾向",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 17,
@@ -201,7 +217,8 @@
     "image_title": "含み益なのに不安",
     "image_subtitle": "利益が出ている状態ほど揺れやすい",
     "image_bg": "含み損",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 18,
@@ -213,7 +230,8 @@
     "image_title": "始めるのが遅かった夜",
     "image_subtitle": "遅れたと感じるときの整理法",
     "image_bg": "長期",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 19,
@@ -225,7 +243,8 @@
     "image_title": "老後資金が不安な夜",
     "image_subtitle": "間に合わない気がするときの数字",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 20,
@@ -237,7 +256,8 @@
     "image_title": "一括投資が怖い理由",
     "image_subtitle": "怖さの中身を分けると整理しやすい",
     "image_bg": "行動",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 21,
@@ -249,7 +269,8 @@
     "image_title": "今買って大丈夫か",
     "image_subtitle": "積立なのに不安になる構造",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 22,
@@ -261,7 +282,8 @@
     "image_title": "買っておけばの夜",
     "image_subtitle": "機会損失の痛みは含み損より深い",
     "image_bg": "含み損",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 23,
@@ -273,7 +295,8 @@
     "image_title": "円高が怖い夜に",
     "image_subtitle": "20年で見れば薄まりやすい傾向",
     "image_bg": "暴落",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 24,
@@ -285,7 +308,8 @@
     "image_title": "一括か積立か",
     "image_subtitle": "迷う人が見落としやすい前提",
     "image_bg": "行動",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 25,
@@ -297,7 +321,8 @@
     "image_title": "現金のままだと",
     "image_subtitle": "何が起きやすいかを数字で見る",
     "image_bg": "長期",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 26,
@@ -309,7 +334,8 @@
     "image_title": "積立を止めない意味",
     "image_subtitle": "下がっている時期にこそ効く仕組み",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 27,
@@ -321,7 +347,8 @@
     "image_title": "何もしなかった日",
     "image_subtitle": "動かないことは戦略の実行",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 28,
@@ -333,7 +360,8 @@
     "image_title": "派手さゼロ",
     "image_subtitle": "でも20年後、それが最強になる",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 29,
@@ -345,7 +373,8 @@
     "image_title": "気づいたら\n続いていた",
     "image_subtitle": "長期投資の正体",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 30,
@@ -357,7 +386,8 @@
     "image_title": "相場が冷え込む時",
     "image_subtitle": "積み立ては本当の出番です",
     "image_bg": "継続",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 31,
@@ -369,7 +399,8 @@
     "image_title": "増えてる実感が\nない日ほど",
     "image_subtitle": "積み立ては効いている",
     "image_bg": "継続",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 32,
@@ -381,7 +412,8 @@
     "image_title": "新NISAで\n何を買うか",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 33,
@@ -393,7 +425,8 @@
     "image_title": "引き落とされた",
     "image_subtitle": "それで十分です",
     "image_bg": "継続",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 34,
@@ -405,7 +438,8 @@
     "image_title": "自分だけ遅い",
     "image_subtitle": "比較を静かにする",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 35,
@@ -417,7 +451,8 @@
     "image_title": "何も起きない日",
     "image_subtitle": "いちばん長期投資らしい",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 36,
@@ -429,7 +464,8 @@
     "image_title": "増減に\n一喜一憂する前に",
     "image_subtitle": "",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 37,
@@ -441,7 +477,8 @@
     "image_title": "他の投資が\n伸びて見える",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 38,
@@ -453,7 +490,8 @@
     "image_title": "積み立て20年\nゴールが見えない",
     "image_subtitle": "",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 39,
@@ -465,7 +503,8 @@
     "image_title": "他人の資産額と\n自分の積み立て",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 40,
@@ -477,7 +516,8 @@
     "image_title": "40代で始めた",
     "image_subtitle": "もう遅い気がする理由",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 41,
@@ -489,7 +529,8 @@
     "image_title": "SNSの正解を\n見すぎた日",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 42,
@@ -501,7 +542,8 @@
     "image_title": "商品を減らしたら\n落ち着いた",
     "image_subtitle": "",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 43,
@@ -513,7 +555,8 @@
     "image_title": "オルカンなのに\n置いていかれる",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 44,
@@ -525,7 +568,8 @@
     "image_title": "取り崩しまで\n20年",
     "image_subtitle": "夜眠れなくなるのはなぜ",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 45,
@@ -537,7 +581,8 @@
     "image_title": "勉強するほど\n迷う",
     "image_subtitle": "シンプルに戻す方法",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 46,
@@ -549,7 +594,8 @@
     "image_title": "投資信託を\n増やしすぎると",
     "image_subtitle": "迷いが深くなることがあります",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 47,
@@ -561,7 +607,8 @@
     "image_title": "配当利回り5%の",
     "image_subtitle": "過去データを確認してから返事す",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 48,
@@ -573,7 +620,8 @@
     "image_title": "積み立て額を減ら",
     "image_subtitle": "まず確認したい「3ヶ月前の自分",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 49,
@@ -585,7 +633,8 @@
     "image_title": "NASDAQ10",
     "image_subtitle": "実は揺れているのは心",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 50,
@@ -597,7 +646,8 @@
     "image_title": "正しいのに\n退屈",
     "image_subtitle": "",
     "image_bg": "継続",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 51,
@@ -609,7 +659,8 @@
     "image_title": "他人の成績表を\n見ない日",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 52,
@@ -621,7 +672,8 @@
     "image_title": "何もしない\n不安",
     "image_subtitle": "",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 53,
@@ -633,7 +685,8 @@
     "image_title": "画面を見なかった",
     "image_subtitle": "一番いい投資判断だった",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 54,
@@ -645,7 +698,8 @@
     "image_title": "爆益を見た夜",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 55,
@@ -657,7 +711,8 @@
     "image_title": "S&P500が\n遅く見える",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 56,
@@ -669,7 +724,8 @@
     "image_title": "オルカンで\nいいのか",
     "image_subtitle": "",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "add"
   },
   {
     "sheet_no": 57,
@@ -681,7 +737,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 58,
@@ -693,7 +750,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 59,
@@ -705,7 +763,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 60,
@@ -717,7 +776,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 61,
@@ -729,7 +789,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 62,
@@ -741,7 +802,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 63,
@@ -753,7 +815,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 64,
@@ -765,7 +828,8 @@
     "image_title": null,
     "image_subtitle": null,
     "image_bg": null,
-    "photo_path": null
+    "photo_path": null,
+    "category": "core"
   },
   {
     "sheet_no": 65,
@@ -777,7 +841,8 @@
     "image_title": "売ったら上がった",
     "image_subtitle": "タイミングを計りたくなるときの整理法",
     "image_bg": "売却",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 66,
@@ -789,7 +854,8 @@
     "image_title": "下がるのを待っていたら",
     "image_subtitle": "買えなくなる理由",
     "image_bg": "行動",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 67,
@@ -801,7 +867,8 @@
     "image_title": "積立をやめたあとに",
     "image_subtitle": "相場が戻ったとき",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 68,
@@ -813,7 +880,8 @@
     "image_title": "口座を見すぎて余計な",
     "image_subtitle": "売買をしてしまう",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 69,
@@ -825,7 +893,8 @@
     "image_title": "乗り換えたら前のほうが",
     "image_subtitle": "伸びた",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 70,
@@ -837,7 +906,8 @@
     "image_title": "怖くなって全部売った",
     "image_subtitle": "戻れなくなった",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "ugokite"
   },
   {
     "sheet_no": 71,
@@ -849,7 +919,14 @@
     "image_title": "投資の不安を\nAIで整理する",
     "image_subtitle": "揺れた日のためのメモ",
     "image_bg": "希望",
-    "photo_path": null
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT"
+    ],
+    "tag_mode": "merge",
+    "category": "ai"
   },
   {
     "sheet_no": 72,
@@ -861,7 +938,8 @@
     "image_title": "新NISAの含み損",
     "image_subtitle": "長期投資の視点から整理する",
     "image_bg": "含み損",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 73,
@@ -873,7 +951,8 @@
     "image_title": "新NISAで損切り？",
     "image_subtitle": "衝動的に売らないための整理",
     "image_bg": "売却",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 74,
@@ -885,7 +964,8 @@
     "image_title": "何を買えばいい？",
     "image_subtitle": "新NISAで迷ったときの確認ポイント",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 75,
@@ -897,7 +977,8 @@
     "image_title": "月1万円の積み立て",
     "image_subtitle": "小さく続けることの考え方",
     "image_bg": "積立",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 76,
@@ -909,7 +990,8 @@
     "image_title": "オルカンかS&P500か",
     "image_subtitle": "比較疲れの整理",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 77,
@@ -921,7 +1003,8 @@
     "image_title": "暴落で止めるか迷う",
     "image_subtitle": "続けた場合と止めた場合の違い",
     "image_bg": "暴落",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 78,
@@ -933,7 +1016,8 @@
     "image_title": "投資が怖くて始められない",
     "image_subtitle": "最初の一歩が重いときの整理",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 79,
@@ -945,7 +1029,8 @@
     "image_title": "iDeCoと新NISA",
     "image_subtitle": "どちらから始めるかの整理",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 80,
@@ -957,7 +1042,8 @@
     "image_title": "つみたて枠と成長枠",
     "image_subtitle": "迷ったときの判断基準",
     "image_bg": "比較",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
   },
   {
     "sheet_no": 81,
@@ -969,6 +1055,27 @@
     "image_title": "投資をやめたい",
     "image_subtitle": "向いてない気がするときの整理",
     "image_bg": "不安",
-    "photo_path": null
+    "photo_path": null,
+    "category": "seo"
+  },
+  {
+    "sheet_no": 82,
+    "note_key": null,
+    "sheet_title": "新NISAの比較疲れを整理したいとき｜AIに投資相談する前に考えたいこと",
+    "md_path": "note_articles/note_ai_02_新NISAの比較疲れを整理したいとき｜AIに投資相談する前に考えたいこと.md",
+    "image_path": "note_images/note_ai_02_新NISAの比較疲れを整理したいとき.png",
+    "url": null,
+    "image_title": "新NISAの比較疲れを\nAIで整理する",
+    "image_subtitle": "答えより整理が先",
+    "image_bg": "希望",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT",
+      "新NISA"
+    ],
+    "tag_mode": "merge",
+    "category": "ai"
   }
 ]

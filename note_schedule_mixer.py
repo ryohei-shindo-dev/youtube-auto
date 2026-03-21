@@ -52,7 +52,16 @@ def _save_manifest(manifest: list[dict]):
 
 
 def _get_category(entry: dict) -> str:
-    """manifestエントリからカテゴリを判定する。"""
+    """manifestエントリからカテゴリを判定する。
+
+    category フィールドがあればそれを使い、
+    なければ md_path のプレフィックスから推論する（フォールバック）。
+    """
+    cat = entry.get("category")
+    if cat:
+        return cat
+
+    # フォールバック: md_path から推論
     md = entry.get("md_path", "") or ""
     if "ugokite" in md:
         return "ugokite"
