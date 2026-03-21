@@ -157,20 +157,39 @@ def do_debug():
         raise
 
 
-def _markdown_to_note_html(body: str) -> str:
-    """Markdown を note エディタの HTML に変換する。
+_URL_LINE_RE_PUBLISH = re.compile(r"^https?://\S+$")
 
-    ## 見出し → <h3>（note のセクション見出し）
-    **太字** → <b>
-    --- → <hr>（区切り線）
-    通常行 → <p>
-    空行 → <p><br></p>
+
+def _markdown_to_note_html(body: str) -> str:
+    """Markdown を note エディタの HTML に変換する（後方互換）。
+
+    URL行もHTMLに含む。insertHTML専用で使う場合のみ。
+    新規投稿では _split_body_for_note() を推奨。
+    """
+    html, _ = _split_body_for_note(body)
+    return html
+
+
+def _split_body_for_note(body: str) -> tuple[str, list[str]]:
+    """Markdown本文をHTML部分とURL行リストに分離する。
+
+    Returns:
+        (html, url_lines): htmlはinsertHTML用、url_linesはpress_sequentially用
     """
     parts: list[str] = []
+    url_lines: list[str] = []
+
     for raw_line in body.split("\n"):
         line = raw_line.rstrip()
+        stripped = line.strip()
+
+        # URL行は分離（カード変換用にpress_sequentiallyで入力する）
+        if _URL_LINE_RE_PUBLISH.match(stripped):
+            url_lines.append(stripped)
+            continue
+
         # --- → 区切り線
-        if re.match(r"^-{3,}$", line.strip()):
+        if re.match(r"^-{3,}$", stripped):
             parts.append("<hr>")
             continue
         # ## 見出し → h3
@@ -180,7 +199,7 @@ def _markdown_to_note_html(body: str) -> str:
             parts.append(f"<h3>{_html_escape(heading)}</h3>")
             continue
         # 空行
-        if not line.strip():
+        if not stripped:
             parts.append("<p><br></p>")
             continue
         # 太字 → b タグ、通常行 → p
@@ -193,7 +212,90 @@ def _markdown_to_note_html(body: str) -> str:
     empty = "<p><br></p>"
     while f"{empty}\n{empty}\n{empty}" in html:
         html = html.replace(f"{empty}\n{empty}\n{empty}", f"{empty}\n{empty}")
-    return html.strip()
+    return html.strip(), url_lines
+
+
+# note埋め込みカード検出用セレクタ
+_EMBED_SELECTORS = [
+    'div.ProseMirror iframe',
+    'div.ProseMirror [data-embed-card]',
+    'div.ProseMirror .embed-card',
+    'div.ProseMirror [class*="embed"]',
+]
+
+
+def _insert_body_with_cards(page: Page, body_html: str, url_lines: list[str]):
+    """本文をinsertHTML + URL行をpress_sequentiallyで入力する。
+
+    見出し・太字はinsertHTMLで正しくフォーマット、
+    URL行はpress_sequentially + Enterでカード変換される。
+    """
+    body_sel = 'div.ProseMirror[role="textbox"]'
+    try:
+        body_el = page.wait_for_selector(body_sel, timeout=10000)
+        body_el.click()
+
+        # insertHTML で見出し・太字・区切り線を含む本文を入力
+        page.evaluate(
+            """html => {
+                document.execCommand('insertHTML', false, html);
+            }""",
+            body_html,
+        )
+        time.sleep(1)
+        print(f"  本文入力完了（HTML）")
+
+        # URL行をpress_sequentiallyで入力（カード変換）
+        if url_lines:
+            body_loc = page.locator(body_sel)
+            page.keyboard.press("End")
+            page.keyboard.press("Control+End")
+            time.sleep(0.3)
+
+            for i, url in enumerate(url_lines):
+                before_count = _count_embed_cards(page)
+                if i == 0:
+                    # 最初のURLだけHTML本文との間にEnter
+                    body_loc.press("Enter")
+                    time.sleep(0.3)
+                body_loc.press_sequentially(url, delay=15)
+                body_loc.press("Enter")
+
+                embedded = _wait_for_embed_card(page, before_count, timeout=5000)
+                if embedded:
+                    print(f"    カード変換成功: {url[:50]}")
+                else:
+                    print(f"    [警告] カード変換未確認: {url[:50]}")
+                    body_loc.press("Enter")
+                    time.sleep(1)
+
+            time.sleep(1)
+            print(f"  URL入力完了（{len(url_lines)}件）")
+
+    except Exception as e:
+        print(f"  [エラー] 本文入力失敗: {e}")
+        print("  手動で本文を貼り付けてください。")
+        page.pause()
+
+
+def _count_embed_cards(page) -> int:
+    """現在の埋め込みカード数を返す。"""
+    for sel in _EMBED_SELECTORS:
+        count = page.locator(sel).count()
+        if count > 0:
+            return count
+    return 0
+
+
+def _wait_for_embed_card(page, before_count: int, timeout: int = 5000) -> bool:
+    """埋め込みカードが新たに出現したかを判定する。"""
+    deadline = time.time() + timeout / 1000
+    while time.time() < deadline:
+        for sel in _EMBED_SELECTORS:
+            if page.locator(sel).count() > before_count:
+                return True
+        time.sleep(0.3)
+    return False
 
 
 def post_article(
@@ -208,7 +310,7 @@ def post_article(
         記事URL（成功時）、None（失敗時）
     """
     title, body, image_path = _find_article(no)
-    body_html = _markdown_to_note_html(body)
+    body_html, url_lines = _split_body_for_note(body)
     tags = NOTE_TAGS + EXTRA_TAGS.get(no, [])
 
     print(f"\n{'=' * 50}")
@@ -261,24 +363,8 @@ def post_article(
         print(f"  手動でタイトルを入力してください: {title}")
         page.pause()
 
-    # --- 本文入力 ---
-    body_sel = 'div.ProseMirror[role="textbox"]'
-    try:
-        body_el = page.wait_for_selector(body_sel, timeout=10000)
-        body_el.click()
-        # insertHTML で ProseMirror に見出し・太字・区切り線を含む HTML を入力
-        page.evaluate(
-            """html => {
-                document.execCommand('insertHTML', false, html);
-            }""",
-            body_html,
-        )
-        time.sleep(1)
-        print(f"  本文入力完了（HTML）")
-    except Exception as e:
-        print(f"  [エラー] 本文入力失敗: {e}")
-        print("  手動で本文を貼り付けてください。")
-        page.pause()
+    # --- 本文入力（insertHTML + URL行はpress_sequentiallyでカード変換） ---
+    _insert_body_with_cards(page, body_html, url_lines)
 
     # --- 公開設定画面へ ---
     try:
@@ -656,8 +742,8 @@ def _get_note_articles_from_sheet() -> list[dict]:
     return _get_articles_from_sheet()
 
 
-def _find_article_body_html(no: int, title: str = "") -> str | None:
-    """記事No.またはタイトルから本文の HTML を取得する。
+def _find_article_body_html(no: int, title: str = "") -> tuple[str, list[str]] | None:
+    """記事No.またはタイトルから本文HTML + URL行リストを取得する。
 
     検索順序:
       1. _find_article(no) — No.16+ の第2弾記事（_ARTICLE_FILE_OFFSET使用）
@@ -667,7 +753,7 @@ def _find_article_body_html(no: int, title: str = "") -> str | None:
     # 1. No. 16+ (second batch)
     try:
         _, body, _ = _find_article(no)
-        return _markdown_to_note_html(body)
+        return _split_body_for_note(body)
     except FileNotFoundError:
         pass
 
@@ -695,8 +781,8 @@ def _extract_title_from_file(md_file: pathlib.Path) -> str:
     return ""
 
 
-def _body_html_from_file(md_file: pathlib.Path) -> str:
-    """markdown ファイルの本文（タイトル行以降）を HTML に変換する。"""
+def _body_html_from_file(md_file: pathlib.Path) -> tuple[str, list[str]]:
+    """markdown ファイルの本文（タイトル行以降）をHTML + URL行リストに変換する。"""
     text = md_file.read_text(encoding="utf-8")
     body_lines: list[str] = []
     past_title = False
@@ -705,25 +791,24 @@ def _body_html_from_file(md_file: pathlib.Path) -> str:
             past_title = True
         else:
             body_lines.append(line)
-    return _markdown_to_note_html("\n".join(body_lines).strip())
+    return _split_body_for_note("\n".join(body_lines).strip())
 
 
-def _repair_single_article(page: Page, note_id: str, body_html: str) -> bool:
+def _repair_single_article(
+    page: Page, note_id: str, body_html: str,
+    url_lines: list[str] | None = None,
+) -> bool:
     """1本の記事の本文フォーマットを修正する。
 
-    エディタを開き → 本文を全選択 → 削除 → HTML で再入力 → 「公開に進む」→「更新する」。
+    エディタを開き → 本文を全選択 → 削除 → insertHTML + URL press_sequentially
+    → 「公開に進む」→「更新する」。
     予約投稿の場合、「更新する」は予約状態を維持する。
-
-    編集URL: note_image_replace.py で検証済みの editor.note.com/notes/{id}/edit/
-    保存フロー: MEMORY記載の「公開に進む」→「更新する」（「下書き保存」→「予約投稿」は404の原因）
     """
-    # エディタを開く（note_image_replace.py で検証済みの URL パターン）
     edit_url = f"https://editor.note.com/notes/{note_id}/edit/"
     page.goto(edit_url)
     page.wait_for_load_state("networkidle")
     time.sleep(3)
 
-    # 本文エリアをクリック（note_publish.py の post_article で検証済みのセレクタ）
     body_sel = 'div.ProseMirror[role="textbox"]'
     body_el = page.wait_for_selector(body_sel, timeout=10000)
     body_el.click()
@@ -735,14 +820,8 @@ def _repair_single_article(page: Page, note_id: str, body_html: str) -> bool:
     page.keyboard.press("Backspace")
     time.sleep(0.5)
 
-    # HTML で再入力（--draft テストで動作確認済み）
-    page.evaluate(
-        """html => {
-            document.execCommand('insertHTML', false, html);
-        }""",
-        body_html,
-    )
-    time.sleep(1)
+    # insertHTML + URL press_sequentially（共通関数）
+    _insert_body_with_cards(page, body_html, url_lines or [])
 
     # 保存: 「公開に進む」→「更新する」
     page.keyboard.press("Escape")
@@ -783,9 +862,10 @@ def do_repair():
     # 2. 各記事の本文HTMLを事前に準備（ブラウザを開く前に全件確認）
     repair_list: list[dict] = []
     for art in articles:
-        body_html = _find_article_body_html(art["no"], art["title"])
-        if body_html:
-            repair_list.append({**art, "body_html": body_html})
+        result = _find_article_body_html(art["no"], art["title"])
+        if result:
+            body_html, url_lines = result
+            repair_list.append({**art, "body_html": body_html, "url_lines": url_lines})
         else:
             print(f"  [スキップ] #{art['no']} {art['title'][:30]}: ローカルファイルなし")
 
@@ -804,7 +884,7 @@ def do_repair():
         for art in repair_list:
             print(f"  修正中: #{art['no']} {art['title'][:35]}...", end="", flush=True)
             try:
-                _repair_single_article(page, art["key"], art["body_html"])
+                _repair_single_article(page, art["key"], art["body_html"], art.get("url_lines", []))
                 repaired += 1
                 print(" 完了")
             except Exception as e:
@@ -834,9 +914,9 @@ def do_repair_add():
     targets: list[dict] = []
     for md_file in add_files:
         title = _extract_title_from_file(md_file)
-        body_html = _body_html_from_file(md_file)
+        body_html, url_lines = _body_html_from_file(md_file)
         if title and body_html:
-            targets.append({"title": title, "body_html": body_html, "file": md_file.name})
+            targets.append({"title": title, "body_html": body_html, "url_lines": url_lines, "file": md_file.name})
 
     print(f"修正対象ファイル: {len(targets)}本")
     for t in targets:
@@ -889,7 +969,7 @@ def do_repair_add():
 
             print(f"  修正中: {target['title'][:40]}...", end="", flush=True)
             try:
-                _repair_single_article(page, matched_key, target["body_html"])
+                _repair_single_article(page, matched_key, target["body_html"], target.get("url_lines", []))
                 repaired += 1
                 print(" 完了")
             except Exception as e:
