@@ -846,8 +846,18 @@ def _fit_text_layout(
             current_line_height = max(110, int(current_line_height * 0.92))
             width = 7
 
+    # フォールバック: 最小フォントサイズでも収まらなかった場合
+    # 文字数を減らしながらピクセル幅に収まるまで折り返す
     font = _load_font(font_path, current_size)
-    return font, _wrap_text_lines(text, 12), current_line_height
+    for w in range(12, 3, -1):
+        lines = _wrap_text_lines(text, w)
+        widest = 0
+        for line in lines:
+            bb = draw.textbbox((0, 0), line, font=font)
+            widest = max(widest, bb[2] - bb[0])
+        if widest <= max_width:
+            return font, lines, current_line_height
+    return font, _wrap_text_lines(text, 5), current_line_height
 
 
 def _preferred_role_lines(

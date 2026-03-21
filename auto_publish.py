@@ -521,7 +521,7 @@ def publish_entry(
                 description=yt_description,
                 tags=tags,
                 privacy=privacy,
-                thumbnail_path=str(thumbnail_path) if thumbnail_path.exists() else None,
+                thumbnail_path=str(thumbnail_frame_path) if thumbnail_frame_path.exists() else (str(thumbnail_path) if thumbnail_path.exists() else None),
             )
             if video_id:
                 youtube_url = f"https://youtube.com/shorts/{video_id}"
