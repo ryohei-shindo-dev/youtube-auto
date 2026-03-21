@@ -60,15 +60,23 @@ ROLE_ORDER = [
 
 
 def _pick_photo(category: str) -> pathlib.Path:
+    """横長（landscape）の写真のみ選択する。長尺動画は1920x1080なので縦長は使えない。"""
     cat_dir = PHOTOS_DIR / category
     blacklist_dir = cat_dir / "blacklist"
-    photos = [
+    all_photos = [
         p for p in sorted(cat_dir.glob("*.jpg"))
         if not str(p).startswith(str(blacklist_dir))
     ]
-    if not photos:
-        photos = sorted(cat_dir.glob("*.jpg"))
-    return random.choice(photos)
+    # 横長のみフィルタ
+    landscape = []
+    for p in all_photos:
+        img = Image.open(p)
+        if img.width >= img.height:
+            landscape.append(p)
+        img.close()
+    if not landscape:
+        landscape = all_photos  # フォールバック
+    return random.choice(landscape)
 
 
 # 背景画像
@@ -156,7 +164,8 @@ STORYBOARD = [
 
 
 def _render_thumbnail(output_path: pathlib.Path):
-    bg_path = _pick_photo("comparison")
+    # 3本目と同じスタイル: 顔アップ + 黄色太文字 + サブテキスト
+    bg_path = PHOTOS_DIR / "comparison" / "comparison30.jpg"
     print(f"サムネ背景: {bg_path}")
     bg = Image.open(bg_path).convert("RGB")
 
@@ -173,26 +182,42 @@ def _render_thumbnail(output_path: pathlib.Path):
     bg = bg.crop((left, top, left + crop_w, top + crop_h))
     bg = bg.resize((THUMB_WIDTH, THUMB_HEIGHT), Image.LANCZOS)
 
+    # 3本目と同じ暗さ設定
     bg = bg.filter(ImageFilter.GaussianBlur(radius=1))
-    bg = ImageEnhance.Brightness(bg).enhance(0.65)
+    bg = ImageEnhance.Brightness(bg).enhance(0.80)
     bg = bg.convert("RGBA")
-    overlay = Image.new("RGBA", (THUMB_WIDTH, THUMB_HEIGHT), (15, 20, 40, 60))
+    overlay = Image.new("RGBA", (THUMB_WIDTH, THUMB_HEIGHT), (15, 20, 40, 40))
     bg = Image.alpha_composite(bg, overlay).convert("RGB")
 
     draw = ImageDraw.Draw(bg)
-    font = ImageFont.truetype(FONT_HEAVY, 64)
 
-    lines = ["高配当株か", "インデックスか"]
-    line_height = 90
-    y_start = (THUMB_HEIGHT - len(lines) * line_height) // 2
-    for i, line in enumerate(lines):
-        y = y_start + i * line_height
-        bbox = draw.textbbox((0, 0), line, font=font)
-        tw = bbox[2] - bbox[0]
-        x = (THUMB_WIDTH - tw) // 2
-        for dx, dy in [(3, 3), (2, 2)]:
-            draw.text((x + dx, y + dy), line, font=font, fill=(0, 0, 0))
-        draw.text((x, y), line, font=font, fill=(255, 255, 255))
+    # メインテキスト: 黄色太文字（3本目と同じスタイル）
+    thumb_font_w8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
+    main_font = ImageFont.truetype(thumb_font_w8, 96)
+    sub_font = ImageFont.truetype(FONT_HEAVY, 40)
+
+    main_lines = ["高配当株か", "インデックスか"]
+    sub_text = "揺れるときの整理"
+
+    # メインテキスト（左寄せ、黄色）
+    text_x = 60
+    y = 200
+    for line in main_lines:
+        # 黒縁（太め）
+        for dx in range(-4, 5):
+            for dy in range(-4, 5):
+                if abs(dx) + abs(dy) > 0:
+                    draw.text((text_x + dx, y + dy), line, font=main_font, fill=(0, 0, 0))
+        draw.text((text_x, y), line, font=main_font, fill=(255, 210, 50))
+        y += 110
+
+    # サブテキスト（白、小さめ）
+    sub_y = y + 15
+    for dx in range(-2, 3):
+        for dy in range(-2, 3):
+            if abs(dx) + abs(dy) > 0:
+                draw.text((text_x + dx, sub_y + dy), sub_text, font=sub_font, fill=(0, 0, 0))
+    draw.text((text_x, sub_y), sub_text, font=sub_font, fill=(255, 255, 255))
 
     bg.save(str(output_path), "PNG", optimize=True)
     print(f"サムネイル生成: {output_path}")

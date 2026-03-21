@@ -198,6 +198,25 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
             heading = re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(1))
             parts.append(f"<h3>{_html_escape(heading)}</h3>")
             continue
+        # > 引用 → blockquote
+        m_quote = re.match(r"^>\s*(.+)$", stripped)
+        if m_quote:
+            escaped = _html_escape(m_quote.group(1))
+            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+            parts.append(f"<blockquote><p>{text}</p></blockquote>")
+            continue
+        # - リスト → ul/li（連続する - 行をまとめる）
+        m_list = re.match(r"^[-*]\s+(.+)$", stripped)
+        if m_list:
+            escaped = _html_escape(m_list.group(1))
+            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+            # 直前がliなら同じulに追加、そうでなければ新しいulを開始
+            if parts and parts[-1].endswith("</li></ul>"):
+                # 既存ulの末尾に追加
+                parts[-1] = parts[-1][:-5] + f"<li>{text}</li></ul>"
+            else:
+                parts.append(f"<ul><li>{text}</li></ul>")
+            continue
         # 空行
         if not stripped:
             parts.append("<p><br></p>")
@@ -554,7 +573,7 @@ def do_fetch_urls():
 
     pw, context, page = _launch_browser(headless=False)
     try:
-        page.goto("https://note.com/dashboard/contents")
+        page.goto("https://note.com/notes")
         page.wait_for_load_state("networkidle")
         time.sleep(3)
 
@@ -834,8 +853,9 @@ def _repair_single_article(
     page.wait_for_load_state("networkidle")
     time.sleep(2)
 
+    # 公開済み記事は「更新する」、予約投稿は「予約投稿」ボタン
     update_btn = page.wait_for_selector(
-        'button:has-text("更新する")', timeout=10000
+        'button:has-text("更新する"), button:has-text("予約投稿")', timeout=10000
     )
     update_btn.click()
     time.sleep(5)
@@ -900,85 +920,82 @@ def do_repair():
 
 
 def do_repair_add():
-    """note_add_* 記事の本文フォーマットを修正する（シートにURLがない記事用）。
+    """note_add_* / ugokite_* 記事の本文フォーマットを修正する。
 
-    ダッシュボードの HTML から note ID を取得し、タイトルで照合して修正する。
-    do_fetch_urls() と同じ regex フォールバック方式を使用。
+    note_manifest.json から md_path → note_key のマッピングを取得し、
+    タイトル検索なしで直接編集URLにアクセスする。
     """
-    # 1. note_add ファイルを読み込み（ブラウザを開く前に全件確認）
-    add_files = sorted(ARTICLES_DIR.glob("note_add_*.md"))
+    import json as _json
+
+    # 1. note_manifest.json から md_path → note_key マッピングを構築
+    manifest_path = pathlib.Path(__file__).parent / "note_manifest.json"
+    if not manifest_path.exists():
+        print("[エラー] note_manifest.json が見つかりません")
+        return
+
+    manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    md_to_key: dict[str, str] = {}
+    for entry in manifest:
+        md = entry.get("md_path")
+        key = entry.get("note_key")
+        if md and key:
+            md_to_key[str(pathlib.Path(md).name)] = key
+            md_to_key[str(md)] = key
+
+    # 2. note_add + ugokite ファイルを読み込み
+    add_files = sorted(ARTICLES_DIR.glob("note_add_*.md")) + sorted(ARTICLES_DIR.glob("note_ugokite_*.md"))
     if not add_files:
-        print("[エラー] note_add_*.md ファイルが見つかりません")
+        print("[エラー] note_add_*.md / note_ugokite_*.md ファイルが見つかりません")
         return
 
     targets: list[dict] = []
+    skipped = 0
     for md_file in add_files:
+        note_key = md_to_key.get(md_file.name) or md_to_key.get(str(md_file))
+        if not note_key:
+            print(f"  [スキップ] {md_file.name}: note_key がmanifestにない")
+            skipped += 1
+            continue
+
         title = _extract_title_from_file(md_file)
         body_html, url_lines = _body_html_from_file(md_file)
         if title and body_html:
-            targets.append({"title": title, "body_html": body_html, "url_lines": url_lines, "file": md_file.name})
+            targets.append({
+                "title": title, "body_html": body_html,
+                "url_lines": url_lines, "file": md_file.name,
+                "note_key": note_key,
+            })
 
-    print(f"修正対象ファイル: {len(targets)}本")
+    print(f"修正対象: {len(targets)}本（スキップ: {skipped}本）")
     for t in targets:
-        print(f"  {t['file']}: {t['title'][:40]}")
+        print(f"  {t['file']}: {t['note_key']} — {t['title'][:40]}")
 
-    # 2. ダッシュボードから全記事の key と name を取得
+    if not targets:
+        print("修正対象がありません。")
+        return
+
+    # 3. ブラウザを開いて修正（note_key で直接アクセス）
     pw, context, page = _launch_browser(headless=False)
     try:
-        page.goto("https://note.com/dashboard/contents")
-        page.wait_for_load_state("networkidle")
-        time.sleep(5)
-
-        # ページ末尾までスクロールして全記事を表示
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(2)
-
-        # do_fetch_urls() と同じ regex でHTMLから抽出
-        html_content = page.content()
-        keys = re.findall(r'"key":"(n[a-f0-9]{12,})"', html_content)
-        names = re.findall(r'"name":"([^"]{5,80})"', html_content)
-
-        print(f"\nダッシュボードから検出: key={len(keys)}件, name={len(names)}件")
-
-        if not keys:
-            print("[エラー] ダッシュボードから記事が検出できませんでした。")
-            print("  ブラウザでnoteにログインしているか確認してください。")
-            return
-
-        # key と name をペアにする（do_fetch_urls と同じ方式）
-        dashboard_articles = []
-        for i, key in enumerate(keys):
-            name = names[i] if i < len(names) else ""
-            dashboard_articles.append({"key": key, "name": name})
-
-        # 3. タイトルマッチング → 修正
         repaired = 0
-        not_found = 0
+        failed = 0
 
         for target in targets:
-            matched_key = None
-            for dart in dashboard_articles:
-                if target["title"][:15] in dart["name"] or dart["name"][:15] in target["title"]:
-                    matched_key = dart["key"]
-                    break
-
-            if not matched_key:
-                print(f"  [マッチなし] {target['title'][:40]}")
-                not_found += 1
-                continue
-
             print(f"  修正中: {target['title'][:40]}...", end="", flush=True)
             try:
-                _repair_single_article(page, matched_key, target["body_html"], target.get("url_lines", []))
+                _repair_single_article(
+                    page, target["note_key"],
+                    target["body_html"], target.get("url_lines", []),
+                )
                 repaired += 1
                 print(" 完了")
             except Exception as e:
-                not_found += 1
+                failed += 1
                 print(f" [エラー] {e}")
 
             time.sleep(2)
 
-        print(f"\n修正完了: {repaired}本, 未検出: {not_found}本")
+        print(f"\n修正完了: {repaired}本, 失敗: {failed}本")
 
     finally:
         _close_browser(pw, context, wait_for_user=False)
