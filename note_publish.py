@@ -279,12 +279,12 @@ def _insert_body_with_cards(page: Page, body_html: str, url_lines: list[str]):
 
 
 def _count_embed_cards(page) -> int:
-    """現在の埋め込みカード数を返す。"""
+    """現在の埋め込みカード数を返す（複数セレクタの最大値）。"""
+    max_count = 0
     for sel in _EMBED_SELECTORS:
         count = page.locator(sel).count()
-        if count > 0:
-            return count
-    return 0
+        max_count = max(max_count, count)
+    return max_count
 
 
 def _wait_for_embed_card(page, before_count: int, timeout: int = 5000) -> bool:

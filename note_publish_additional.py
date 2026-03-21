@@ -16,7 +16,11 @@ import time
 
 from playwright.sync_api import Page
 
-from note_publish import _launch_browser, _close_browser, _markdown_to_note_html
+from note_publish import (
+    _launch_browser, _close_browser, _markdown_to_note_html,
+    _URL_LINE_RE_PUBLISH as _URL_LINE_RE,
+    _EMBED_SELECTORS, _wait_for_embed_card, _count_embed_cards,
+)
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
@@ -370,38 +374,6 @@ def _upload_header_image(page: Page, image_path: pathlib.Path):
     save_btn.click()
     time.sleep(2)
 
-
-_URL_LINE_RE = re.compile(r"^https?://\S+$")
-
-# noteエディタ内の埋め込みカード検出用セレクタ
-_EMBED_SELECTORS = [
-    'div.ProseMirror iframe',
-    'div.ProseMirror [data-embed-card]',
-    'div.ProseMirror .embed-card',
-    'div.ProseMirror [class*="embed"]',
-]
-
-
-def _wait_for_embed_card(page: Page, before_count: int, timeout: int = 5000) -> bool:
-    """埋め込みカードが新たに出現したかを判定する。"""
-    import time as _time
-    deadline = _time.time() + timeout / 1000
-    while _time.time() < deadline:
-        for sel in _EMBED_SELECTORS:
-            count = page.locator(sel).count()
-            if count > before_count:
-                return True
-        _time.sleep(0.3)
-    return False
-
-
-def _count_embed_cards(page: Page) -> int:
-    """現在の埋め込みカード数を返す。"""
-    for sel in _EMBED_SELECTORS:
-        count = page.locator(sel).count()
-        if count > 0:
-            return count
-    return 0
 
 
 def _fill_editor(page: Page, title: str, body_text: str):
