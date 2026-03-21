@@ -154,7 +154,8 @@ def _get_thumbnail_landscape_photos() -> list[pathlib.Path]:
                 with _PILImage.open(p) as im:
                     if im.width >= im.height:  # 横長のみ
                         result.append(p)
-            except Exception:
+            except (OSError, SyntaxError) as e:
+                print(f"  [警告] サムネ写真読み込みスキップ: {p.name} ({e})")
                 continue
     _thumbnail_landscape_cache = result
     return result
@@ -436,44 +437,9 @@ NOTE_ARTICLES_BATCH2 = [
 # 全記事結合
 NOTE_ARTICLES = NOTE_ARTICLES_BATCH1 + NOTE_ARTICLES_BATCH2
 
-# 追加記事（2026-03 中核テーマ強化）
-NOTE_ARTICLES_ADD = [
-    {
-        "id": "add_01",
-        "title": "オルカンで\nいいのか",
-        "subtitle": "",
-        "bg": "比較",
-        "layout": LAYOUT_LEFT_SUB,
-    },
-    {
-        "id": "add_02",
-        "title": "S&P500が\n遅く見える",
-        "subtitle": "",
-        "bg": "比較",
-        "layout": LAYOUT_CENTER,
-    },
-    {
-        "id": "add_03",
-        "title": "爆益を見た夜",
-        "subtitle": "",
-        "bg": "比較",
-        "layout": LAYOUT_LEFT,
-    },
-    {
-        "id": "add_04",
-        "title": "何もしない\n不安",
-        "subtitle": "",
-        "bg": "希望",
-        "layout": LAYOUT_LEFT_SUB,
-    },
-    {
-        "id": "add_05",
-        "title": "正しいのに\n退屈",
-        "subtitle": "",
-        "bg": "継続",
-        "layout": LAYOUT_CENTER,
-    },
-]
+# 追加記事の画像定義は note_publish_additional.py の ARTICLE_SPECS に統合。
+# NOTE_ARTICLES_ADD は廃止（2026-03-21）。
+# 画像生成には generate_from_specs() を使用する。
 
 
 def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib.Path]:
@@ -497,22 +463,28 @@ def generate_all(output_dir: pathlib.Path | str = "note_images") -> list[pathlib
 
 
 def generate_additional(output_dir: pathlib.Path | str = "note_images") -> list[pathlib.Path]:
-    """追加記事分のnoteトップ画像を生成する。"""
+    """追加記事分のnoteトップ画像を ARTICLE_SPECS から生成する。"""
+    from note_publish_additional import ARTICLE_SPECS
+
     out = pathlib.Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     results = []
-    for art in NOTE_ARTICLES_ADD:
-        path = out / f"note_{art['id']}.png"
+    for spec in ARTICLE_SPECS:
+        image_title = spec.get("image_title")
+        if not image_title:
+            print(f"  [スキップ] {spec['id']}: image_title未定義")
+            continue
+        path = out / f"note_{spec['id']}.png"
         result = generate_note_image(
-            title=art["title"],
-            subtitle=art["subtitle"],
+            title=image_title,
+            subtitle=spec.get("image_subtitle", ""),
             output_path=path,
-            bg_keyword=art["bg"],
-            layout=art.get("layout", LAYOUT_LEFT_SUB),
+            bg_keyword=spec.get("image_bg", "希望"),
+            layout=LAYOUT_LEFT_SUB,
         )
         if result:
             results.append(result)
-    print(f"\n追加記事: {len(results)}/{len(NOTE_ARTICLES_ADD)} 枚生成完了")
+    print(f"\n追加記事: {len(results)}/{len(ARTICLE_SPECS)} 枚生成完了")
     return results
 
 

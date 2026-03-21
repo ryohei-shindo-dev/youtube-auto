@@ -546,17 +546,27 @@ def _remember_photo_choice(category: str, filename: str, history: dict):
     )
 
 
+_face_cascade: cv2.CascadeClassifier | None = None
+
+
+def _get_face_cascade() -> cv2.CascadeClassifier:
+    """Haar Cascade をキャッシュして返す（ファイル読み込みは初回のみ）。"""
+    global _face_cascade
+    if _face_cascade is None:
+        _face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        )
+    return _face_cascade
+
+
 def _detect_face_center_x(img: Image.Image) -> int | None:
     """顔検出して顔の中心X座標を返す。検出できなければ None。"""
-    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-    cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
+    faces = _get_face_cascade().detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=4
     )
-    faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)
     if len(faces) == 0:
         return None
-    # 複数顔がある場合は最大の顔を優先
     largest = max(faces, key=lambda f: f[2] * f[3])
     x, _y, w, _h = largest
     return x + w // 2
