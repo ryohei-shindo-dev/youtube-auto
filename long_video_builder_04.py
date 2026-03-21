@@ -70,10 +70,9 @@ def _pick_photo(category: str) -> pathlib.Path:
     # 横長のみフィルタ
     landscape = []
     for p in all_photos:
-        img = Image.open(p)
-        if img.width >= img.height:
-            landscape.append(p)
-        img.close()
+        with Image.open(p) as img:
+            if img.width >= img.height:
+                landscape.append(p)
     if not landscape:
         landscape = all_photos  # フォールバック
     return random.choice(landscape)
@@ -203,21 +202,18 @@ def _render_thumbnail(output_path: pathlib.Path):
     text_x = 60
     y = 200
     for line in main_lines:
-        # 黒縁（太め）
-        for dx in range(-4, 5):
-            for dy in range(-4, 5):
-                if abs(dx) + abs(dy) > 0:
-                    draw.text((text_x + dx, y + dy), line, font=main_font, fill=(0, 0, 0))
-        draw.text((text_x, y), line, font=main_font, fill=(255, 210, 50))
+        draw.text(
+            (text_x, y), line, font=main_font, fill=(255, 210, 50),
+            stroke_width=6, stroke_fill=(0, 0, 0),
+        )
         y += 110
 
     # サブテキスト（白、小さめ）
     sub_y = y + 15
-    for dx in range(-2, 3):
-        for dy in range(-2, 3):
-            if abs(dx) + abs(dy) > 0:
-                draw.text((text_x + dx, sub_y + dy), sub_text, font=sub_font, fill=(0, 0, 0))
-    draw.text((text_x, sub_y), sub_text, font=sub_font, fill=(255, 255, 255))
+    draw.text(
+        (text_x, sub_y), sub_text, font=sub_font, fill=(255, 255, 255),
+        stroke_width=3, stroke_fill=(0, 0, 0),
+    )
 
     bg.save(str(output_path), "PNG", optimize=True)
     print(f"サムネイル生成: {output_path}")

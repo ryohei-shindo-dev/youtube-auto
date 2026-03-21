@@ -158,6 +158,8 @@ def do_debug():
 
 
 _URL_LINE_RE_PUBLISH = re.compile(r"^https?://\S+$")
+_QUOTE_RE = re.compile(r"^>\s*(.+)$")
+_LIST_RE = re.compile(r"^[-*]\s+(.+)$")
 
 
 def _markdown_to_note_html(body: str) -> str:
@@ -199,14 +201,14 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
             parts.append(f"<h3>{_html_escape(heading)}</h3>")
             continue
         # > 引用 → blockquote
-        m_quote = re.match(r"^>\s*(.+)$", stripped)
+        m_quote = _QUOTE_RE.match(stripped)
         if m_quote:
             escaped = _html_escape(m_quote.group(1))
             text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
             parts.append(f"<blockquote><p>{text}</p></blockquote>")
             continue
         # - リスト → ul/li（連続する - 行をまとめる）
-        m_list = re.match(r"^[-*]\s+(.+)$", stripped)
+        m_list = _LIST_RE.match(stripped)
         if m_list:
             escaped = _html_escape(m_list.group(1))
             text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
