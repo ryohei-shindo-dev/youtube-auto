@@ -515,13 +515,19 @@ def publish_entry(
         try:
             print("\n  [YouTube] 投稿中...")
             import youtube_upload
+            if thumbnail_frame_path.exists():
+                yt_thumbnail = str(thumbnail_frame_path)
+            elif thumbnail_path.exists():
+                yt_thumbnail = str(thumbnail_path)
+            else:
+                yt_thumbnail = None
             video_id = youtube_upload.upload_video(
                 video_path=str(video_path),
                 title=yt_title,
                 description=yt_description,
                 tags=tags,
                 privacy=privacy,
-                thumbnail_path=str(thumbnail_frame_path) if thumbnail_frame_path.exists() else (str(thumbnail_path) if thumbnail_path.exists() else None),
+                thumbnail_path=yt_thumbnail,
             )
             if video_id:
                 youtube_url = f"https://youtube.com/shorts/{video_id}"
