@@ -36,7 +36,7 @@ FONT_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 COLOR_TITLE = (255, 255, 255)          # 白
 COLOR_SUBTITLE = (220, 220, 220)       # 薄グレー（少し明るく）
 COLOR_ACCENT = (255, 210, 100)         # 落ち着いた黄
-COLOR_OVERLAY = (15, 20, 45, 100)      # 薄いネイビー半透明（写真を活かす）
+COLOR_OVERLAY = (18, 24, 52, 60)        # ネイビー半透明（グラデーション時のフォールバック用）
 
 # ---------- レイアウト型 ----------
 LAYOUT_LEFT = "left"           # 左寄せ大見出し
@@ -96,15 +96,19 @@ def generate_note_image(
         # --- 背景画像 ---
         bg = _load_background(bg_keyword, bg_path)
 
-        # --- 写真を活かす処理（暗くしすぎない） ---
+        # --- 写真を活かす処理 ---
         bg = bg.filter(ImageFilter.GaussianBlur(radius=1))
-        bg = ImageEnhance.Color(bg).enhance(0.85)        # 彩度を少し落とす
-        bg = ImageEnhance.Brightness(bg).enhance(0.75)    # 暗さ控えめ
+        bg = ImageEnhance.Color(bg).enhance(0.95)
+        bg = ImageEnhance.Brightness(bg).enhance(0.90)
 
-        # --- 半透明オーバーレイ ---
+        # --- 左濃→右薄のグラデーションオーバーレイ ---
         canvas = bg.convert("RGBA")
-        overlay = Image.new("RGBA", (NOTE_WIDTH, NOTE_HEIGHT), COLOR_OVERLAY)
-        canvas = Image.alpha_composite(canvas, overlay)
+        grad = Image.new("RGBA", (NOTE_WIDTH, NOTE_HEIGHT), (0, 0, 0, 0))
+        grad_draw = ImageDraw.Draw(grad)
+        for x in range(NOTE_WIDTH):
+            alpha = int(90 - (80 * x / NOTE_WIDTH))  # 左端90 → 右端10
+            grad_draw.line([(x, 0), (x, NOTE_HEIGHT)], fill=(18, 24, 52, alpha))
+        canvas = Image.alpha_composite(canvas, grad)
         canvas = canvas.convert("RGB")
 
         draw = ImageDraw.Draw(canvas)
@@ -234,14 +238,13 @@ def _draw_left_sub_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
         bbox = draw.textbbox((0, 0), line, font=font_title)
         y += (bbox[3] - bbox[1]) + 18
 
-    # 補足テキスト
+    # 補足テキスト（背景チップなし、太字白文字）
     if subtitle:
-        font_sub = _load_font(FONT_REGULAR, 30)
+        font_sub = _load_font(FONT_HEAVY, 30)
         sub_y = y + 26
-        _draw_subtitle_chip(draw, 90, sub_y, subtitle, font_sub, anchor="left")
         draw.text(
             (90, sub_y), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
-            stroke_width=1, stroke_fill=(0, 0, 0),
+            stroke_width=2, stroke_fill=(0, 0, 0),
         )
 
 
@@ -300,17 +303,16 @@ def _draw_center_layout(draw: ImageDraw.Draw, title: str, subtitle: str):
         fill=COLOR_ACCENT,
     )
 
-    # 補足テキスト（中央寄せ）
+    # 補足テキスト（中央寄せ、背景チップなし、太字白文字）
     if subtitle:
-        font_sub = _load_font(FONT_REGULAR, 30)
+        font_sub = _load_font(FONT_HEAVY, 30)
         bbox = draw.textbbox((0, 0), subtitle, font=font_sub)
         sw = bbox[2] - bbox[0]
         sx = (NOTE_WIDTH - sw) // 2
         sub_y = line_y + 24
-        _draw_subtitle_chip(draw, NOTE_WIDTH // 2, sub_y, subtitle, font_sub, anchor="center")
         draw.text(
             (sx, sub_y), subtitle, font=font_sub, fill=COLOR_SUBTITLE,
-            stroke_width=1, stroke_fill=(0, 0, 0),
+            stroke_width=2, stroke_fill=(0, 0, 0),
         )
 
 
