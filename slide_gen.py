@@ -1307,24 +1307,24 @@ def _find_split_pos(text: str) -> int | None:
     # --- 分割禁止区間を収集 ---
     no_split: set[int] = set()
 
-    # 数字+単位、英数字語
+    # 数字+単位、英数字語（内部での分割のみ禁止、直前での分割は許可）
     for m in _NO_SPLIT_PATTERNS.finditer(text):
-        for i in range(m.start(), m.end()):
+        for i in range(m.start() + 1, m.end()):
             no_split.add(i)
 
     # カタカナ語
     for m in _KATAKANA_WORD.finditer(text):
-        for i in range(m.start(), m.end()):
+        for i in range(m.start() + 1, m.end()):
             no_split.add(i)
 
-    # 保護語辞書
+    # 保護語辞書（内部での分割のみ禁止、直前での分割は許可）
     for word in _PROTECTED_WORDS:
         start = 0
         while True:
             idx = text.find(word, start)
             if idx == -1:
                 break
-            for i in range(idx, idx + len(word)):
+            for i in range(idx + 1, idx + len(word)):
                 no_split.add(i)
             start = idx + 1
 
@@ -1374,36 +1374,109 @@ def _find_split_pos(text: str) -> int | None:
                 best_score = score
                 best_pos = pos
 
-    # 助詞・読点の後で適切な分割位置が見つからなければ分割しない
-    # （フォント縮小で対応する方が、不自然な位置で切るより良い）
-    return best_pos
+    if best_pos is not None:
+        return best_pos
+
+    # 2. 助詞がない場合: 中央付近の有効位置で分割（サムネ用フォールバック）
+    for dist in range(n):
+        for pos in [center + dist, center - dist]:
+            if 0 < pos < n and _is_valid_split(pos):
+                return pos
+
+    return None
 
 
 def _split_long_lines_for_thumb(
     lines: list[str], draw, max_width: int,
 ) -> list[str]:
-    """はみ出す行を自動改行で分割する。禁則処理付き。"""
+    """はみ出す行を自動改行で分割する。禁則処理付き。
+
+    9文字以上の1行テキストは強制分割（インスタグリッドで縮小表示されるため）。
+    """
     result = []
     for line in lines:
-        sz = _auto_font_size(line, max_size=160, min_size=90)
-        font = _load_font(FONT_PATH_HEAVY, sz)
-        bbox = draw.textbbox((0, 0), line, font=font)
-        w = bbox[2] - bbox[0]
+        # 9文字以上の行は幅に収まっていても分割を試みる（フォント縮小防止）
+        needs_split = len(line) >= 9
 
-        if w <= max_width:
-            result.append(line)
-            continue
+        if not needs_split:
+            sz = _auto_font_size(line, max_size=160, min_size=90)
+            font = _load_font(FONT_PATH_HEAVY, sz)
+            bbox = draw.textbbox((0, 0), line, font=font)
+            w = bbox[2] - bbox[0]
+            if w <= max_width:
+                result.append(line)
+                continue
+            needs_split = True
 
-        # 分割位置を探す
-        split_pos = _find_split_pos(line)
-        if split_pos is not None:
-            result.append(line[:split_pos].strip())
-            result.append(line[split_pos:].strip())
-        else:
-            # 分割できない場合はそのまま（フォント縮小で対応）
-            result.append(line)
+        if needs_split:
+            # サムネ用: 最小文字数を緩和して分割（通常の禁則処理は厳しすぎる）
+            split_pos = _find_split_pos_for_thumb(line)
+            if split_pos is not None:
+                result.append(line[:split_pos].strip())
+                result.append(line[split_pos:].strip())
+            else:
+                result.append(line)
 
     return result
+
+
+def _find_split_pos_for_thumb(text: str) -> int | None:
+    """サムネ用の緩い分割位置検索。最小3文字、中央寄りで分割。"""
+    n = len(text)
+    if n <= 6:
+        return None
+
+    min_chars = 3  # サムネ用は3文字から許可
+    center = n // 2
+
+    # 分割禁止区間を収集（内部のみ）
+    no_split: set[int] = set()
+    for m in _NO_SPLIT_PATTERNS.finditer(text):
+        for i in range(m.start() + 1, m.end()):
+            no_split.add(i)
+    for m in _KATAKANA_WORD.finditer(text):
+        for i in range(m.start() + 1, m.end()):
+            no_split.add(i)
+    for word in _PROTECTED_WORDS:
+        start = 0
+        while True:
+            idx = text.find(word, start)
+            if idx == -1:
+                break
+            for i in range(idx + 1, idx + len(word)):
+                no_split.add(i)
+            start = idx + 1
+
+    def _ok(pos: int) -> bool:
+        if pos < min_chars or (n - pos) < min_chars:
+            return False
+        if pos in no_split:
+            return False
+        if text[pos] in _NO_HEAD_CHARS:
+            return False
+        return True
+
+    # 1. 助詞・読点の後（最も自然）
+    best_pos = None
+    best_score = float("inf")
+    for m in re.finditer(r"[をにとがの、]|(?<=[ぁ-んァ-ヶ\u4e00-\u9fff0-9])[でもは]", text):
+        pos = m.end()
+        if _ok(pos):
+            score = abs(center - pos)
+            if score < best_score:
+                best_score = score
+                best_pos = pos
+
+    if best_pos is not None:
+        return best_pos
+
+    # 2. 中央付近の任意位置
+    for dist in range(n):
+        for pos in [center + dist, center - dist]:
+            if 0 < pos < n and _ok(pos):
+                return pos
+
+    return None
 
 
 def generate_thumbnail_frame(
