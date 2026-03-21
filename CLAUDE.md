@@ -129,6 +129,12 @@ python analytics_analyze.py
 | `CHANNEL_STRATEGY.md` | ブランド戦略・構成設計 | 両方 |
 | `OPERATIONS_MEMO.md` | 変動する運用数値・一時的な優先事項 | 両方 |
 
+### ChatGPT レビュー連携
+- ChatGPT（GPT-4o）へのレビュー・相談は `ask_chatgpt.py` 経由で **Claude Code が直接実行する**。ユーザーにコピペさせない
+- 使い方: `python ask_chatgpt.py "相談文"` または `python ask_chatgpt.py -f prompt.txt`
+- APIキーは `~/.zshrc` の `OPENAI_API_KEY` を使用（全プロジェクト共通）
+- モデル変更: `OPENAI_MODEL=gpt-4o-mini python ask_chatgpt.py "相談文"`
+
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
 - `docs/runbook.md` — 日常運用・よくある操作・トラブルシューティング

@@ -31,6 +31,8 @@ import textwrap
 
 from functools import lru_cache
 
+import cv2
+import numpy as np
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from thumbnail_gen import _auto_font_size
 
@@ -544,20 +546,50 @@ def _remember_photo_choice(category: str, filename: str, history: dict):
     )
 
 
+def _detect_face_center_x(img: Image.Image) -> int | None:
+    """顔検出して顔の中心X座標を返す。検出できなければ None。"""
+    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+    cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
+    faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)
+    if len(faces) == 0:
+        return None
+    # 複数顔がある場合は最大の顔を優先
+    largest = max(faces, key=lambda f: f[2] * f[3])
+    x, _y, w, _h = largest
+    return x + w // 2
+
+
 def _fit_photo_to_area(
     img: Image.Image, target_w: int, target_h: int
 ) -> Image.Image:
-    """写真を指定エリアにフィットさせる（1回のリサイズ + クロップ）。"""
+    """写真を指定エリアにフィットさせる（顔検出でクロップ位置を調整）。"""
     src_w, src_h = img.size
 
-    # 幅・高さ両方をカバーする最小スケールを選択（1回で済む）
+    # 横長→縦長など大きくクロップされる場合のみ顔検出を試みる
     scale = max(target_w / src_w, target_h / src_h)
     new_w = int(src_w * scale)
     new_h = int(src_h * scale)
+
+    # クロップ幅が元画像の10%以上ある場合のみ顔検出（軽量化）
+    crop_margin_x = new_w - target_w
+    face_cx = None
+    if crop_margin_x > src_w * 0.1:
+        face_cx = _detect_face_center_x(img)
+
     img = img.resize((new_w, new_h), Image.LANCZOS)
 
-    # はみ出し分をクロップ（横は中央、縦は上部優先）
-    left = (new_w - target_w) // 2
+    # 横方向クロップ: 顔があれば顔中心、なければ画像中心
+    if face_cx is not None:
+        # 顔の中心をリサイズ後の座標に変換
+        scaled_cx = int(face_cx * scale)
+        left = max(0, min(new_w - target_w, scaled_cx - target_w // 2))
+    else:
+        left = (new_w - target_w) // 2
+
+    # 縦方向クロップ: 上部優先（人物の顔は上半分にあることが多い）
     img = img.crop((left, 0, left + target_w, target_h))
 
     return img

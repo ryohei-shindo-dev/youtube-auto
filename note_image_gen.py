@@ -135,13 +135,43 @@ _bg_cache: dict[str, Image.Image] = {}
 _cat_index: dict[str, int] = {}  # カテゴリごとの次に使うインデックス
 
 
+_thumbnail_landscape_cache: list[pathlib.Path] | None = None
+
+
+def _get_thumbnail_landscape_photos() -> list[pathlib.Path]:
+    """thumbnail/ フォルダから横長写真のパス一覧を返す（初回のみ判定、以降キャッシュ）。"""
+    global _thumbnail_landscape_cache
+    if _thumbnail_landscape_cache is not None:
+        return _thumbnail_landscape_cache
+
+    from PIL import Image as _PILImage
+
+    result: list[pathlib.Path] = []
+    thumb_dir = PHOTOS_DIR / "thumbnail"
+    if thumb_dir.exists():
+        for p in sorted(thumb_dir.glob("*.jpg")):
+            try:
+                with _PILImage.open(p) as im:
+                    if im.width >= im.height:  # 横長のみ
+                        result.append(p)
+            except Exception:
+                continue
+    _thumbnail_landscape_cache = result
+    return result
+
+
 def _pick_photo(category: str) -> pathlib.Path:
-    """カテゴリフォルダから写真をランダム選択する。"""
+    """カテゴリフォルダ + thumbnail/ の横長写真からランダム選択する。"""
     import random
+
     cat_dir = PHOTOS_DIR / category
     if not cat_dir.exists():
         cat_dir = PHOTOS_DIR / DEFAULT_PHOTO_CAT
     photos = sorted(cat_dir.glob("*.jpg")) + sorted(cat_dir.glob("*.png"))
+
+    # thumbnail/ の横長写真も候補に追加（結果をキャッシュ）
+    photos.extend(_get_thumbnail_landscape_photos())
+
     if not photos:
         # フォールバック: 旧背景画像
         return ASSETS_DIR / "long_night_thinking.png"
