@@ -22,6 +22,7 @@ Playwrightでnote記事を予約投稿するスクリプト。
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import re
 import sys
@@ -35,13 +36,14 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 USER_DATA_DIR = SCRIPT_DIR / ".note_browser"
+MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 
 # note アカウント情報
 NOTE_USER = "gachiho_motive"
-NOTE_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
+DEFAULT_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
 
-# 固定タグ
-NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]
+# デフォルトタグ（manifest に tags がない記事に使う）
+DEFAULT_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]
 
 # 第2弾の投稿スケジュール（No. → 日付）— 全11本投稿完了（3/21〜3/29）
 # 第3弾（note_add_*）は note_publish_additional.py で管理
@@ -57,8 +59,8 @@ SCHEDULE = {
     22: "2026-03-29 21:00",
 }
 
-# 記事Noごとの追加タグ（固定タグに加えて使う。未登録はデフォルト空）
-EXTRA_TAGS: dict[int, list[str]] = {
+# レガシー: manifest に tags がない既存記事用の追加タグ
+_LEGACY_EXTRA_TAGS: dict[int, list[str]] = {
     16: ["新NISA"],
     17: ["含み益"],
     19: ["老後資金"],
@@ -69,20 +71,42 @@ EXTRA_TAGS: dict[int, list[str]] = {
     25: ["インフレ"],
 }
 
-# 記事No. → ファイル番号のマッピング（第1弾=1-15はシート側、第2弾=16-27）
-_ARTICLE_FILE_OFFSET = 15  # note_{no - offset:02d}_*.md
+
+# ---------------------------------------------------------------------------
+# manifest ロード
+# ---------------------------------------------------------------------------
+
+def _load_manifest() -> dict[int, dict]:
+    """note_manifest.json を読み込み、{sheet_no: entry} の辞書を返す。"""
+    if not MANIFEST_PATH.exists():
+        return {}
+    entries = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    return {e["sheet_no"]: e for e in entries if e.get("sheet_no") is not None}
 
 
-def _find_article(no: int) -> tuple[str, str, pathlib.Path | None]:
-    """記事No.に対応するタイトル・本文・画像パスを返す。"""
-    # 記事ファイルを探す
-    pattern = f"note_{no - _ARTICLE_FILE_OFFSET:02d}_*"
-    matches = list(ARTICLES_DIR.glob(pattern))
-    if not matches:
-        raise FileNotFoundError(f"記事ファイルが見つかりません: {pattern}")
+def _get_article_meta(no: int) -> dict:
+    """sheet_no から manifest エントリを取得する。"""
+    manifest = _load_manifest()
+    meta = manifest.get(no)
+    if meta is None:
+        raise RuntimeError(f"sheet_no={no} が note_manifest.json にありません")
+    return meta
 
-    article_path = matches[0]
-    text = article_path.read_text(encoding="utf-8")
+
+def _find_article(no: int) -> tuple[str, str, pathlib.Path | None, dict]:
+    """記事No.に対応するタイトル・本文・画像パス・メタ情報を返す。
+
+    note_manifest.json から md_path / image_path を取得する。
+    manifest にエントリがない場合は RuntimeError。
+    """
+    meta = _get_article_meta(no)
+
+    # --- 記事ファイル読み込み ---
+    md_path = SCRIPT_DIR / meta["md_path"]
+    if not md_path.exists():
+        raise FileNotFoundError(f"記事ファイルが見つかりません: {md_path}")
+
+    text = md_path.read_text(encoding="utf-8")
 
     # タイトル抽出（# で始まる行）
     title = ""
@@ -95,12 +119,49 @@ def _find_article(no: int) -> tuple[str, str, pathlib.Path | None]:
 
     body = "\n".join(body_lines).strip()
 
-    # 画像ファイル
-    image_path = IMAGES_DIR / f"note_{no}.png"
-    if not image_path.exists():
-        image_path = None
+    # --- 画像ファイル ---
+    image_path = None
+    if meta.get("image_path"):
+        img = SCRIPT_DIR / meta["image_path"]
+        if img.exists():
+            image_path = img
 
-    return title, body, image_path
+    return title, body, image_path, meta
+
+
+def _resolve_tags(no: int, meta: dict) -> list[str]:
+    """manifest のメタ情報からタグリストを組み立てる。
+
+    優先順位:
+      1. manifest に tags があれば tag_mode に従って処理
+      2. manifest に tags がなければレガシー EXTRA_TAGS を使用
+      3. どちらもなければ DEFAULT_TAGS のみ
+    """
+    meta_tags = meta.get("tags")
+    tag_mode = meta.get("tag_mode", "merge")
+
+    if meta_tags is not None:
+        if tag_mode == "replace":
+            tags = list(meta_tags)
+        else:
+            tags = list(DEFAULT_TAGS) + list(meta_tags)
+    else:
+        # レガシー: manifest に tags がない既存記事
+        tags = list(DEFAULT_TAGS) + _LEGACY_EXTRA_TAGS.get(no, [])
+
+    # 順序保持で重複除去
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for t in tags:
+        if t not in seen:
+            seen.add(t)
+            deduped.append(t)
+    return deduped
+
+
+def _resolve_magazine(meta: dict) -> str:
+    """manifest のメタ情報からマガジン名を返す。"""
+    return meta.get("magazine") or DEFAULT_MAGAZINE
 
 
 def _launch_browser(headless: bool = False) -> tuple:
@@ -330,9 +391,10 @@ def post_article(
     Returns:
         記事URL（成功時）、None（失敗時）
     """
-    title, body, image_path = _find_article(no)
+    title, body, image_path, meta = _find_article(no)
     body_html, url_lines = _split_body_for_note(body)
-    tags = NOTE_TAGS + EXTRA_TAGS.get(no, [])
+    tags = _resolve_tags(no, meta)
+    magazine = _resolve_magazine(meta)
 
     print(f"\n{'=' * 50}")
     print(f"  #{no} {title[:30]}")
@@ -426,15 +488,15 @@ def post_article(
     # --- マガジン追加 ---
     try:
         magazine_btn = page.wait_for_selector(
-            f'button:has-text("追加"):near(:text("{NOTE_MAGAZINE}"))',
+            f'button:has-text("追加"):near(:text("{magazine}"))',
             timeout=5000,
         )
         magazine_btn.click()
         time.sleep(1)
-        print("  マガジン追加完了")
+        print(f"  マガジン追加完了: {magazine}")
     except Exception as e:
         print(f"  [警告] マガジン追加失敗: {e}")
-        print("  手動で「含み損の夜に読むメモ」に追加してください。")
+        print(f"  手動で「{magazine}」に追加してください。")
 
     # --- 予約投稿設定 ---
     if schedule_str and not draft_only:
@@ -568,7 +630,7 @@ def do_fetch_urls():
     all_nos = [16] + list(SCHEDULE.keys())
     for no in all_nos:
         try:
-            title, _, _ = _find_article(no)
+            title, _, _, _ = _find_article(no)
             title_to_no[title] = no
         except FileNotFoundError:
             pass
@@ -767,13 +829,13 @@ def _find_article_body_html(no: int, title: str = "") -> tuple[str, list[str]] |
     """記事No.またはタイトルから本文HTML + URL行リストを取得する。
 
     検索順序:
-      1. _find_article(no) — No.16+ の第2弾記事（_ARTICLE_FILE_OFFSET使用）
-      2. note_{no:02d}_*.md — No.1-15 の第1弾記事
+      1. _find_article(no) — manifest から取得
+      2. note_{no:02d}_*.md — No.1-15 の第1弾記事（レガシー）
       3. タイトル前方一致 — note_add_* 等の追加記事
     """
-    # 1. No. 16+ (second batch)
+    # 1. manifest から取得
     try:
-        _, body, _ = _find_article(no)
+        _, body, _, _ = _find_article(no)
         return _split_body_for_note(body)
     except FileNotFoundError:
         pass
