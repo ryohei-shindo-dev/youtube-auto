@@ -18,6 +18,7 @@ from playwright.sync_api import Page
 
 from note_publish import (
     _launch_browser, _close_browser, _markdown_to_note_html,
+    _split_body_for_note, _insert_body_with_cards,
     _URL_LINE_RE_PUBLISH as _URL_LINE_RE,
     _EMBED_SELECTORS, _wait_for_embed_card, _count_embed_cards,
 )
@@ -344,7 +345,8 @@ def verify_specs() -> list[str]:
     return errors
 
 
-def _load_article(spec: dict) -> tuple[str, str, pathlib.Path]:
+def _load_article(spec: dict) -> tuple[str, str, list[str], pathlib.Path]:
+    """記事ファイルを読み込み、(タイトル, HTML, URL行リスト, 画像パス) を返す。"""
     text = spec["article_path"].read_text(encoding="utf-8")
     title = ""
     body_lines = []
@@ -354,7 +356,8 @@ def _load_article(spec: dict) -> tuple[str, str, pathlib.Path]:
         else:
             body_lines.append(line)
     body = "\n".join(body_lines).strip()
-    return title, _markdown_to_note_html(body), spec["image_path"]
+    body_html, url_lines = _split_body_for_note(body)
+    return title, body_html, url_lines, spec["image_path"]
 
 
 def _upload_header_image(page: Page, image_path: pathlib.Path):
@@ -376,7 +379,7 @@ def _upload_header_image(page: Page, image_path: pathlib.Path):
 
 
 
-def _fill_editor(page: Page, title: str, body_text: str):
+def _fill_editor(page: Page, title: str, body_html: str, url_lines: list[str] | None = None):
     title_el = page.wait_for_selector('textarea[placeholder="記事タイトル"]', timeout=10000)
     title_el.click()
     page.keyboard.type(title, delay=10)
@@ -385,39 +388,8 @@ def _fill_editor(page: Page, title: str, body_text: str):
     if current_title != title:
         raise RuntimeError(f"タイトル入力未反映: {current_title!r}")
 
-    body = page.locator('div.ProseMirror[role="textbox"]')
-    body.click()
-
-    # 全行を1行ずつ入力。URL行は press_sequentially + Enter でカード変換。
-    # insert_text は使わない（noteのProseMirrorで改行・カード変換が不安定になるため）。
-    for line in body_text.splitlines():
-        stripped = line.strip()
-
-        if _URL_LINE_RE.match(stripped):
-            # URL行: タイプ → Enter → カードDOM出現待ち
-            before = _count_embed_cards(page)
-            body.press_sequentially(stripped, delay=15)
-            body.press("Enter")
-
-            embedded = _wait_for_embed_card(page, before, timeout=5000)
-            if embedded:
-                print(f"    カード変換成功: {stripped[:50]}")
-            else:
-                print(f"    [警告] カード変換未確認: {stripped[:50]}")
-                # 失敗時もう1回 Enter を試す
-                body.press("Enter")
-                time.sleep(1)
-        else:
-            if line:
-                body.press_sequentially(line, delay=3)
-            body.press("Enter")
-
-    time.sleep(1)
-    current_body = body.inner_text().strip()
-    if len(current_body) < 50:
-        raise RuntimeError("本文入力がnote側で確定していません")
-    body.press("Escape")
-    time.sleep(0.5)
+    # insertHTML + URL press_sequentially（note_publish.py の共通関数）
+    _insert_body_with_cards(page, body_html, url_lines or [])
 
 
 def _go_publish(page: Page):
@@ -470,7 +442,7 @@ def _finalize(page: Page):
 
 
 def post_spec(page: Page, spec: dict):
-    title, body_text, image_path = _load_article(spec)
+    title, body_html, url_lines, image_path = _load_article(spec)
     print(f"\n=== {spec['id']} {title} ===")
 
     page.goto("https://note.com/new")
@@ -478,7 +450,7 @@ def post_spec(page: Page, spec: dict):
     time.sleep(2)
 
     _upload_header_image(page, image_path)
-    _fill_editor(page, title, body_text)
+    _fill_editor(page, title, body_html, url_lines)
     _go_publish(page)
 
     if spec["schedule"]:
@@ -504,13 +476,20 @@ def do_login():
 
 
 def do_post_all():
-    # 投稿前に整合性チェック
+    # 投稿前に整合性チェック（画像スペック）
     errors = verify_specs()
+
+    # 投稿前に本文バリデーション
+    from note_preflight_check import check_article, check_image_spec
+    for spec in ARTICLE_SPECS:
+        errors.extend(check_article(spec["article_path"]))
+        errors.extend(check_image_spec(spec))
+
     if errors:
-        print("[エラー] ARTICLE_SPECS に不整合があります:")
+        print(f"[エラー] 投稿前チェックで {len(errors)} 件の問題:")
         for e in errors:
-            print(f"  - {e}")
-        print("修正してから再実行してください。")
+            print(f"  ❌ {e}")
+        print("\n修正してから再実行してください。")
         return
 
     pw, context, page = _launch_browser(headless=False)
