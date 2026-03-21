@@ -56,21 +56,24 @@ def _run_batch(page, targets: list[dict], command: str, manifest: list[dict],
 
         try:
             ok = process_fn(page, t)
-            result = "success" if ok else "failed"
+            result = ops.RESULT_SUCCESS if ok else ops.RESULT_FAILED
             if ok:
                 success += 1
             else:
                 fail += 1
                 ops.take_debug_snapshot(page, f"{command}_{note_id}")
         except Exception as e:
-            result = "error"
+            result = ops.RESULT_ERROR
             fail += 1
             print(f"  [エラー] {e}")
             ops.take_debug_snapshot(page, f"{command}_{note_id}")
 
         ops.log_result(note_id, command, result)
         ops.update_manifest_row(manifest, note_id, command, result)
-        ops.save_manifest(manifest)
+
+        # 失敗時は即座にmanifest保存（リカバリ用）
+        if result != ops.RESULT_SUCCESS:
+            ops.save_manifest(manifest)
 
         if fail_fast and fail > 0:
             print(f"\n--fail-fast: 失敗が発生したため停止")
@@ -78,6 +81,8 @@ def _run_batch(page, targets: list[dict], command: str, manifest: list[dict],
 
         time.sleep(2)
 
+    # バッチ終了時にmanifest保存
+    ops.save_manifest(manifest)
     print(f"\n{'=' * 50}")
     print(f"  完了: 成功{success}, 失敗{fail}")
     print(f"{'=' * 50}")
@@ -142,13 +147,12 @@ def cmd_publish(args):
         ops.fill_editor(page, title, body)
         print("  本文入力完了")
 
+        # 下書き保存でエディタ状態を確定してから公開設定へ
         save_btn = page.wait_for_selector(
             'button:has-text("下書き保存"), button:has-text("一時保存")', timeout=10000)
         save_btn.click()
         time.sleep(3)
-        page.wait_for_selector(ops.SEL["publish_nav"], timeout=10000).click()
-        page.wait_for_load_state("networkidle")
-        time.sleep(2)
+        ops.go_to_publish(page)
 
         ops.set_tags(page, tags)
         ops.add_to_magazine(page)
@@ -157,11 +161,11 @@ def cmd_publish(args):
         print(f"  予約設定完了: {args.schedule}")
         ops.finalize(page)
         print("  予約投稿完了")
-        ops.log_result("new", "publish", "success", extra={"title": title})
+        ops.log_result("new", "publish", ops.RESULT_SUCCESS, extra={"title": title})
     except Exception as e:
         print(f"  [エラー] {e}")
         ops.take_debug_snapshot(page, "publish")
-        ops.log_result("new", "publish", "error", error_message=str(e))
+        ops.log_result("new", "publish", ops.RESULT_ERROR, error_message=str(e))
     finally:
         ops.close(pw, context)
 
@@ -213,16 +217,16 @@ def cmd_rewrite_body(args):
             if state["ok"]:
                 if ops.save_article(page):
                     print("保存完了")
-                    ops.log_result(args.note_id, "rewrite-body", "success")
+                    ops.log_result(args.note_id, "rewrite-body", ops.RESULT_SUCCESS)
                 else:
                     print("[エラー] 保存失敗")
-                    ops.log_result(args.note_id, "rewrite-body", "failed")
+                    ops.log_result(args.note_id, "rewrite-body", ops.RESULT_FAILED)
             else:
                 print(f"[検証失敗] {state['errors']}")
                 ops.take_debug_snapshot(page, f"rewrite_{args.note_id}")
         else:
             print("[エラー] 本文再投入失敗")
-            ops.log_result(args.note_id, "rewrite-body", "failed")
+            ops.log_result(args.note_id, "rewrite-body", ops.RESULT_FAILED)
     finally:
         ops.close(pw, context)
 
@@ -264,12 +268,12 @@ def cmd_reschedule(args):
         print(f"  日時変更: {args.schedule}")
         ops.finalize(page)
         print("  予約投稿完了")
-        ops.log_result(args.note_id, "reschedule", "success",
+        ops.log_result(args.note_id, "reschedule", ops.RESULT_SUCCESS,
                        extra={"schedule": args.schedule})
     except Exception as e:
         print(f"  [エラー] {e}")
         ops.take_debug_snapshot(page, f"reschedule_{args.note_id}")
-        ops.log_result(args.note_id, "reschedule", "error", error_message=str(e))
+        ops.log_result(args.note_id, "reschedule", ops.RESULT_ERROR, error_message=str(e))
     finally:
         ops.close(pw, context)
 
@@ -281,7 +285,7 @@ def cmd_discard_draft(args):
         ops.open_editor(page, args.note_id)
         if ops.save_article(page):
             print("下書き破棄+保存完了")
-            ops.log_result(args.note_id, "discard-draft", "success")
+            ops.log_result(args.note_id, "discard-draft", ops.RESULT_SUCCESS)
         else:
             print("[エラー] 保存失敗")
     finally:
@@ -309,8 +313,7 @@ def cmd_inspect(args):
         except Exception:
             pass
     finally:
-        context.close()
-        pw.stop()
+        ops.close(pw, context)
 
 
 # ── CLI ──

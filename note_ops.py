@@ -36,6 +36,12 @@ NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル
 NOTE_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
 MIN_BODY_LENGTH = 200
 
+# ── 結果定数（タイポ防止） ──
+RESULT_SUCCESS = "success"
+RESULT_FAILED = "failed"
+RESULT_ERROR = "error"
+RESULT_SKIPPED = "skipped"
+
 # ── セレクタ一覧（変更時はここだけ修正） ──
 SEL = {
     # エディタ
@@ -261,6 +267,18 @@ def save_article(page: Page) -> bool:
 
 # ── 画像 ──
 
+def _do_image_upload(page: Page, image_path: pathlib.Path):
+    """画像追加ボタン→アップロード→保存の共通処理（内部用）。"""
+    page.wait_for_selector(SEL["img_add"], timeout=5000).click()
+    time.sleep(1)
+    with page.expect_file_chooser() as fc:
+        page.click(SEL["img_upload"])
+    fc.value.set_files(str(image_path))
+    time.sleep(3)
+    page.wait_for_selector(SEL["img_save"], timeout=5000).click()
+    time.sleep(3)
+
+
 def replace_header_image(page: Page, image_path: pathlib.Path) -> bool:
     """ヘッダー画像を差し替える。
 
@@ -276,17 +294,8 @@ def replace_header_image(page: Page, image_path: pathlib.Path) -> bool:
             delete_btn.first.click()
             time.sleep(2)
 
-        page.wait_for_selector(SEL["img_add"], timeout=5000).click()
-        time.sleep(1)
-
-        with page.expect_file_chooser() as fc:
-            page.click(SEL["img_upload"])
-        fc.value.set_files(str(image_path))
-        time.sleep(3)
-
-        page.wait_for_selector(SEL["img_save"], timeout=5000).click()
-        time.sleep(5)
-
+        _do_image_upload(page, image_path)
+        time.sleep(2)
         resync_editor_state(page)
         return True
     except Exception as e:
@@ -297,14 +306,7 @@ def replace_header_image(page: Page, image_path: pathlib.Path) -> bool:
 def upload_header_image(page: Page, image_path: pathlib.Path) -> bool:
     """新規記事にヘッダー画像をアップロードする（既存画像なし前提）。"""
     try:
-        page.wait_for_selector(SEL["img_add"], timeout=5000).click()
-        time.sleep(1)
-        with page.expect_file_chooser() as fc:
-            page.click(SEL["img_upload"])
-        fc.value.set_files(str(image_path))
-        time.sleep(3)
-        page.wait_for_selector(SEL["img_save"], timeout=5000).click()
-        time.sleep(2)
+        _do_image_upload(page, image_path)
         return True
     except Exception as e:
         print(f"    [警告] 画像アップロード失敗: {e}")
@@ -322,23 +324,14 @@ def count_embed_cards(page: Page) -> int:
     return 0
 
 
-def fill_editor(page: Page, title: str, body_text: str) -> int:
-    """タイトルと本文をエディタに入力する。
+def _input_body_text(page: Page, body_text: str) -> int:
+    """本文テキストをエディタに入力する（内部用）。
 
     URL単独行は press_sequentially + Enter でカード変換をトリガーする。
     insert_text は使わない（noteのProseMirrorでカード変換が動かないため）。
 
     Returns: カード変換成功数
     """
-    title_el = page.wait_for_selector(SEL["title"], timeout=10000)
-    title_el.click()
-    page.keyboard.type(title, delay=10)
-    time.sleep(1)
-
-    current = title_el.input_value().strip()
-    if current != title:
-        raise RuntimeError(f"タイトル入力未反映: {current!r}")
-
     body = page.locator(SEL["body"])
     body.click()
 
@@ -369,6 +362,23 @@ def fill_editor(page: Page, title: str, body_text: str) -> int:
     return card_count
 
 
+def fill_editor(page: Page, title: str, body_text: str) -> int:
+    """タイトルと本文をエディタに入力する（新規投稿用）。
+
+    Returns: カード変換成功数
+    """
+    title_el = page.wait_for_selector(SEL["title"], timeout=10000)
+    title_el.click()
+    page.keyboard.type(title, delay=10)
+    time.sleep(1)
+
+    current = title_el.input_value().strip()
+    if current != title:
+        raise RuntimeError(f"タイトル入力未反映: {current!r}")
+
+    return _input_body_text(page, body_text)
+
+
 def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
     """記事の本文を全文再投入する。
 
@@ -391,7 +401,8 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
     page.keyboard.press("Backspace")
     time.sleep(0.5)
 
-    card_count = fill_editor(page, title, body)
+    # 本文のみ再入力（タイトルは既存のまま。fill_editorを使うとタイトル二重入力になる）
+    card_count = _input_body_text(page, body)
 
     new_len = len(body_el.inner_text().strip())
     if new_len < MIN_BODY_LENGTH:
@@ -494,14 +505,17 @@ def collect_note_ids(page: Page) -> list[dict]:
                 pass
 
     page.on("response", on_response)
-    page.goto("https://note.com/dashboard")
-    time.sleep(2)
-    page.goto("https://note.com/notes", wait_until="networkidle")
-    time.sleep(5)
-
-    for _ in range(8):
-        page.keyboard.press("End")
+    try:
+        page.goto("https://note.com/dashboard")
         time.sleep(2)
+        page.goto("https://note.com/notes", wait_until="networkidle")
+        time.sleep(5)
+
+        for _ in range(8):
+            page.keyboard.press("End")
+            time.sleep(2)
+    finally:
+        page.remove_listener("response", on_response)
 
     seen = set()
     return [n for n in collected if n["id"] not in seen and not seen.add(n["id"])]

@@ -1,3 +1,4 @@
+# [廃止予定] note_tool.py + note_ops.py に統合済み。このファイルは互換性のため残しているが、新規利用禁止。
 """
 fix_note_link_cards.py
 予約投稿中のnote記事のリンクをカード化する修正スクリプト。

@@ -1,3 +1,4 @@
+# [廃止予定] note_tool.py + note_ops.py に統合済み。このファイルは互換性のため残しているが、新規利用禁止。
 """
 replace_note_images.py
 全note記事のヘッダー画像を一括差し替えする。
