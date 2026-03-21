@@ -7,7 +7,7 @@
 
 環境変数:
     OPENAI_API_KEY  — 必須。OpenAI の API キー
-    OPENAI_MODEL    — 省略時 gpt-4o
+    OPENAI_MODEL    — 省略時 gpt-5.4
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def main() -> None:
         sys.exit(1)
 
     # --- API 呼び出し ---
-    model = os.getenv("OPENAI_MODEL", "gpt-4o")
+    model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     client = OpenAI(api_key=api_key)
 
     response = client.responses.create(
