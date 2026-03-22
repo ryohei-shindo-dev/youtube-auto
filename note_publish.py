@@ -606,7 +606,7 @@ def do_post_single(no: int, schedule_str: str | None, draft: bool):
         if url:
             _update_sheet(no, url, schedule_str=schedule_str)
     finally:
-        _close_browser(pw, context)
+        _close_browser(pw, context, wait_for_user=False)
 
 
 def do_batch():
