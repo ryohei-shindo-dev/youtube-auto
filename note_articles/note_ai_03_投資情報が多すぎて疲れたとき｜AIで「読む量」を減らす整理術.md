@@ -49,6 +49,6 @@ AIは読む量を減らす整理には使いやすくても、そのまま投資
 積み立て設定はそのまま触らずに、その日はそれで終えていいのです。AIを不安整理に使う考え方の全体像は、以下の記事でも整理しています。
 
 https://note.com/gachiho_motive/n/ne76cf4ddce58
+https://note.com/gachiho_motive/n/n83ea2fd1656d
 
 比較や情報で気持ちが揺れやすい日に向けた短い動画も、YouTube Shorts「ガチホのモチベ」で配信しています。
-https://note.com/gachiho_motive/n/ne8bb791383e5

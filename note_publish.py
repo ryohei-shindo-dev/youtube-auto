@@ -297,6 +297,87 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
     return html.strip(), url_lines
 
 
+def _split_body_into_blocks(body: str) -> list[dict]:
+    """本文を出現順のブロック列に分解する。
+
+    URL単独行は {"type": "card", "url": "..."} に、
+    それ以外は {"type": "html", "text": "..."} にまとめる。
+    HTML変換は各htmlブロックに対して個別に行う。
+    """
+    blocks: list[dict] = []
+    html_lines: list[str] = []
+
+    def flush_html():
+        if html_lines:
+            text = "\n".join(html_lines)
+            # _split_body_for_note と同じHTML変換ロジックを適用
+            html, _ = _split_body_for_note(text)
+            if html.strip():
+                blocks.append({"type": "html", "html": html})
+            html_lines.clear()
+
+    for raw_line in body.split("\n"):
+        stripped = raw_line.strip()
+        if _URL_LINE_RE_PUBLISH.match(stripped):
+            flush_html()
+            blocks.append({"type": "card", "url": stripped})
+        else:
+            html_lines.append(raw_line)
+
+    flush_html()
+    return blocks
+
+
+def _insert_body_blocks(page, blocks: list[dict]):
+    """ブロック列を出現順どおりに挿入する。
+
+    htmlブロックはinsertHTMLで、cardブロックはpress_sequentiallyでカード変換。
+    これにより本文途中のリンクカードも正しい位置に配置できる。
+    """
+    body_sel = 'div.ProseMirror[role="textbox"]'
+    try:
+        body_el = page.wait_for_selector(body_sel, timeout=10000)
+        body_el.click()
+
+        body_loc = page.locator(body_sel)
+
+        for i, block in enumerate(blocks):
+            if block["type"] == "html":
+                if i > 0:
+                    # 前のブロックとの間に改行
+                    page.keyboard.press("Enter")
+                    time.sleep(0.2)
+                page.evaluate(
+                    """html => {
+                        document.execCommand('insertHTML', false, html);
+                    }""",
+                    block["html"],
+                )
+                time.sleep(0.5)
+
+            elif block["type"] == "card":
+                before_count = _count_embed_cards(page)
+                page.keyboard.press("Enter")
+                time.sleep(0.3)
+                body_loc.press_sequentially(block["url"], delay=15)
+                body_loc.press("Enter")
+
+                embedded = _wait_for_embed_card(page, before_count, timeout=5000)
+                if embedded:
+                    print(f"    カード変換成功: {block['url'][:50]}")
+                else:
+                    print(f"    [警告] カード変換未確認: {block['url'][:50]}")
+                    body_loc.press("Enter")
+                    time.sleep(1)
+
+        time.sleep(1)
+        print(f"  ブロック挿入完了（{len(blocks)}ブロック）")
+
+    except Exception as e:
+        print(f"  [エラー] ブロック挿入失敗: {e}")
+        page.pause()
+
+
 # note埋め込みカード検出用セレクタ
 _EMBED_SELECTORS = [
     'div.ProseMirror iframe',
