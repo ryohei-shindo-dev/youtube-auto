@@ -33,11 +33,15 @@ PUBLISH_QUEUE_PATH = SCRIPT_DIR / "note_publish_queue.json"
 DEFAULT_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
 DEFAULT_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]
 
-# --- カテゴリ別制約 ---
+# --- theme別制約（ミキサー用） ---
 CATEGORY_RULES = {
-    "mental":      {"max_consecutive": 2, "min_gap": 0},
-    "regret":      {"max_consecutive": 2, "min_gap": 4},
-    "ai_support":  {"max_consecutive": 1, "min_gap": 8},
+    "tsumitate":  {"max_consecutive": 2, "min_gap": 1},
+    "comparison": {"max_consecutive": 2, "min_gap": 2},
+    "loss_drop":  {"max_consecutive": 2, "min_gap": 2},
+    "sell_exit":  {"max_consecutive": 1, "min_gap": 3},
+    "sns_mind":   {"max_consecutive": 2, "min_gap": 2},
+    "life_plan":  {"max_consecutive": 1, "min_gap": 4},
+    "ai_support": {"max_consecutive": 1, "min_gap": 6},
 }
 
 MAX_CONSECUTIVE_ANY = 2
@@ -47,15 +51,23 @@ TIME_SLOTS = ["12:30", "21:00"]
 
 # カテゴリ別の時間帯優先度（優先度であり固定ではない）
 CATEGORY_TIME_PREF: dict[str, str] = {
-    "mental":      "21:00",   # 感情整理 → 夜
-    "regret":      "21:00",
-    "ai_support":  "12:30",   # 検索流入 → ランチタイム
+    "tsumitate":  "21:00",   # 感情整理 → 夜
+    "comparison": "21:00",
+    "loss_drop":  "21:00",
+    "sell_exit":  "21:00",
+    "sns_mind":   "21:00",
+    "life_plan":  "12:30",   # 制度・計画系 → ランチタイム
+    "ai_support": "12:30",   # 検索流入 → ランチタイム
 }
 
 # カテゴリの日本語ラベル（表示用）
 CATEGORY_LABELS = {
-    "mental": "投資メンタル整理",
-    "regret": "動いて後悔した系",
+    "tsumitate": "積み立て継続・複利",
+    "comparison": "商品比較・分散投資",
+    "loss_drop": "含み損・暴落",
+    "sell_exit": "売却・離脱・やめたい",
+    "sns_mind": "SNS焦り・確認癖",
+    "life_plan": "老後・年齢不安",
     "ai_support": "AI整理記事",
     "family": "家族・パートナー",
     "saving_balance": "投資と節約",
@@ -74,16 +86,18 @@ def _get_category(entry: dict) -> str:
     category フィールドがあればそれを使い、
     なければ md_path のプレフィックスから推論する（フォールバック）。
     """
-    cat = entry.get("category")
-    if cat:
-        return cat
+    # ミキサーは theme を使う
+    theme = entry.get("theme")
+    if theme:
+        return theme
 
+    # フォールバック: md_path から推論
     md = entry.get("md_path", "") or ""
-    if "ugokite" in md:
-        return "regret"
     if "ai_" in md:
         return "ai_support"
-    return "mental"
+    if "ugokite" in md:
+        return "sell_exit"
+    return "tsumitate"
 
 
 def _get_unpublished_articles() -> list[dict]:
