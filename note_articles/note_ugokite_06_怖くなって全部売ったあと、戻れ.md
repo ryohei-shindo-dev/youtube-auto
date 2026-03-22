@@ -42,4 +42,4 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/ne16fb9dfd529
-https://note.com/gachiho_motive/n/n1f3ac52a9bd7
+https://note.com/gachiho_motive/n/nc053ef2751dd

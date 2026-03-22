@@ -84,5 +84,5 @@ AIを使っても、今日すぐ結論を出す必要はありません。
 ---
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/n071fff295d4a
-https://note.com/gachiho_motive/n/n33fd4ca91227
+https://note.com/gachiho_motive/n/n9a435709642d
+https://note.com/gachiho_motive/n/n8ead55c0ffab

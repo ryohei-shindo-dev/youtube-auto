@@ -36,4 +36,4 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/nccf6170767e8
-https://note.com/gachiho_motive/n/n1f3ac52a9bd7
+https://note.com/gachiho_motive/n/ne2d4103bd377
