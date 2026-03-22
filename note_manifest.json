@@ -1155,7 +1155,11 @@
     "image_bg": "希望",
     "photo_path": null,
     "magazine": "投資の不安を整理するためのAIメモ",
-    "tags": ["AI投資", "ChatGPT", "情報整理"],
+    "tags": [
+      "AI投資",
+      "ChatGPT",
+      "情報整理"
+    ],
     "tag_mode": "merge",
     "category": "ai"
   },
@@ -1171,7 +1175,10 @@
     "image_bg": "希望",
     "photo_path": null,
     "magazine": "投資の不安を整理するためのAIメモ",
-    "tags": ["AI投資", "ChatGPT"],
+    "tags": [
+      "AI投資",
+      "ChatGPT"
+    ],
     "tag_mode": "merge",
     "category": "ai"
   },
@@ -1185,6 +1192,32 @@
     "image_title": "複利を知っているのに\n増えていない気がする",
     "image_subtitle": "静かな時間の整理",
     "image_bg": "積立",
+    "photo_path": null,
+    "category": "add"
+  },
+  {
+    "sheet_no": 91,
+    "note_key": "n2dca43e534bd",
+    "sheet_title": "ドルコスト平均法を知っていても、下がると積み立てを止めたくなる理由",
+    "md_path": "note_articles/note_add_31_ドルコスト平均法を知っていても、下がると積み立てを止めたくなる理由.md",
+    "image_path": "note_images/note_add_31_ドルコスト平均法.png",
+    "url": "https://note.com/gachiho_motive/n/n2dca43e534bd",
+    "image_title": "ドルコスト平均法\n下がると止めたくなる",
+    "image_subtitle": "知識と感情のズレの整理",
+    "image_bg": "不安",
+    "photo_path": null,
+    "category": "add"
+  },
+  {
+    "sheet_no": 92,
+    "note_key": "n1afb2e971d81",
+    "sheet_title": "分散投資が大事だとわかっているのに、商品比較が止まらないときの整理",
+    "md_path": "note_articles/note_add_32_分散投資が大事だとわかっているのに、商品比較が止まらないときの整理.md",
+    "image_path": "note_images/note_add_32_分散投資.png",
+    "url": "https://note.com/gachiho_motive/n/n1afb2e971d81",
+    "image_title": "分散投資なのに\n比較が止まらない",
+    "image_subtitle": "正解を探しすぎる迷いの整理",
+    "image_bg": "比較",
     "photo_path": null,
     "category": "add"
   }
