@@ -899,21 +899,29 @@ def _repair_single_article(
 ) -> bool:
     """1本の記事の本文フォーマットを修正する。
 
-    エディタを開き → 本文を全選択 → 削除 → insertHTML + URL press_sequentially
-    → 「公開に進む」→「更新する」。
-    予約投稿の場合、「更新する」は予約状態を維持する。
+    エディタを開き → タイトル確認 → 本文を全選択 → 削除 → insertHTML
+    → 下書き保存でstate確定 → 「公開に進む」→「更新する」。
     """
     edit_url = f"https://editor.note.com/notes/{note_id}/edit/"
     page.goto(edit_url)
     page.wait_for_load_state("networkidle")
     time.sleep(3)
 
+    # タイトルをクリックしてstate確定（空にならないようにする）
+    title_el = page.wait_for_selector(
+        'textarea[placeholder="記事タイトル"]', timeout=10000
+    )
+    title_el.click()
+    time.sleep(0.5)
+    page.keyboard.press("End")  # カーソルを末尾に移動してstate確定
+    time.sleep(0.3)
+
+    # 本文エリアをクリック → 全選択 → 削除
     body_sel = 'div.ProseMirror[role="textbox"]'
     body_el = page.wait_for_selector(body_sel, timeout=10000)
     body_el.click()
     time.sleep(0.5)
 
-    # 全選択 → 削除
     page.keyboard.press("Meta+a")
     time.sleep(0.3)
     page.keyboard.press("Backspace")
@@ -922,10 +930,18 @@ def _repair_single_article(
     # insertHTML + URL press_sequentially（共通関数）
     _insert_body_with_cards(page, body_html, url_lines or [])
 
-    # 保存: 「公開に進む」→「更新する」
+    # 下書き保存でstate確定（「タイトル、本文を入力してください」エラー防止）
     page.keyboard.press("Escape")
     time.sleep(1)
+    save_btn = page.query_selector(
+        'button:has-text("下書き保存"), button:has-text("一時保存")'
+    )
+    if save_btn:
+        save_btn.click()
+        time.sleep(3)
+        print("  下書き保存完了")
 
+    # 「公開に進む」→「更新する」
     publish_nav = page.wait_for_selector(
         'button:has-text("公開に進む")', timeout=10000
     )
@@ -939,6 +955,20 @@ def _repair_single_article(
     )
     update_btn.click()
     time.sleep(5)
+
+    # 更新完了モーダルを閉じる（出ない場合もある）
+    try:
+        close_btn = page.wait_for_selector(
+            '.ReactModal__Overlay button:has-text("閉じる"), '
+            '.ReactModal__Overlay button[aria-label="閉じる"], '
+            '.ReactModal__Overlay button:has(svg), '
+            '.MessageModal__overlay button',
+            timeout=2000,
+        )
+        close_btn.click()
+        time.sleep(1)
+    except Exception as e:
+        print(f"  [情報] モーダル閉じスキップ: {e}")
 
     return True
 
