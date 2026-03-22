@@ -32,4 +32,4 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/ne16fb9dfd529
-https://note.com/gachiho_motive/n/nc053ef2751dd
+https://note.com/gachiho_motive/n/nb40bc390b796

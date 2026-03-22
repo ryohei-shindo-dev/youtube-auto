@@ -48,4 +48,4 @@ AIは答えを決めるより、不安を整理するのに向いています。
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/ne76cf4ddce58
-https://note.com/gachiho_motive/n/n7797c4141d94
+https://note.com/gachiho_motive/n/n36f153b979cd
