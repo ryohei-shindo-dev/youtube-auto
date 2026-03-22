@@ -1878,5 +1878,27 @@
     "magazines": [
       "長く続けるためのお金の整理"
     ]
+  },
+  {
+    "sheet_no": 103,
+    "note_key": "n4eb4b4668cdd",
+    "sheet_title": "含み損が気になる夜に、AIで「何が怖いのか」を分ける方法",
+    "md_path": "note_articles/note_ai_05_含み損が気になる夜に、AIで「何が怖いのか」を分ける方法.md",
+    "image_path": "note_images/note_ai_05_含み損の夜に.png",
+    "url": "https://note.com/gachiho_motive/n/n4eb4b4668cdd",
+    "image_title": "含み損の夜に\nAIで怖さを分ける",
+    "image_subtitle": "何が怖いのかを整理する",
+    "image_bg": "含み損",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT",
+      "含み損"
+    ],
+    "tag_mode": "merge",
+    "category": "ai_support",
+    "content_type": "brand",
+    "theme": "ai_support"
   }
 ]
