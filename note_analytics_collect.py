@@ -39,8 +39,10 @@ def collect_period(page, period_name: str) -> dict:
     """指定期間（週/月/全期間）のデータを取得"""
     btn = page.locator(f'button:has-text("{period_name}")').first
     if btn.count() > 0:
-        btn.click()
-        time.sleep(3)
+        disabled = btn.get_attribute("disabled")
+        if disabled is None:
+            btn.click()
+            time.sleep(3)
 
     body = page.inner_text("body")
     lines = [l.strip() for l in body.split('\n') if l.strip()]
