@@ -19,7 +19,12 @@ venv/
 done/
 pending/
 debug/
-long_video/
+long_video/**
+!long_video/
+!long_video/*/
+!long_video/*/video_meta.json
+!long_video/*/thumbnail.png
+!long_video/CLAUDE.md
 archive/
 
 # 画像素材（大容量）
