@@ -44,4 +44,4 @@ AIは整理役にはなっても、投資判断そのものを代わりに引き
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n9a435709642d
-https://note.com/gachiho_motive/n/n36f153b979cd
+https://note.com/gachiho_motive/n/n8ead55c0ffab

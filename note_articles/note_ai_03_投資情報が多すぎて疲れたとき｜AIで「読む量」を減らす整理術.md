@@ -51,4 +51,4 @@ AIは読む量を減らす整理には使いやすくても、そのまま投資
 https://note.com/gachiho_motive/n/ne76cf4ddce58
 
 比較や情報で気持ちが揺れやすい日に向けた短い動画も、YouTube Shorts「ガチホのモチベ」で配信しています。
-https://note.com/gachiho_motive/n/n36f153b979cd
+https://note.com/gachiho_motive/n/ne8bb791383e5
