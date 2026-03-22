@@ -35,17 +35,9 @@ DEFAULT_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタ
 
 # --- カテゴリ別制約 ---
 CATEGORY_RULES = {
-    "add":     {"max_consecutive": 2, "min_gap": 0},
-    "ugokite": {"max_consecutive": 2, "min_gap": 4},
-    "seo":     {"max_consecutive": 2, "min_gap": 4},
-    "ai":      {"max_consecutive": 1, "min_gap": 8},
-    "age":     {"max_consecutive": 1, "min_gap": 6},
-    "core":    {"max_consecutive": 2, "min_gap": 0},
-    # 今後追加予定
-    "withdrawal":       {"max_consecutive": 1, "min_gap": 6},
-    "dividend_compare": {"max_consecutive": 1, "min_gap": 6},
-    "family":           {"max_consecutive": 1, "min_gap": 8},
-    "saving_balance":   {"max_consecutive": 1, "min_gap": 8},
+    "mental":      {"max_consecutive": 2, "min_gap": 0},
+    "regret":      {"max_consecutive": 2, "min_gap": 4},
+    "ai_support":  {"max_consecutive": 1, "min_gap": 8},
 }
 
 MAX_CONSECUTIVE_ANY = 2
@@ -55,28 +47,16 @@ TIME_SLOTS = ["12:30", "21:00"]
 
 # カテゴリ別の時間帯優先度（優先度であり固定ではない）
 CATEGORY_TIME_PREF: dict[str, str] = {
-    "seo":     "12:30",   # 検索流入 → ランチタイム
-    "ai":      "12:30",
-    "age":     "12:30",
-    "add":     "21:00",   # 感情整理 → 夜
-    "ugokite": "21:00",
-    "core":    "21:00",
-    "withdrawal":       "21:00",
-    "dividend_compare": "12:30",
-    "family":           "21:00",
-    "saving_balance":   "12:30",
+    "mental":      "21:00",   # 感情整理 → 夜
+    "regret":      "21:00",
+    "ai_support":  "12:30",   # 検索流入 → ランチタイム
 }
 
 # カテゴリの日本語ラベル（表示用）
 CATEGORY_LABELS = {
-    "core": "初期記事",
-    "add": "比較疲れ・不安整理",
-    "ugokite": "動いて失敗した系",
-    "seo": "SEO記事",
-    "ai": "AI整理記事",
-    "age": "年齢テーマ",
-    "withdrawal": "出口戦略・取り崩し",
-    "dividend_compare": "配当 vs 積立",
+    "mental": "投資メンタル整理",
+    "regret": "動いて後悔した系",
+    "ai_support": "AI整理記事",
     "family": "家族・パートナー",
     "saving_balance": "投資と節約",
 }
@@ -100,16 +80,10 @@ def _get_category(entry: dict) -> str:
 
     md = entry.get("md_path", "") or ""
     if "ugokite" in md:
-        return "ugokite"
-    if "add_" in md:
-        return "add"
-    if "seo_" in md:
-        return "seo"
+        return "regret"
     if "ai_" in md:
-        return "ai"
-    if "age_" in md:
-        return "age"
-    return "core"
+        return "ai_support"
+    return "mental"
 
 
 def _get_unpublished_articles() -> list[dict]:
