@@ -1077,5 +1077,70 @@
     ],
     "tag_mode": "merge",
     "category": "ai"
+  },
+  {
+    "sheet_no": 83,
+    "note_key": "nddbd290a9df5",
+    "sheet_title": "新NISAの比較疲れを整理する。銘柄選びを終わらせる3つの基準",
+    "md_path": "note_articles/note_seo_11_新NISA比較疲れ.md",
+    "image_path": "note_images/note_seo_11_新NISA比較疲れ.png",
+    "url": "https://note.com/gachiho_motive/n/nddbd290a9df5",
+    "image_title": "新NISAの比較疲れ",
+    "image_subtitle": "銘柄選びを終わらせる3つの基準",
+    "image_bg": "比較",
+    "photo_path": null,
+    "category": "seo"
+  },
+  {
+    "sheet_no": 84,
+    "note_key": "ne9c17abd25d6",
+    "sheet_title": "積み立て3年目で増えないと感じる理由は？焦る前に確認したい3つのこと",
+    "md_path": "note_articles/note_seo_12_積み立て3年目増えない.md",
+    "image_path": "note_images/note_seo_12_積み立て3年目増えない.png",
+    "url": "https://note.com/gachiho_motive/n/ne9c17abd25d6",
+    "image_title": "積み立て3年目\n増えない",
+    "image_subtitle": "焦る前に確認したい3つのこと",
+    "image_bg": "積立",
+    "photo_path": null,
+    "category": "seo"
+  },
+  {
+    "sheet_no": 85,
+    "note_key": "nab3a88442bc2",
+    "sheet_title": "新NISAで含み損が不安なときに見ること。評価額より積み立ての前提を整理する",
+    "md_path": "note_articles/note_seo_13_新NISA含み損不安.md",
+    "image_path": "note_images/note_seo_13_新NISA含み損不安.png",
+    "url": "https://note.com/gachiho_motive/n/nab3a88442bc2",
+    "image_title": "新NISAの含み損\nが不安なとき",
+    "image_subtitle": "評価額より積み立ての前提を整理する",
+    "image_bg": "含み損",
+    "photo_path": null,
+    "category": "seo"
+  },
+  {
+    "sheet_no": 86,
+    "note_key": "n7a6a38f95792",
+    "sheet_title": "新NISAでS&P500が遅いと感じるときに読む話。伸びない気がする時期の考え方",
+    "md_path": "note_articles/note_seo_14_SP500遅い.md",
+    "image_path": "note_images/note_seo_14_SP500遅い.png",
+    "url": "https://note.com/gachiho_motive/n/n7a6a38f95792",
+    "image_title": "S&P500が遅い",
+    "image_subtitle": "伸びない気がする時期の考え方",
+    "image_bg": "比較",
+    "photo_path": null,
+    "category": "seo"
+  },
+  {
+    "sheet_no": 87,
+    "note_key": "n356c41a973d7",
+    "sheet_title": "新NISAは一括と積み立てどっちがいい？迷うときの後悔しにくい選び方",
+    "md_path": "note_articles/note_seo_15_一括積み立て迷う.md",
+    "image_path": "note_images/note_seo_15_一括積み立て迷う.png",
+    "url": "https://note.com/gachiho_motive/n/n356c41a973d7",
+    "image_title": "一括か積み立てか",
+    "image_subtitle": "後悔しにくい選び方",
+    "image_bg": "行動",
+    "photo_path": null,
+    "category": "seo"
   }
 ]
