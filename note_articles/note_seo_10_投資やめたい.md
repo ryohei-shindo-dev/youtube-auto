@@ -36,3 +36,9 @@
 ---
 
 このテーマの短い動画版もYouTube Shorts「ガチホのモチベ」で配信しています。
+
+あわせて読みたい
+
+https://note.com/gachiho_motive/n/n1dbe97f73b8b
+
+https://note.com/gachiho_motive/n/n8c38cddc2da5
