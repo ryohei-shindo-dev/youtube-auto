@@ -55,7 +55,5 @@
 迷ったときは、「自分は何を重視するのか」という軸をもう一度確認してください。その軸が決まれば、選択肢は必然的に絞られます。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/n7797c4141d94
-
 https://note.com/gachiho_motive/n/n89e9fc715f94

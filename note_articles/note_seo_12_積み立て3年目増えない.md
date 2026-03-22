@@ -41,7 +41,5 @@
 このテーマの短い動画版もYouTube Shorts「ガチホのモチベ」で配信しています。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/n0e2afd8bd86e
-
 https://note.com/gachiho_motive/n/n75c64c99af7e

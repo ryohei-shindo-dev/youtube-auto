@@ -43,7 +43,5 @@
 焦って判断を急がなくてもよい場面は、意外と多いのです。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/nc053ef2751dd
-
 https://note.com/gachiho_motive/n/ne2d4103bd377

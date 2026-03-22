@@ -37,7 +37,5 @@
 このテーマの短い動画版も YouTube Shorts「ガチホのモチベ」で配信しています。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/n4962f0177e3a
-
 https://note.com/gachiho_motive/n/nfb40ced12046

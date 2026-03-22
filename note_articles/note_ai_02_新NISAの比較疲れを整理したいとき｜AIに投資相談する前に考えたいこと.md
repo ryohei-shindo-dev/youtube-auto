@@ -47,7 +47,5 @@ AIは答えを決めるより、不安を整理するのに向いています。
 比較で気持ちが揺れやすい日に向けた短い動画も、YouTube Shorts「ガチホのモチベ」で配信しています。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/ne76cf4ddce58
-
 https://note.com/gachiho_motive/n/n7797c4141d94

@@ -29,7 +29,5 @@
 長期の積み立て投資では、価格が低い時期にも買い続けることで平均取得単価が平準化されやすいとされています。再開条件まで言葉にしておくと、混乱しにくくなります。
 
 あわせて読みたい
-
 https://note.com/gachiho_motive/n/n6245f11e0fc4
-
 https://note.com/gachiho_motive/n/n25373ba26ab4
