@@ -10,7 +10,8 @@
     "image_subtitle": "確認回数を減らすだけで変わること",
     "image_bg": "含み損",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 2,
@@ -23,7 +24,8 @@
     "image_subtitle": "一番地味な時期をどう越えるか",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 3,
@@ -36,7 +38,8 @@
     "image_subtitle": "15年持ち続けた人のデータ",
     "image_bg": "暴落",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 4,
@@ -49,7 +52,8 @@
     "image_subtitle": "比較をやめるための1つの視点",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 5,
@@ -62,7 +66,8 @@
     "image_subtitle": "売った後に起きていること",
     "image_bg": "利確",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 6,
@@ -75,7 +80,8 @@
     "image_subtitle": "確認するたび不安が増える理由",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 7,
@@ -88,7 +94,8 @@
     "image_subtitle": "やめた人が口にする後悔",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 8,
@@ -101,7 +108,8 @@
     "image_subtitle": "売らなかった人が受け取った数字",
     "image_bg": "暴落",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 9,
@@ -114,7 +122,8 @@
     "image_subtitle": "眠れない夜に思い出す数字",
     "image_bg": "長期",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 10,
@@ -127,7 +136,8 @@
     "image_subtitle": "売りたくなるのは正常です",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 11,
@@ -140,7 +150,8 @@
     "image_subtitle": "ドルコスト平均法の安く買える期間",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 12,
@@ -153,7 +164,8 @@
     "image_subtitle": "複利は静かに動いている",
     "image_bg": "複利",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 13,
@@ -166,7 +178,8 @@
     "image_subtitle": "特別なことは何もない",
     "image_bg": "退場",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 14,
@@ -179,7 +192,8 @@
     "image_subtitle": "直前にやっていたこと",
     "image_bg": "売却",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 15,
@@ -192,7 +206,8 @@
     "image_subtitle": "含み損の夜に読む意味",
     "image_bg": "余韻",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 16,
@@ -205,7 +220,8 @@
     "image_subtitle": "1〜2年目の離脱が一番多い傾向",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 17,
@@ -218,7 +234,8 @@
     "image_subtitle": "利益が出ている状態ほど揺れやすい",
     "image_bg": "含み損",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 18,
@@ -231,7 +248,8 @@
     "image_subtitle": "遅れたと感じるときの整理法",
     "image_bg": "長期",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 19,
@@ -244,7 +262,8 @@
     "image_subtitle": "間に合わない気がするときの数字",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 20,
@@ -257,7 +276,8 @@
     "image_subtitle": "怖さの中身を分けると整理しやすい",
     "image_bg": "行動",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 21,
@@ -270,7 +290,8 @@
     "image_subtitle": "積立なのに不安になる構造",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 22,
@@ -283,7 +304,8 @@
     "image_subtitle": "機会損失の痛みは含み損より深い",
     "image_bg": "含み損",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 23,
@@ -296,7 +318,8 @@
     "image_subtitle": "20年で見れば薄まりやすい傾向",
     "image_bg": "暴落",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 24,
@@ -309,7 +332,8 @@
     "image_subtitle": "迷う人が見落としやすい前提",
     "image_bg": "行動",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 25,
@@ -322,7 +346,8 @@
     "image_subtitle": "何が起きやすいかを数字で見る",
     "image_bg": "長期",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 26,
@@ -335,7 +360,8 @@
     "image_subtitle": "下がっている時期にこそ効く仕組み",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 27,
@@ -348,7 +374,8 @@
     "image_subtitle": "動かないことは戦略の実行",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 28,
@@ -361,7 +388,8 @@
     "image_subtitle": "でも20年後、それが最強になる",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 29,
@@ -374,7 +402,8 @@
     "image_subtitle": "長期投資の正体",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 30,
@@ -387,7 +416,8 @@
     "image_subtitle": "積み立ては本当の出番です",
     "image_bg": "継続",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 31,
@@ -400,7 +430,8 @@
     "image_subtitle": "積み立ては効いている",
     "image_bg": "継続",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 32,
@@ -413,7 +444,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 33,
@@ -426,7 +458,8 @@
     "image_subtitle": "それで十分です",
     "image_bg": "継続",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 34,
@@ -439,7 +472,8 @@
     "image_subtitle": "比較を静かにする",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 35,
@@ -452,7 +486,8 @@
     "image_subtitle": "いちばん長期投資らしい",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 36,
@@ -465,7 +500,8 @@
     "image_subtitle": "",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 37,
@@ -478,7 +514,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 38,
@@ -491,7 +528,8 @@
     "image_subtitle": "",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 39,
@@ -504,7 +542,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 40,
@@ -517,7 +556,8 @@
     "image_subtitle": "もう遅い気がする理由",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 41,
@@ -530,7 +570,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 42,
@@ -543,7 +584,8 @@
     "image_subtitle": "",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 43,
@@ -556,7 +598,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 44,
@@ -569,7 +612,8 @@
     "image_subtitle": "夜眠れなくなるのはなぜ",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 45,
@@ -582,7 +626,8 @@
     "image_subtitle": "シンプルに戻す方法",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 46,
@@ -595,7 +640,8 @@
     "image_subtitle": "迷いが深くなることがあります",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 47,
@@ -608,7 +654,8 @@
     "image_subtitle": "過去データを確認してから返事す",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 48,
@@ -621,7 +668,8 @@
     "image_subtitle": "まず確認したい「3ヶ月前の自分",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 49,
@@ -634,7 +682,8 @@
     "image_subtitle": "実は揺れているのは心",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 50,
@@ -647,7 +696,8 @@
     "image_subtitle": "",
     "image_bg": "継続",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 51,
@@ -660,7 +710,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 52,
@@ -673,7 +724,8 @@
     "image_subtitle": "",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 53,
@@ -686,7 +738,8 @@
     "image_subtitle": "一番いい投資判断だった",
     "image_bg": "希望",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 54,
@@ -699,7 +752,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 55,
@@ -712,7 +766,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 56,
@@ -725,7 +780,8 @@
     "image_subtitle": "",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 57,
@@ -738,7 +794,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 58,
@@ -751,7 +808,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 59,
@@ -764,7 +822,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 60,
@@ -777,7 +836,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 61,
@@ -790,7 +850,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 62,
@@ -803,7 +864,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 63,
@@ -816,7 +878,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 64,
@@ -829,7 +892,8 @@
     "image_subtitle": null,
     "image_bg": null,
     "photo_path": null,
-    "category": "core"
+    "category": "mental",
+    "content_type": "brand"
   },
   {
     "sheet_no": 65,
@@ -842,7 +906,8 @@
     "image_subtitle": "タイミングを計りたくなるときの整理法",
     "image_bg": "売却",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 66,
@@ -855,7 +920,8 @@
     "image_subtitle": "買えなくなる理由",
     "image_bg": "行動",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 67,
@@ -868,7 +934,8 @@
     "image_subtitle": "相場が戻ったとき",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 68,
@@ -881,7 +948,8 @@
     "image_subtitle": "売買をしてしまう",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 69,
@@ -894,7 +962,8 @@
     "image_subtitle": "伸びた",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 70,
@@ -907,7 +976,8 @@
     "image_subtitle": "戻れなくなった",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "ugokite"
+    "category": "regret",
+    "content_type": "brand"
   },
   {
     "sheet_no": 71,
@@ -926,7 +996,8 @@
       "ChatGPT"
     ],
     "tag_mode": "merge",
-    "category": "ai"
+    "category": "ai_support",
+    "content_type": "brand"
   },
   {
     "sheet_no": 72,
@@ -939,7 +1010,8 @@
     "image_subtitle": "長期投資の視点から整理する",
     "image_bg": "含み損",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 73,
@@ -952,7 +1024,8 @@
     "image_subtitle": "衝動的に売らないための整理",
     "image_bg": "売却",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 74,
@@ -965,7 +1038,8 @@
     "image_subtitle": "新NISAで迷ったときの確認ポイント",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 75,
@@ -978,7 +1052,8 @@
     "image_subtitle": "小さく続けることの考え方",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 76,
@@ -991,7 +1066,8 @@
     "image_subtitle": "比較疲れの整理",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 77,
@@ -1004,7 +1080,8 @@
     "image_subtitle": "続けた場合と止めた場合の違い",
     "image_bg": "暴落",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 78,
@@ -1017,7 +1094,8 @@
     "image_subtitle": "最初の一歩が重いときの整理",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 79,
@@ -1030,7 +1108,8 @@
     "image_subtitle": "どちらから始めるかの整理",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 80,
@@ -1043,7 +1122,8 @@
     "image_subtitle": "迷ったときの判断基準",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 81,
@@ -1056,7 +1136,8 @@
     "image_subtitle": "向いてない気がするときの整理",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 82,
@@ -1076,7 +1157,8 @@
       "新NISA"
     ],
     "tag_mode": "merge",
-    "category": "ai"
+    "category": "ai_support",
+    "content_type": "brand"
   },
   {
     "sheet_no": 83,
@@ -1089,7 +1171,8 @@
     "image_subtitle": "銘柄選びを終わらせる3つの基準",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 84,
@@ -1102,7 +1185,8 @@
     "image_subtitle": "焦る前に確認したい3つのこと",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 85,
@@ -1115,7 +1199,8 @@
     "image_subtitle": "評価額より積み立ての前提を整理する",
     "image_bg": "含み損",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 86,
@@ -1128,7 +1213,8 @@
     "image_subtitle": "伸びない気がする時期の考え方",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 87,
@@ -1141,7 +1227,8 @@
     "image_subtitle": "後悔しにくい選び方",
     "image_bg": "行動",
     "photo_path": null,
-    "category": "seo"
+    "category": "mental",
+    "content_type": "seo"
   },
   {
     "sheet_no": 88,
@@ -1161,7 +1248,8 @@
       "情報整理"
     ],
     "tag_mode": "merge",
-    "category": "ai"
+    "category": "ai_support",
+    "content_type": "brand"
   },
   {
     "sheet_no": 89,
@@ -1180,7 +1268,8 @@
       "ChatGPT"
     ],
     "tag_mode": "merge",
-    "category": "ai"
+    "category": "ai_support",
+    "content_type": "brand"
   },
   {
     "sheet_no": 90,
@@ -1193,7 +1282,8 @@
     "image_subtitle": "静かな時間の整理",
     "image_bg": "積立",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "terms"
   },
   {
     "sheet_no": 91,
@@ -1206,7 +1296,8 @@
     "image_subtitle": "知識と感情のズレの整理",
     "image_bg": "不安",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "terms"
   },
   {
     "sheet_no": 92,
@@ -1219,6 +1310,7 @@
     "image_subtitle": "正解を探しすぎる迷いの整理",
     "image_bg": "比較",
     "photo_path": null,
-    "category": "add"
+    "category": "mental",
+    "content_type": "terms"
   }
 ]
