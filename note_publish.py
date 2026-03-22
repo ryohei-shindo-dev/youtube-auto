@@ -567,7 +567,7 @@ def post_article(
         # 「記事が公開されました」（×ボタン）と「予約投稿が完了しました」（閉じるボタン）の両方に対応
         try:
             close_btn = page.wait_for_selector(
-                'button:has-text("閉じる"), '
+                '.ReactModal__Overlay button:has-text("閉じる"), '
                 '.ReactModal__Overlay button[aria-label="閉じる"], '
                 '.ReactModal__Overlay button:has(svg), '
                 '.MessageModal__overlay button',
