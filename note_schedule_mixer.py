@@ -28,6 +28,7 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 SCHEDULED_PATH = SCRIPT_DIR / "scheduled_notes.json"
 PUBLISH_QUEUE_PATH = SCRIPT_DIR / "note_publish_queue.json"
+RESCHEDULE_PLAN_PATH = SCRIPT_DIR / "reschedule_plan.json"
 
 # デフォルトのマガジン・タグ（note_ops.py と同じ値）
 DEFAULT_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
@@ -75,6 +76,11 @@ CATEGORY_LABELS = {
 
 
 # ── データ読み込み ──
+
+def _get_schedule_at(item: dict) -> str:
+    """エントリから予約日時を取得する（schedule_at / publish_at のフォールバック）。"""
+    return item.get("schedule_at") or item.get("publish_at") or ""
+
 
 def _load_manifest() -> list[dict]:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -221,7 +227,6 @@ def _score_candidate(
     queue_so_far: list[dict],
     slot_time: str,
     cat_remaining: dict[str, int],
-    total_remaining: int,
     slots_left: int,
 ) -> float:
     """候補カテゴリのスコアを計算する。
@@ -343,7 +348,6 @@ def plan_queue(
         # 各カテゴリのスコアを計算
         best_cat = None
         best_score = -2000
-        remaining_total = sum(cat_remaining.values())
         slots_left = total_to_plan - len(planned)
 
         for cat in sorted(by_cat.keys()):
@@ -351,7 +355,7 @@ def plan_queue(
                 continue
             score = _score_candidate(
                 cat, queue_so_far, slot_time, cat_remaining,
-                remaining_total, slots_left,
+                slots_left,
             )
             if score > best_score:
                 best_score = score
@@ -455,7 +459,7 @@ def show_queue_with_categories(queue: list[dict]):
     for i, item in enumerate(queue):
         cat = item["category"]
         title = (item.get("title") or item.get("sheet_title") or "")[:35]
-        schedule = item.get("schedule_at") or item.get("publish_at") or ""
+        schedule = _get_schedule_at(item)
         print(f"  {i+1:2d}. [{cat:8s}] {schedule:16s} {title}")
 
 
@@ -515,15 +519,14 @@ def reorganize_queue(
     # 元のスロット日時リスト（固定スロットを除外）
     original_slots = []
     for item in existing:
-        sa = item.get("schedule_at") or item.get("publish_at") or ""
+        sa = _get_schedule_at(item)
         if sa and sa not in fixed_datetimes:
             original_slots.append(sa)
     original_slots.sort()
 
     # 並べ替え対象（固定スロットの記事を除外）
     movable = [item for item in existing
-               if (item.get("schedule_at") or item.get("publish_at") or "")
-               not in fixed_datetimes]
+               if _get_schedule_at(item) not in fixed_datetimes]
 
     if not movable:
         return existing
@@ -537,7 +540,6 @@ def reorganize_queue(
     cat_remaining = {cat: len(items) for cat, items in by_cat.items()}
     total_to_plan = len(movable)
 
-    # 貪欲法で最適順を決定（plan_queueと同じロジック）
     queue_so_far: list[dict] = []
     reordered: list[dict] = []
 
@@ -575,7 +577,7 @@ def reorganize_queue(
 
         # 元のスロット日時を割当
         new_schedule = original_slots[i] if i < len(original_slots) else ""
-        old_schedule = article.get("schedule_at") or article.get("publish_at") or ""
+        old_schedule = _get_schedule_at(article)
 
         reordered.append({
             **article,
@@ -586,7 +588,7 @@ def reorganize_queue(
 
     # 固定スロットの記事を戻す
     result = reordered + fixed_slots
-    result.sort(key=lambda x: x.get("schedule_at") or x.get("publish_at") or "")
+    result.sort(key=_get_schedule_at)
 
     return result
 
@@ -663,9 +665,6 @@ def cmd_plan(args):
         print("\n[プレビュー] --write を付けると note_publish_queue.json に保存します")
 
 
-RESCHEDULE_PLAN_PATH = SCRIPT_DIR / "reschedule_plan.json"
-
-
 def cmd_reorganize(args):
     """予約投稿済み記事をthemeバランスで並べ替える。"""
 
@@ -690,7 +689,7 @@ def cmd_reorganize(args):
                 "note_key": nk,
                 "title": e.get("title", ""),
                 "category": cat,
-                "schedule_at": e.get("schedule_at") or e.get("publish_at") or "",
+                "schedule_at": _get_schedule_at(e),
             })
     else:
         queue = _load_scheduled_queue()
