@@ -1142,5 +1142,21 @@
     "image_bg": "行動",
     "photo_path": null,
     "category": "seo"
+  },
+  {
+    "sheet_no": 88,
+    "note_key": "n9a435709642d",
+    "sheet_title": "投資情報が多すぎて疲れたとき｜AIで「読む量」を減らす整理術",
+    "md_path": "note_articles/note_ai_03_投資情報が多すぎて疲れたとき｜AIで「読む量」を減らす整理術.md",
+    "image_path": "note_images/note_ai_03_投資情報が多すぎて疲れたとき.png",
+    "url": "https://note.com/gachiho_motive/n/n9a435709642d",
+    "image_title": "投資情報が多すぎる\nAIで読む量を減らす",
+    "image_subtitle": "何を読まないかの整理",
+    "image_bg": "希望",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": ["AI投資", "ChatGPT", "情報整理"],
+    "tag_mode": "merge",
+    "category": "ai"
   }
 ]

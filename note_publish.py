@@ -563,6 +563,20 @@ def post_article(
         time.sleep(5)
         print("  投稿実行完了")
 
+        # 「記事が公開されました」モーダルを自動で閉じる
+        try:
+            close_btn = page.wait_for_selector(
+                '.ReactModal__Overlay button[aria-label="閉じる"], '
+                '.ReactModal__Overlay button:has(svg), '
+                '.MessageModal__overlay button',
+                timeout=5000,
+            )
+            close_btn.click()
+            time.sleep(1)
+            print("  公開完了モーダルを閉じました")
+        except Exception:
+            pass  # モーダルが出ない場合もある（予約投稿時など）
+
         # まずリダイレクト先URLを確認
         current_url = page.url
         if "note.com" in current_url and "/n/" in current_url:
