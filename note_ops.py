@@ -68,6 +68,7 @@ SEL = {
     #   未設定の場合は「日時の設定」ボタンが表示される。
     "datepicker_btn": ".react-datepicker__input-container button",
     "datepicker_next": ".react-datepicker__navigation--next",
+    "datepicker_prev": ".react-datepicker__navigation--previous",
     "datepicker_month": ".react-datepicker__current-month",
     # ダイアログ
     #   下書きダイアログ: 編集画面を開いたとき、下書きがあると
@@ -415,9 +416,8 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
 
 # ── スケジュール ──
 
-def _parse_datepicker_month(text: str) -> tuple:
-    """'9月 2026' or '2026年4月' → (year, month)"""
-    import re
+def _parse_datepicker_month(text: str):
+    """'9月 2026' or '2026年4月' → (year, month) or (None, None)"""
     m = re.search(r'(\d+)月\s*(\d{4})', text)
     if m:
         return int(m.group(2)), int(m.group(1))
@@ -449,7 +449,7 @@ def set_schedule(page: Page, schedule_str: str):
                 tgt_total = dt.year * 12 + dt.month
                 cur_total = cur_y * 12 + cur_m
                 diff = tgt_total - cur_total
-                nav = SEL["datepicker_next"] if diff > 0 else ".react-datepicker__navigation--previous"
+                nav = SEL["datepicker_next"] if diff > 0 else SEL["datepicker_prev"]
                 for _ in range(abs(diff)):
                     page.locator(nav).click()
                     time.sleep(0.5)

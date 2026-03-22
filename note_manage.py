@@ -31,6 +31,7 @@ from datetime import datetime
 from playwright.sync_api import Page
 
 from note_publish import _launch_browser, _close_browser
+from note_ops import _parse_datepicker_month
 from note_publish_additional import (
     _fill_editor, _upload_header_image, _finalize,
     _URL_LINE_RE, _EMBED_SELECTORS, _count_embed_cards,
@@ -132,18 +133,6 @@ def _go_to_detail_settings(page: Page):
             time.sleep(1)
     except Exception:
         pass
-
-
-def _parse_datepicker_month(text: str) -> tuple:
-    """'9月 2026' or '2026年4月' → (year, month)"""
-    import re
-    m = re.search(r'(\d+)月\s*(\d{4})', text)
-    if m:
-        return int(m.group(2)), int(m.group(1))
-    m = re.search(r'(\d{4})\s*年?\s*(\d+)月', text)
-    if m:
-        return int(m.group(1)), int(m.group(2))
-    return None, None
 
 
 def _set_schedule_datetime(page: Page, schedule_str: str):
