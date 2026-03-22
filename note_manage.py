@@ -134,6 +134,18 @@ def _go_to_detail_settings(page: Page):
         pass
 
 
+def _parse_datepicker_month(text: str) -> tuple:
+    """'9月 2026' or '2026年4月' → (year, month)"""
+    import re
+    m = re.search(r'(\d+)月\s*(\d{4})', text)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    m = re.search(r'(\d{4})\s*年?\s*(\d+)月', text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None, None
+
+
 def _set_schedule_datetime(page: Page, schedule_str: str):
     """予約日時を設定する。カレンダーが既に表示されている前提。"""
     dt = datetime.strptime(schedule_str, "%Y-%m-%d %H:%M")
@@ -150,27 +162,22 @@ def _set_schedule_datetime(page: Page, schedule_str: str):
         schedule_btn.click()
         time.sleep(1)
 
-    # 月移動（現在月と異なる場合）
-    # 現在のカレンダーの月を確認
+    # 月移動（前後どちらにも対応）
     try:
         current_month_el = page.locator('.react-datepicker__current-month')
         if current_month_el.count() > 0:
             current_text = current_month_el.inner_text()
-            # "2026年3月" のような形式
-            target_month_str = f"{dt.year}年{dt.month}月"
-            while target_month_str not in current_text:
-                next_btn = page.locator('.react-datepicker__navigation--next')
-                next_btn.click()
-                time.sleep(0.5)
-                current_text = current_month_el.inner_text()
+            cur_y, cur_m = _parse_datepicker_month(current_text)
+            if cur_y and cur_m:
+                tgt_total = dt.year * 12 + dt.month
+                cur_total = cur_y * 12 + cur_m
+                diff = tgt_total - cur_total
+                nav = '.react-datepicker__navigation--next' if diff > 0 else '.react-datepicker__navigation--previous'
+                for _ in range(abs(diff)):
+                    page.locator(nav).click()
+                    time.sleep(0.5)
     except Exception:
-        # フォールバック: 4月なら1回next
-        if dt.month == 4:
-            try:
-                page.locator('.react-datepicker__navigation--next').click()
-                time.sleep(0.5)
-            except Exception:
-                pass
+        pass
 
     # 日付選択
     day = dt.day
@@ -224,9 +231,20 @@ def cmd_discard_draft(page: Page, note_id: str):
     print(f"  下書き破棄: {note_id}")
     _open_editor(page, note_id)
     # _open_editor内で_handle_draft_dialogが処理済み
-    # 公開に進む → 予約投稿で確定（変更なしで再保存）
+    # 公開に進む → 更新する/予約投稿で確定（変更なしで再保存）
     _go_to_publish(page)
-    _finalize(page)
+    # 公開済み記事は「更新する」、予約中は「予約投稿」
+    final_btn = page.wait_for_selector(
+        'button:has-text("更新する"), button:has-text("予約投稿"), button:has-text("投稿"), button:has-text("公開")',
+        timeout=5000,
+    )
+    final_btn.click()
+    time.sleep(5)
+    # 成功モーダル閉じる
+    close_btn = page.locator('button:has-text("閉じる")')
+    if close_btn.count() > 0 and close_btn.first.is_visible():
+        close_btn.first.click()
+        time.sleep(1)
     print(f"  完了")
 
 

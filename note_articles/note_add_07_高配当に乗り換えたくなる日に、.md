@@ -30,6 +30,6 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/na8d70975ffda
-https://note.com/gachiho_motive/n/n89e9fc715f94
+https://note.com/gachiho_motive/n/nd98f41bd9059
 ---
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

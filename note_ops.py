@@ -415,6 +415,18 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
 
 # ── スケジュール ──
 
+def _parse_datepicker_month(text: str) -> tuple:
+    """'9月 2026' or '2026年4月' → (year, month)"""
+    import re
+    m = re.search(r'(\d+)月\s*(\d{4})', text)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    m = re.search(r'(\d{4})\s*年?\s*(\d+)月', text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None, None
+
+
 def set_schedule(page: Page, schedule_str: str):
     """予約日時を設定する。公開設定画面の詳細設定タブで使う。"""
     dt = datetime.strptime(schedule_str, "%Y-%m-%d %H:%M")
@@ -430,10 +442,17 @@ def set_schedule(page: Page, schedule_str: str):
     try:
         month_el = page.locator(SEL["datepicker_month"])
         if month_el.count() > 0:
-            target = f"{dt.year}年{dt.month}月"
-            while target not in month_el.inner_text():
-                page.locator(SEL["datepicker_next"]).click()
-                time.sleep(0.5)
+            # フォーマットは "4月 2026" 形式 — 前後どちらにも移動
+            current_text = month_el.inner_text()
+            cur_y, cur_m = _parse_datepicker_month(current_text)
+            if cur_y and cur_m:
+                tgt_total = dt.year * 12 + dt.month
+                cur_total = cur_y * 12 + cur_m
+                diff = tgt_total - cur_total
+                nav = SEL["datepicker_next"] if diff > 0 else ".react-datepicker__navigation--previous"
+                for _ in range(abs(diff)):
+                    page.locator(nav).click()
+                    time.sleep(0.5)
     except Exception:
         pass
 

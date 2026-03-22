@@ -44,4 +44,4 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n75c64c99af7e
-https://note.com/gachiho_motive/n/n6d7b1fd958cb
+https://note.com/gachiho_motive/n/n0e2afd8bd86e
