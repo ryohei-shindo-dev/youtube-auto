@@ -1158,5 +1158,21 @@
     "tags": ["AI投資", "ChatGPT", "情報整理"],
     "tag_mode": "merge",
     "category": "ai"
+  },
+  {
+    "sheet_no": 89,
+    "note_key": "n4e2fffecae11",
+    "sheet_title": "AIに投資相談するとき、先に決めておきたい「聞くこと」と「聞かないこと」",
+    "md_path": "note_articles/note_ai_04_AIに投資相談するとき、先に決めておきたい「聞くこと」と「聞かないこと」.md",
+    "image_path": "note_images/note_ai_04_AIに投資相談するとき.png",
+    "url": "https://note.com/gachiho_motive/n/n4e2fffecae11",
+    "image_title": "AIに投資相談\n聞くことと聞かないこと",
+    "image_subtitle": "境界線を先に引く",
+    "image_bg": "希望",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": ["AI投資", "ChatGPT"],
+    "tag_mode": "merge",
+    "category": "ai"
   }
 ]

@@ -563,9 +563,11 @@ def post_article(
         time.sleep(5)
         print("  投稿実行完了")
 
-        # 「記事が公開されました」モーダルを自動で閉じる
+        # 投稿後のモーダルを自動で閉じる
+        # 「記事が公開されました」（×ボタン）と「予約投稿が完了しました」（閉じるボタン）の両方に対応
         try:
             close_btn = page.wait_for_selector(
+                'button:has-text("閉じる"), '
                 '.ReactModal__Overlay button[aria-label="閉じる"], '
                 '.ReactModal__Overlay button:has(svg), '
                 '.MessageModal__overlay button',
@@ -573,9 +575,9 @@ def post_article(
             )
             close_btn.click()
             time.sleep(1)
-            print("  公開完了モーダルを閉じました")
+            print("  投稿完了モーダルを閉じました")
         except Exception:
-            pass  # モーダルが出ない場合もある（予約投稿時など）
+            pass  # モーダルが出ない場合もある
 
         # まずリダイレクト先URLを確認
         current_url = page.url
