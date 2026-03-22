@@ -278,6 +278,57 @@ def cmd_reschedule(args):
         ops.close(pw, context)
 
 
+def cmd_apply_reschedule_plan(args):
+    """reschedule_plan.json の記事を一括リスケジュールする。"""
+    plan_path = SCRIPT_DIR / "reschedule_plan.json"
+    if not plan_path.exists():
+        print("reschedule_plan.json がありません")
+        print("先に: python note_schedule_mixer.py reorganize --write")
+        return
+
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    if not plan:
+        print("リスケジュール対象がありません")
+        return
+
+    print(f"リスケジュール対象: {len(plan)}本\n")
+
+    if args.dry_run:
+        for i, p in enumerate(plan, 1):
+            print(f"  {i}. {p['note_key']} {p.get('old_schedule_at','')} → {p['schedule_at']} {p['title'][:30]}")
+        return
+
+    # 後ろから実行（衝突回避）
+    plan_sorted = sorted(plan, key=lambda x: x["schedule_at"], reverse=True)
+
+    pw, context, page = ops.launch()
+    success = 0
+    fail = 0
+    try:
+        for i, entry in enumerate(plan_sorted, 1):
+            note_id = entry["note_key"]
+            new_schedule = entry["schedule_at"]
+            title = entry.get("title", "")[:30]
+            print(f"\n[{i}/{len(plan_sorted)}] {note_id} → {new_schedule} {title}")
+            try:
+                ops.open_editor(page, note_id)
+                ops.go_to_publish(page)
+                ops.go_to_detail_settings(page)
+                ops.set_schedule(page, new_schedule)
+                print(f"  日時設定完了: {new_schedule}")
+                ops.finalize(page)
+                print(f"  予約投稿完了 ✅")
+                success += 1
+            except Exception as e:
+                print(f"  [エラー] {e}")
+                ops.take_debug_snapshot(page, f"reschedule_{note_id}")
+                fail += 1
+    finally:
+        ops.close(pw, context)
+
+    print(f"\n完了: 成功 {success}, 失敗 {fail}")
+
+
 def cmd_discard_draft(args):
     """下書きを破棄する。"""
     pw, context, page = ops.launch()
@@ -519,6 +570,9 @@ def main():
     p.add_argument("--note-id", required=True)
     p.add_argument("--schedule", required=True)
 
+    p = sub.add_parser("apply-reschedule-plan", help="reschedule_plan.json の記事を一括リスケジュール")
+    p.add_argument("--dry-run", action="store_true", help="対象確認のみ")
+
     p = sub.add_parser("discard-draft", help="下書きを破棄")
     p.add_argument("--note-id", required=True)
 
@@ -544,6 +598,7 @@ def main():
         "rewrite-body": cmd_rewrite_body,
         "fix-link-cards": cmd_fix_link_cards,
         "reschedule": cmd_reschedule,
+        "apply-reschedule-plan": cmd_apply_reschedule_plan,
         "discard-draft": cmd_discard_draft,
         "inspect": cmd_inspect,
     }

@@ -493,6 +493,109 @@ def show_plan(planned: list[dict]):
 
 # ── CLI ──
 
+def reorganize_queue(
+    existing: list[dict],
+    fixed_slots: list[dict] | None = None,
+) -> list[dict]:
+    """既存の予約投稿をthemeバランスで並べ替える。
+
+    Args:
+        existing: 並べ替え対象の記事リスト（note_key, title, category必須）
+        fixed_slots: 固定位置に置く記事（イレギュラー時刻など）
+
+    Returns:
+        並べ替え後のリスト（schedule_atは元の順番のスロットを再割当）
+    """
+    if not existing:
+        return []
+
+    fixed_slots = fixed_slots or []
+    fixed_datetimes = {f["schedule_at"] for f in fixed_slots}
+
+    # 元のスロット日時リスト（固定スロットを除外）
+    original_slots = []
+    for item in existing:
+        sa = item.get("schedule_at") or item.get("publish_at") or ""
+        if sa and sa not in fixed_datetimes:
+            original_slots.append(sa)
+    original_slots.sort()
+
+    # 並べ替え対象（固定スロットの記事を除外）
+    movable = [item for item in existing
+               if (item.get("schedule_at") or item.get("publish_at") or "")
+               not in fixed_datetimes]
+
+    if not movable:
+        return existing
+
+    # カテゴリ別にグルーピング
+    by_cat: dict[str, list[dict]] = {}
+    for item in movable:
+        cat = item["category"]
+        by_cat.setdefault(cat, []).append(item)
+
+    cat_remaining = {cat: len(items) for cat, items in by_cat.items()}
+    total_to_plan = len(movable)
+
+    # 貪欲法で最適順を決定（plan_queueと同じロジック）
+    queue_so_far: list[dict] = []
+    reordered: list[dict] = []
+
+    for i in range(total_to_plan):
+        slot_time = original_slots[i].split(" ")[1] if i < len(original_slots) else "21:00"
+        remaining_total = sum(cat_remaining.values())
+        slots_left = total_to_plan - len(reordered)
+
+        best_cat = None
+        best_score = -2000
+
+        for cat in sorted(by_cat.keys()):
+            if cat_remaining.get(cat, 0) <= 0:
+                continue
+            score = _score_candidate(
+                cat, queue_so_far, slot_time, cat_remaining,
+                remaining_total, slots_left,
+            )
+            if score > best_score:
+                best_score = score
+                best_cat = cat
+
+        if best_cat is None or best_score <= -1000:
+            for cat in sorted(by_cat.keys()):
+                if cat_remaining.get(cat, 0) > 0:
+                    best_cat = cat
+                    break
+
+        if best_cat is None:
+            break
+
+        article = by_cat[best_cat].pop(0)
+        cat_remaining[best_cat] -= 1
+        queue_so_far.append({"category": best_cat})
+
+        # 元のスロット日時を割当
+        new_schedule = original_slots[i] if i < len(original_slots) else ""
+        old_schedule = article.get("schedule_at") or article.get("publish_at") or ""
+
+        reordered.append({
+            **article,
+            "schedule_at": new_schedule,
+            "old_schedule_at": old_schedule,
+            "needs_reschedule": new_schedule != old_schedule,
+        })
+
+    # 固定スロットの記事を戻す
+    result = reordered + fixed_slots
+    result.sort(key=lambda x: x.get("schedule_at") or x.get("publish_at") or "")
+
+    return result
+
+
+def make_reschedule_plan(reorganized: list[dict]) -> list[dict]:
+    """reorganize結果から、実際にrescheduleが必要な記事のリストを返す。"""
+    return [item for item in reorganized if item.get("needs_reschedule")]
+
+
 def cmd_check(args):
     """予約キューのカテゴリバランスを確認する。"""
     queue = _load_scheduled_queue()
@@ -560,6 +663,90 @@ def cmd_plan(args):
         print("\n[プレビュー] --write を付けると note_publish_queue.json に保存します")
 
 
+RESCHEDULE_PLAN_PATH = SCRIPT_DIR / "reschedule_plan.json"
+
+
+def cmd_reorganize(args):
+    """予約投稿済み記事をthemeバランスで並べ替える。"""
+
+    # 入力ソース: --schedule-file があればそれを使う、なければscheduled_notes.jsonから
+    if args.schedule_file:
+        data = json.loads(pathlib.Path(args.schedule_file).read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            entries = data.get("notes", data.get("entries", []))
+        else:
+            entries = data
+        # note_key → category のマッピング用にmanifest読み込み
+        manifest = _load_manifest()
+        key_to_manifest = {m.get("note_key"): m for m in manifest if m.get("note_key")}
+        queue = []
+        for e in entries:
+            nk = e.get("note_key") or e.get("id")
+            cat = e.get("category") or e.get("theme")
+            if not cat:
+                m = key_to_manifest.get(nk, {})
+                cat = _get_category(m) if m else "unknown"
+            queue.append({
+                "note_key": nk,
+                "title": e.get("title", ""),
+                "category": cat,
+                "schedule_at": e.get("schedule_at") or e.get("publish_at") or "",
+            })
+    else:
+        queue = _load_scheduled_queue()
+
+    # --ids で絞り込み
+    if args.ids:
+        id_set = set(args.ids)
+        queue = [q for q in queue if q["note_key"] in id_set]
+
+    if not queue:
+        print("対象記事がありません")
+        return
+
+    # schedule_at がない記事を除外
+    queue_with_schedule = [q for q in queue if q.get("schedule_at")]
+    queue_without = [q for q in queue if not q.get("schedule_at")]
+    if queue_without:
+        print(f"[警告] schedule_atが空の記事が{len(queue_without)}本あります（対象外）")
+
+    if not queue_with_schedule:
+        print("schedule_atが空のため、並べ替えできません")
+        return
+
+    print(f"対象: {len(queue_with_schedule)}本\n")
+
+    # 並べ替え前
+    print("=== 並べ替え前 ===")
+    show_queue_with_categories(queue_with_schedule)
+    print()
+    check_balance(queue_with_schedule)
+
+    # 並べ替え実行
+    reorganized = reorganize_queue(queue_with_schedule)
+
+    print(f"\n=== 並べ替え後 ===")
+    show_queue_with_categories(reorganized)
+    print()
+    check_balance(reorganized)
+
+    # reschedule が必要な記事
+    plan = make_reschedule_plan(reorganized)
+    print(f"\nreschedule必要: {len(plan)}本")
+    for p in plan:
+        print(f"  {p['note_key']} {p['old_schedule_at']} → {p['schedule_at']} {p['title'][:30]}")
+
+    if args.write and plan:
+        RESCHEDULE_PLAN_PATH.write_text(
+            json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"\n✅ {RESCHEDULE_PLAN_PATH.name} に保存しました（{len(plan)}本）")
+        print(f"実行: note_tool.py apply-reschedule-plan で予約日時を一括変更")
+    elif not args.write:
+        print("\n[プレビュー] --write を付けると reschedule_plan.json に保存します")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="note予約投稿のカテゴリミキサー",
@@ -579,12 +766,24 @@ def main():
     p_plan.add_argument("--start-after", type=str,
                         help='開始基準日時 (例: "2026-04-01 21:00")')
 
+    # reorganize
+    p_reorg = sub.add_parser("reorganize",
+                             help="予約投稿済み記事をthemeバランスで並べ替え")
+    p_reorg.add_argument("--ids", type=str, nargs="+",
+                         help="対象のnote_idリスト（省略時は全予約記事）")
+    p_reorg.add_argument("--schedule-file", type=str,
+                         help="スケジュール付きJSONファイル（各エントリにnote_key, schedule_at, category）")
+    p_reorg.add_argument("--write", action="store_true",
+                         help="reschedule_plan.json に保存")
+
     args = parser.parse_args()
 
     if args.command == "check":
         cmd_check(args)
     elif args.command == "plan":
         cmd_plan(args)
+    elif args.command == "reorganize":
+        cmd_reorganize(args)
     else:
         parser.print_help()
 
