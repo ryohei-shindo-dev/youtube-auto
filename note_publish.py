@@ -298,37 +298,38 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
 
 
 def _split_body_into_blocks(body: str) -> list[dict]:
-    """本文を出現順のブロック列に分解する。
+    """本文を空行区切りの小ブロック列に分解する。
 
     URL単独行は {"type": "card", "url": "..."} に、
-    それ以外は {"type": "html", "text": "..."} にまとめる。
-    HTML変換は各htmlブロックに対して個別に行う。
+    それ以外は段落単位で {"type": "html", "html": "..."} にする。
+    巨大htmlブロックを避け、insertHTML後のカーソル位置ズレを防ぐ。
     """
     blocks: list[dict] = []
-    html_lines: list[str] = []
+    raw_blocks = re.split(r"\n\s*\n", body.strip())
 
-    def flush_html():
-        if html_lines:
-            # 末尾の空行を除去（URL行直前の空行が空段落になるのを防ぐ）
-            while html_lines and not html_lines[-1].strip():
-                html_lines.pop()
-            if not html_lines:
-                return
-            text = "\n".join(html_lines)
-            html, _ = _split_body_for_note(text)
-            if html.strip():
-                blocks.append({"type": "html", "html": html})
-            html_lines.clear()
+    for raw in raw_blocks:
+        text = raw.strip()
+        if not text:
+            continue
 
-    for raw_line in body.split("\n"):
-        stripped = raw_line.strip()
-        if _URL_LINE_RE_PUBLISH.match(stripped):
-            flush_html()
-            blocks.append({"type": "card", "url": stripped})
-        else:
-            html_lines.append(raw_line)
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-    flush_html()
+        # URL単独行はcard
+        if len(lines) == 1 and _URL_LINE_RE_PUBLISH.match(lines[0]):
+            blocks.append({"type": "card", "url": lines[0]})
+            continue
+
+        # 複数行のURL連続（あわせて読みたいの2本等）を個別cardに分解
+        if all(_URL_LINE_RE_PUBLISH.match(ln) for ln in lines):
+            for ln in lines:
+                blocks.append({"type": "card", "url": ln})
+            continue
+
+        # 通常テキスト → HTML変換
+        html, _ = _split_body_for_note(text)
+        if html.strip():
+            blocks.append({"type": "html", "html": html})
+
     return blocks
 
 
@@ -348,11 +349,8 @@ def _insert_body_blocks(page, blocks: list[dict]):
         prev_type = None
         for i, block in enumerate(blocks):
             if block["type"] == "html":
-                if prev_type == "card":
-                    # カード変換後の空段落を1つ消す（Enterで2段落できるため）
-                    page.keyboard.press("Backspace")
-                    time.sleep(0.2)
-                elif i > 0:
+                # card直後の空段落にそのままinsertHTML（Enter不要）
+                if prev_type != "card" and i > 0:
                     page.keyboard.press("Enter")
                     time.sleep(0.2)
                 page.evaluate(
@@ -362,16 +360,13 @@ def _insert_body_blocks(page, blocks: list[dict]):
                     block["html"],
                 )
                 time.sleep(0.5)
-                # insertHTML後にカーソルを末尾に移動
-                page.keyboard.press("Control+End")
-                time.sleep(0.2)
 
             elif block["type"] == "card":
                 before_count = _count_embed_cards(page)
-                if prev_type == "html":
-                    # htmlブロック直後はEnterで新段落を作ってからURL入力
-                    body_loc.press("Enter")
-                    time.sleep(0.5)
+                # card連続の場合、前のcard変換後の空段落にそのまま入力
+                if prev_type != "card":
+                    page.keyboard.press("Enter")
+                    time.sleep(0.3)
                 body_loc.press_sequentially(block["url"], delay=15)
                 body_loc.press("Enter")
 
@@ -381,10 +376,6 @@ def _insert_body_blocks(page, blocks: list[dict]):
                 else:
                     print(f"    [警告] カード変換未確認: {block['url'][:50]}")
                     time.sleep(1)
-
-                # カード変換後、カーソルは空段落にいる
-                # 次のブロックが何であれ、この空段落にそのまま入力すればよい
-                # → 次のhtmlブロックのEnter追加を抑制、次のcardはそのまま入力
 
             prev_type = block["type"]
 
