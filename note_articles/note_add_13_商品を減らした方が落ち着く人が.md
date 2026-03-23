@@ -29,5 +29,4 @@
 ---
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/n89e9fc715f94
 https://note.com/gachiho_motive/n/n8ead55c0ffab

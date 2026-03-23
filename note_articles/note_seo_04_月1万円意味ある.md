@@ -23,5 +23,3 @@ SNSで「月10万円投資している」という投稿を見ると、自分の
 小さく始められる人は、小さく続けられる人です。その継続こそが、長期間で大きな資産を作る源になります。
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/n0a93c27a5888
-https://note.com/gachiho_motive/n/n270ff52be0d5

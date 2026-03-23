@@ -38,7 +38,6 @@ SNSを見る時間を、今日だけ30分減らしてみてください。落ち
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n071fff295d4a
-https://note.com/gachiho_motive/n/ne8bb791383e5
 
 ---
 

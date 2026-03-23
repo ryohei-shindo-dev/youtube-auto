@@ -34,6 +34,5 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n1cd6891269fc
-https://note.com/gachiho_motive/n/n270ff52be0d5
 
 もし今つらい夜なら、この内容の12秒版もYouTube Shorts「ガチホのモチベ」で配信しています。

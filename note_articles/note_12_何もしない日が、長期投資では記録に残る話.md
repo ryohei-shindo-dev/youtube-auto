@@ -43,4 +43,3 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n2290cc8db4bb
-https://note.com/gachiho_motive/n/n6d7b1fd958cb

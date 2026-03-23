@@ -29,5 +29,4 @@
 その選択を「今から確認する」に切り替え、仕組みは動かさないようにすると落ち着きやすくなります。
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/nccf6170767e8
 https://note.com/gachiho_motive/n/n7797c4141d94

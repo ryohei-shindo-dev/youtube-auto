@@ -26,4 +26,3 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n75c64c99af7e
-https://note.com/gachiho_motive/n/nb2beda1db1b4

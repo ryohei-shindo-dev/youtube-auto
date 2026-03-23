@@ -208,6 +208,10 @@ def verify_as_reader(pw, note_id: str) -> dict:
         if "お探しのページは見つかりませんでした" in body_text:
             result["issues"].append("記事が存在しない（404）")
             result["ok"] = False
+        page_title = page.title()
+        if "ご指定のページが見つかりません" in page_title:
+            result["issues"].append("記事が存在しない（404: ご指定のページが見つかりません）")
+            result["ok"] = False
     finally:
         context.close()
         browser.close()

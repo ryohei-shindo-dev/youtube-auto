@@ -41,5 +41,3 @@
 迷ったときは、手間と心理的な続きやすさで判断すると、後悔しにくくなります。
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/n28f16d283858
-https://note.com/gachiho_motive/n/n89e9fc715f94

@@ -33,5 +33,4 @@
 ---
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/nd93ee5e8ee67
 https://note.com/gachiho_motive/n/n0e2afd8bd86e

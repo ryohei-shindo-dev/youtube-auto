@@ -31,5 +31,4 @@
 このテーマは、YouTube Shorts「ガチホのモチベ」でも短く整理しています。
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/nccf6170767e8
 https://note.com/gachiho_motive/n/ne2d4103bd377

@@ -50,6 +50,5 @@ AIは答えを出す道具ではなく、迷いの中身を分ける道具です
 AIを不安整理に使う考え方の全体像や、場面ごとの使い分けは、前の記事でも整理しています。
 
 https://note.com/gachiho_motive/n/ne76cf4ddce58
-https://note.com/gachiho_motive/n/n4e2fffecae11
 
 投資で気持ちが揺れやすい日に向けた短い動画も、YouTube Shorts「ガチホのモチベ」で配信しています。

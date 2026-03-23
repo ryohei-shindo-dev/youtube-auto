@@ -48,6 +48,5 @@ AIは「投資の先生」ではなく、「整理の相手」として使うと
 
 https://note.com/gachiho_motive/n/ne76cf4ddce58
 https://note.com/gachiho_motive/n/n396dd70430d0
-https://note.com/gachiho_motive/n/n28f16d283858
 
 投資で気持ちが揺れやすい日に向けた短い動画も、YouTube Shorts「ガチホのモチベ」で配信しています。

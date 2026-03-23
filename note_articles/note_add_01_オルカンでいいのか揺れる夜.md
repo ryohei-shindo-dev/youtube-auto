@@ -31,5 +31,4 @@
 ---
 
 あわせて読みたい
-https://note.com/gachiho_motive/n/n62f895db3407
 https://note.com/gachiho_motive/n/na8d70975ffda
