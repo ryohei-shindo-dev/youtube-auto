@@ -309,8 +309,12 @@ def _split_body_into_blocks(body: str) -> list[dict]:
 
     def flush_html():
         if html_lines:
+            # 末尾の空行を除去（URL行直前の空行が空段落になるのを防ぐ）
+            while html_lines and not html_lines[-1].strip():
+                html_lines.pop()
+            if not html_lines:
+                return
             text = "\n".join(html_lines)
-            # _split_body_for_note と同じHTML変換ロジックを適用
             html, _ = _split_body_for_note(text)
             if html.strip():
                 blocks.append({"type": "html", "html": html})
@@ -341,10 +345,14 @@ def _insert_body_blocks(page, blocks: list[dict]):
 
         body_loc = page.locator(body_sel)
 
+        prev_type = None
         for i, block in enumerate(blocks):
             if block["type"] == "html":
-                if i > 0:
-                    # 前のブロックとの間に改行
+                if prev_type == "card":
+                    # カード変換後の空段落を1つ消す（Enterで2段落できるため）
+                    page.keyboard.press("Backspace")
+                    time.sleep(0.2)
+                elif i > 0:
                     page.keyboard.press("Enter")
                     time.sleep(0.2)
                 page.evaluate(
@@ -354,21 +362,31 @@ def _insert_body_blocks(page, blocks: list[dict]):
                     block["html"],
                 )
                 time.sleep(0.5)
+                # insertHTML後にカーソルを末尾に移動
+                page.keyboard.press("Control+End")
+                time.sleep(0.2)
 
             elif block["type"] == "card":
                 before_count = _count_embed_cards(page)
-                page.keyboard.press("Enter")
-                time.sleep(0.3)
+                if prev_type == "html":
+                    # htmlブロック直後はEnterで新段落を作ってからURL入力
+                    body_loc.press("Enter")
+                    time.sleep(0.5)
                 body_loc.press_sequentially(block["url"], delay=15)
                 body_loc.press("Enter")
 
-                embedded = _wait_for_embed_card(page, before_count, timeout=5000)
+                embedded = _wait_for_embed_card(page, before_count, timeout=8000)
                 if embedded:
                     print(f"    カード変換成功: {block['url'][:50]}")
                 else:
                     print(f"    [警告] カード変換未確認: {block['url'][:50]}")
-                    body_loc.press("Enter")
                     time.sleep(1)
+
+                # カード変換後、カーソルは空段落にいる
+                # 次のブロックが何であれ、この空段落にそのまま入力すればよい
+                # → 次のhtmlブロックのEnter追加を抑制、次のcardはそのまま入力
+
+            prev_type = block["type"]
 
         time.sleep(1)
         print(f"  ブロック挿入完了（{len(blocks)}ブロック）")
