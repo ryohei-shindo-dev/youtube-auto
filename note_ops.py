@@ -79,6 +79,9 @@ SEL = {
     #   複数画面ダイアログ: 別タブで同じ記事を開いていると出る。
     "multi_local": 'label[for="local-checkbox"]',
     "multi_save": 'button:has-text("保存する")',
+    # リンクカード（正本: figure[data-src]。iframe[src]は補助。a[href]は使わない）
+    "card_figure": 'figure[data-src*="note.com/gachiho_motive/n/"]',
+    "card_iframe": 'iframe[src*="note.com/embed/notes/"]',
     # タグ
     "tag_input": 'input[placeholder="ハッシュタグを追加する"]',
     # モーダル（バッジ獲得等の予期せぬポップアップ）
@@ -412,6 +415,126 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
 
     print(f"    本文再投入完了（{original_len}→{new_len}文字, カード{card_count}個）")
     return True
+
+
+# ── リンクカード操作 ──
+
+def find_card(page, note_key: str):
+    """エディタ内で指定note_keyのリンクカードを探す。
+
+    正本は figure[data-src]。見つからなければ iframe[src] で補助検索。
+    a[href] は使わない（noteのカードにはaタグがない）。
+
+    Returns:
+        Locator or None
+    """
+    fig = page.locator(f'figure[data-src*="{note_key}"]')
+    if fig.count() > 0:
+        return fig.first
+
+    iframe = page.locator(f'iframe[src*="{note_key}"]')
+    if iframe.count() > 0:
+        # iframeの親figureを返す
+        parent_fig = iframe.first.locator("xpath=ancestor::figure")
+        if parent_fig.count() > 0:
+            return parent_fig.first
+        return iframe.first
+
+    return None
+
+
+def delete_card(page, note_key: str) -> bool:
+    """エディタ内の指定note_keyのリンクカードを削除する。"""
+    card = find_card(page, note_key)
+    if not card:
+        return False
+    card.click()
+    time.sleep(0.5)
+    page.keyboard.press("Backspace")
+    time.sleep(0.5)
+    return True
+
+
+def replace_card(page, old_key: str, new_key: str) -> bool:
+    """エディタ内のリンクカードを差し替える（旧カード削除→新URL入力）。
+
+    旧カードと同じURLのテキストリンク段落も削除する。
+    """
+    body_loc = page.locator('div.ProseMirror[role="textbox"]')
+    new_url = f"https://note.com/gachiho_motive/n/{new_key}"
+
+    # 1. 旧カード削除
+    card = find_card(page, old_key)
+    if not card:
+        return False
+    card.click()
+    time.sleep(0.5)
+    page.keyboard.press("Backspace")
+    time.sleep(1)
+
+    # 2. 旧URLのテキストリンク段落も削除
+    page.evaluate(
+        """(key) => {
+            const editor = document.querySelector('.ProseMirror[role="textbox"]');
+            if (!editor) return;
+            const ps = Array.from(editor.querySelectorAll('p'));
+            for (const p of ps) {
+                if (p.textContent.trim().includes(key)) {
+                    p.remove();
+                }
+            }
+        }""",
+        old_key,
+    )
+    time.sleep(0.3)
+
+    # 3. 新URL入力→カード変換
+    body_loc.press_sequentially(new_url, delay=15)
+    body_loc.press("Enter")
+    time.sleep(3)
+
+    return True
+
+
+def cleanup_empty_paragraphs(page, max_trailing: int = 1):
+    """エディタ末尾の連続空段落を制限し、カード前後の不要な空段落を削除する。"""
+    page.evaluate(
+        """(maxTrailing) => {
+            const editor = document.querySelector('.ProseMirror[role="textbox"]');
+            if (!editor) return;
+
+            // 末尾の連続空段落を制限
+            const children = Array.from(editor.children);
+            let trailingEmpty = 0;
+            for (let j = children.length - 1; j >= 0; j--) {
+                if (children[j].tagName === 'P' && !children[j].textContent.trim()) {
+                    trailingEmpty++;
+                    if (trailingEmpty > maxTrailing) {
+                        children[j].remove();
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            // 「あわせて読みたい」前の連続空段落を1個に制限
+            const allChildren = Array.from(editor.children);
+            for (let j = 0; j < allChildren.length; j++) {
+                if (allChildren[j].tagName === 'P' &&
+                    allChildren[j].textContent.trim() === 'あわせて読みたい') {
+                    let emptyBefore = 0;
+                    for (let k = j - 1; k >= 0; k--) {
+                        if (allChildren[k].tagName === 'P' && !allChildren[k].textContent.trim()) {
+                            emptyBefore++;
+                            if (emptyBefore > 1) { allChildren[k].remove(); }
+                        } else { break; }
+                    }
+                }
+            }
+        }""",
+        max_trailing,
+    )
+    time.sleep(0.3)
 
 
 # ── スケジュール ──
