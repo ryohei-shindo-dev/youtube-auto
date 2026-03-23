@@ -258,8 +258,64 @@ def generate_all_slides(
         except Exception as e:
             print(f"    [エラー] スライド{idx}の生成に失敗: {e}")
 
+    # 生成後の受け入れテスト
+    issues = _validate_slides(scenes, output_dir)
+    if issues:
+        print(f"  ⚠️ スライド品質警告: {len(issues)}件")
+        for issue in issues:
+            print(f"    - {issue}")
+
     print(f"  スライド生成完了（{len(paths)}/{len(scenes)}枚成功）")
     return paths
+
+
+def _validate_slides(scenes: list, output_dir: pathlib.Path) -> list[str]:
+    """生成済みスライドの受け入れテスト。テキスト切れ・画像不備を検出する。"""
+    issues = []
+    max_width = SHORTS_WIDTH - TEXT_SIDE_MARGIN_LEFT - TEXT_SIDE_MARGIN_RIGHT
+
+    for i, scene in enumerate(scenes):
+        idx = i + 1
+        slide_path = output_dir / f"slide_{idx:02d}.png"
+        role = scene.get("role", "hook")
+        text = scene.get("slide_text", scene.get("text", "")).rstrip("。")
+
+        # 1. ファイル存在チェック
+        if not slide_path.exists():
+            issues.append(f"slide_{idx:02d}: ファイルが存在しない")
+            continue
+
+        # 2. 画像サイズチェック
+        try:
+            img = Image.open(slide_path)
+            if img.size != (SHORTS_WIDTH, SHORTS_HEIGHT):
+                issues.append(f"slide_{idx:02d}: サイズ不正 {img.size}（期待: {SHORTS_WIDTH}x{SHORTS_HEIGHT}）")
+        except Exception:
+            issues.append(f"slide_{idx:02d}: 画像を開けない")
+            continue
+
+        # 3. テキストがmax_widthに収まるか検証
+        if text:
+            draw = ImageDraw.Draw(img)
+            is_hook = role == "hook"
+            font_size = 126 if is_hook else 110
+            line_height = 178 if is_hook else 155
+            font, lines, _ = _fit_text_layout(
+                draw, text, FONT_PATH_HEAVY, font_size, line_height,
+                max_width, role=role,
+            )
+            actual_max = _max_line_width(draw, lines, font)
+            if actual_max > max_width:
+                issues.append(
+                    f"slide_{idx:02d}({role}): テキスト幅超過 {actual_max}px > {max_width}px "
+                    f"「{text[:20]}…」"
+                )
+
+        # 4. テキストが空でないか
+        if not text and role not in ("closing",):
+            issues.append(f"slide_{idx:02d}({role}): テキストが空")
+
+    return issues
 
 
 def _generate_slide(

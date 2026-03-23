@@ -180,6 +180,61 @@ def _pick_suffix(raw_title: str) -> tuple[str, str]:
     return front, suffix
 
 
+def _preflight_check(
+    folder: pathlib.Path,
+    video_path: pathlib.Path,
+    transcript_path: pathlib.Path,
+    thumbnail_path: pathlib.Path,
+) -> list[str]:
+    """投稿前の受け入れテスト。1件でもエラーがあれば投稿を中止する。"""
+    errors = []
+
+    # 1. 必須ファイル存在チェック
+    if not video_path.exists():
+        errors.append(f"動画ファイルなし: {video_path.name}")
+    if not transcript_path.exists():
+        errors.append(f"transcript.jsonなし")
+        return errors  # メタデータなしでは以降のチェック不能
+
+    # 2. メタデータ検証
+    try:
+        with open(transcript_path, encoding="utf-8") as f:
+            meta = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        errors.append(f"transcript.json読み込みエラー: {e}")
+        return errors
+
+    title = meta.get("title", "")
+    if not title:
+        errors.append("タイトルが空")
+    scenes = meta.get("scenes", [])
+    if not scenes:
+        errors.append("scenesが空")
+
+    # 3. 動画ファイルサイズチェック（0バイトや極端に小さいファイルを排除）
+    if video_path.exists():
+        size = video_path.stat().st_size
+        if size < 10_000:  # 10KB未満は異常
+            errors.append(f"動画ファイルが小さすぎる: {size}バイト")
+
+    # 4. スライド存在チェック（全シーン分あるか）
+    for i, scene in enumerate(scenes):
+        slide = folder / f"slide_{i+1:02d}.png"
+        if not slide.exists():
+            errors.append(f"slide_{i+1:02d}.pngなし（{scene.get('role', '?')}）")
+
+    # 5. 音声ファイル存在チェック
+    for i in range(len(scenes)):
+        audio = folder / f"voice_{i+1:02d}.mp3"
+        if not audio.exists():
+            # wav もチェック
+            audio_wav = folder / f"voice_{i+1:02d}.wav"
+            if not audio_wav.exists():
+                errors.append(f"voice_{i+1:02d} 音声ファイルなし")
+
+    return errors
+
+
 def _optimize_title(raw_title: str, meta: dict) -> str:
     """Shorts最適タイトルに変換する。
 
@@ -457,12 +512,12 @@ def publish_entry(
     thumbnail_frame_path = folder / "thumbnail_frame.png"
     transcript_path = folder / "transcript.json"
 
-    if not video_path.exists():
-        print(f"  [エラー] 動画ファイルが見つかりません: {video_path}")
-        return {p: False for p in platforms}
-
-    if not transcript_path.exists():
-        print(f"  [エラー] transcript.jsonが見つかりません: {transcript_path}")
+    # ── 投稿前受け入れテスト ──
+    preflight_errors = _preflight_check(folder, video_path, transcript_path, thumbnail_path)
+    if preflight_errors:
+        print(f"  [投稿中止] 受け入れテスト失敗:")
+        for err in preflight_errors:
+            print(f"    - {err}")
         return {p: False for p in platforms}
 
     # メタデータ読み込み
