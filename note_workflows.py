@@ -181,14 +181,63 @@ def verify_article(page: Page, note_id: str) -> dict:
     }
 
 
-def verify_and_report(page: Page, note_id: str) -> bool:
-    """検証して結果を表示。問題なければTrue。"""
+def verify_as_reader(pw, note_id: str) -> dict:
+    """読者視点（ログアウト状態）で公開ページを検証する。
+
+    著者にだけ見える記事（下書き・限定公開）や、
+    ログイン時のみ閲覧可能なリンクカードを検出するため、
+    クッキーなしの新しいブラウザコンテキストで検証する。
+
+    Args:
+        pw: Playwright インスタンス（launch済み）
+        note_id: 検証対象の note_key
+
+    Returns:
+        verify_article と同じ形式の dict
+    """
+    browser = pw.chromium.launch(headless=True)
+    context = browser.new_context()  # クッキーなし = ログアウト状態
+    page = context.new_page()
+    try:
+        result = verify_article(page, note_id)
+        # 読者視点での追加チェック
+        body_text = page.evaluate("() => document.body.innerText")
+        if "ログイン" in body_text and "この記事" in body_text:
+            result["issues"].append("読者からアクセス不可（ログイン要求）")
+            result["ok"] = False
+        if "お探しのページは見つかりませんでした" in body_text:
+            result["issues"].append("記事が存在しない（404）")
+            result["ok"] = False
+    finally:
+        context.close()
+        browser.close()
+    return result
+
+
+def verify_and_report(page: Page, note_id: str, pw=None) -> bool:
+    """検証して結果を表示。問題なければTrue。
+
+    pw を渡すと読者視点（ログアウト状態）でも追加検証する。
+    """
+    # 著者視点の検証
     result = verify_article(page, note_id)
     if result["ok"]:
-        print(f"  ✅ 検証OK: {result['title'][:30]} (カード{len(result['cards'])}本)")
-        return True
+        print(f"  ✅ 著者検証OK: {result['title'][:30]} (カード{len(result['cards'])}本)")
     else:
-        print(f"  ❌ 検証NG: {result['title'][:30]}")
+        print(f"  ❌ 著者検証NG: {result['title'][:30]}")
         for issue in result["issues"]:
             print(f"    - {issue}")
         return False
+
+    # 読者視点の検証（pwが渡された場合のみ）
+    if pw:
+        reader_result = verify_as_reader(pw, note_id)
+        if reader_result["ok"]:
+            print(f"  ✅ 読者検証OK")
+        else:
+            print(f"  ❌ 読者検証NG:")
+            for issue in reader_result["issues"]:
+                print(f"    - {issue}")
+            return False
+
+    return True
