@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import re
 import sys
@@ -35,7 +36,10 @@ from playwright.sync_api import sync_playwright, Page, BrowserContext
 SCRIPT_DIR = pathlib.Path(__file__).parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
-USER_DATA_DIR = SCRIPT_DIR / ".note_browser"
+# ブラウザプロファイル: 手動作業と自動ジョブで分離して衝突を防ぐ
+# 環境変数 NOTE_BROWSER_PROFILE で切り替え可能（デフォルトは手動用）
+_BROWSER_PROFILE = os.environ.get("NOTE_BROWSER_PROFILE", "manual")
+USER_DATA_DIR = SCRIPT_DIR / f".note_browser_{_BROWSER_PROFILE}"
 MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 
 # note アカウント情報
@@ -333,12 +337,67 @@ def _split_body_into_blocks(body: str) -> list[dict]:
     return blocks
 
 
+def _validate_card_links(blocks: list[dict], manifest_path: str = "note_manifest.json"):
+    """cardブロックのリンク先が公開済み無料記事かを検証する。
+
+    有料記事・未公開記事へのリンクカードは「この記事は閲覧できません」になるため、
+    事前にブロックして事故を防ぐ。
+    """
+    try:
+        with open(manifest_path, encoding="utf-8") as f:
+            manifest = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return  # manifestがない場合はスキップ
+
+    # note_key → 記事情報のマッピング
+    key_to_info = {}
+    for a in manifest:
+        key = a.get("note_key") or ""
+        if key:
+            key_to_info[key] = {
+                "title": (a.get("sheet_title") or "")[:40],
+                "url": a.get("url") or "",
+                "content_type": a.get("content_type") or "",
+                "md_path": a.get("md_path") or "",
+            }
+
+    for block in blocks:
+        if block["type"] != "card":
+            continue
+        url = block["url"]
+        # URLからnote_keyを抽出
+        m = re.search(r"/n/(n[a-f0-9]+)", url)
+        if not m:
+            continue
+        note_key = m.group(1)
+        info = key_to_info.get(note_key)
+        if not info:
+            continue
+
+        # 有料記事チェック
+        if info["content_type"] == "paid" or "paid" in info["md_path"]:
+            raise ValueError(
+                f"有料記事へのリンクカードは「閲覧できません」になります: "
+                f"{note_key} ({info['title']})"
+            )
+
+        # 未公開チェック（URLが空 = 未公開）
+        if not info["url"]:
+            raise ValueError(
+                f"未公開記事へのリンクカードは「閲覧できません」になります: "
+                f"{note_key} ({info['title']})"
+            )
+
+
 def _insert_body_blocks(page, blocks: list[dict]):
     """ブロック列を出現順どおりに挿入する。
 
     htmlブロックはinsertHTMLで、cardブロックはpress_sequentiallyでカード変換。
     これにより本文途中のリンクカードも正しい位置に配置できる。
     """
+    # リンク先の事前バリデーション
+    _validate_card_links(blocks)
+
     body_sel = 'div.ProseMirror[role="textbox"]'
     try:
         body_loc = page.locator(body_sel)
@@ -396,57 +455,19 @@ _EMBED_SELECTORS = [
 
 
 def _insert_body_with_cards(page: Page, body_html: str, url_lines: list[str]):
-    """本文をinsertHTML + URL行をpress_sequentiallyで入力する。
+    """本文をinsertHTML + URL行をカード変換で入力する（互換レイヤ）。
 
-    見出し・太字はinsertHTMLで正しくフォーマット、
-    URL行はpress_sequentially + Enterでカード変換される。
+    内部で _insert_body_blocks を呼ぶ。
+    既存の呼び出し元（_fill_editor, _publish_single_article等）との互換性を維持。
     """
-    body_sel = 'div.ProseMirror[role="textbox"]'
-    try:
-        body_el = page.wait_for_selector(body_sel, timeout=10000)
-        body_el.click()
+    # html + url_lines からブロック列を再構成
+    blocks: list[dict] = []
+    if body_html.strip():
+        blocks.append({"type": "html", "html": body_html})
+    for url in (url_lines or []):
+        blocks.append({"type": "card", "url": url})
 
-        # insertHTML で見出し・太字・区切り線を含む本文を入力
-        page.evaluate(
-            """html => {
-                document.execCommand('insertHTML', false, html);
-            }""",
-            body_html,
-        )
-        time.sleep(1)
-        print(f"  本文入力完了（HTML）")
-
-        # URL行をpress_sequentiallyで入力（カード変換）
-        if url_lines:
-            body_loc = page.locator(body_sel)
-            page.keyboard.press("End")
-            page.keyboard.press("Control+End")
-            time.sleep(0.3)
-
-            for i, url in enumerate(url_lines):
-                before_count = _count_embed_cards(page)
-                if i == 0:
-                    # 最初のURLだけHTML本文との間にEnter
-                    body_loc.press("Enter")
-                    time.sleep(0.3)
-                body_loc.press_sequentially(url, delay=15)
-                body_loc.press("Enter")
-
-                embedded = _wait_for_embed_card(page, before_count, timeout=5000)
-                if embedded:
-                    print(f"    カード変換成功: {url[:50]}")
-                else:
-                    print(f"    [警告] カード変換未確認: {url[:50]}")
-                    body_loc.press("Enter")
-                    time.sleep(1)
-
-            time.sleep(1)
-            print(f"  URL入力完了（{len(url_lines)}件）")
-
-    except Exception as e:
-        print(f"  [エラー] 本文入力失敗: {e}")
-        print("  手動で本文を貼り付けてください。")
-        page.pause()
+    _insert_body_blocks(page, blocks)
 
 
 def _count_embed_cards(page) -> int:
@@ -533,7 +554,7 @@ def post_article(
     except Exception as e:
         print(f"  [エラー] タイトル入力失敗: {e}")
         print(f"  手動でタイトルを入力してください: {title}")
-        page.pause()
+        raise
 
     # --- 本文入力（insertHTML + URL行はpress_sequentiallyでカード変換） ---
     _insert_body_with_cards(page, body_html, url_lines)
@@ -556,7 +577,7 @@ def post_article(
     except Exception as e:
         print(f"  [警告] 公開設定遷移失敗: {e}")
         if draft_only:
-            page.pause()
+            raise
             return None
 
     # --- タグ設定 ---
@@ -629,7 +650,7 @@ def post_article(
         print("  下書きモード: タイトル・本文・画像まで入力済みです。")
         print("  公開設定（タグ・予約・マガジン）を確認してから手動で投稿してください。")
         print("  確認が終わったらブラウザを閉じてください。")
-        page.pause()
+        raise
         return None
 
     # --- 投稿前にエディタURLからnote IDを取得 ---
@@ -682,7 +703,7 @@ def post_article(
 
     except Exception as e:
         print(f"  [警告] 投稿実行に失敗: {e}")
-        page.pause()
+        raise
 
     return None
 
