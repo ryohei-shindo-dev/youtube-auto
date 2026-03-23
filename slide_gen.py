@@ -433,7 +433,9 @@ def _generate_slide_v2_landscape(
 
 
 def _get_photo(role: str) -> tuple[Image.Image | None, str]:
-    """ロールに対応する写真カテゴリからランダムに1枚取得する。"""
+    """ロールに対応する写真カテゴリからランダムに1枚取得する。
+    縦型写真を優先し、横長すぎる写真（高さ/幅 < 0.6）は除外する。
+    """
     category = ROLE_PHOTO_CATEGORY.get(role, "")
     if not category:
         return None, ""
@@ -451,7 +453,23 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
     if role == "hook":
         blocked_names.update(_get_recent_published_hook_photo_names(limit=6))
     candidates = [p for p in photos if p.name not in blocked_names] or photos
-    selected = random.choice(candidates)
+
+    # 縦型写真（高さ >= 幅）を優先
+    portrait_candidates = []
+    acceptable_candidates = []  # 横長でもアスペクト比が極端でないもの
+    for p in candidates:
+        try:
+            with Image.open(p) as img:
+                w, h = img.size
+                if h >= w:
+                    portrait_candidates.append(p)
+                elif h / w >= 0.6:
+                    acceptable_candidates.append(p)
+        except Exception:
+            continue
+
+    pool = portrait_candidates or acceptable_candidates or candidates
+    selected = random.choice(pool)
 
     try:
         img = Image.open(selected)
@@ -835,7 +853,7 @@ def _fit_text_layout(
     current_size = font_size
     current_line_height = line_height
 
-    while current_size >= 84:
+    while current_size >= 66:
         font = _load_font(font_path, current_size)
         # data/resolve はセマンティック改行を試行（フォントサイズごとに1回）
         lines = _preferred_role_lines(text, role, draw, font, max_width, semantic_candidates) if semantic_candidates else []
