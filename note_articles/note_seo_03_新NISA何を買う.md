@@ -56,4 +56,3 @@
 
 あわせて読みたい
 https://note.com/gachiho_motive/n/n7797c4141d94
-https://note.com/gachiho_motive/n/n89e9fc715f94
