@@ -11,30 +11,7 @@ from __future__ import annotations
 import json
 import pathlib
 import time
-from typing import Optional
-
 from playwright.sync_api import Page
-
-from note_ops import (
-    SEL,
-    open_editor,
-    dismiss_modals,
-    handle_draft_dialog,
-    handle_multi_edit_dialog,
-    go_to_publish,
-    finalize,
-    find_card,
-    replace_card,
-    cleanup_empty_paragraphs,
-)
-from note_publish import (
-    _launch_browser,
-    _close_browser,
-    _split_body_into_blocks,
-    _insert_body_blocks,
-    _validate_card_links,
-    _split_body_for_note,
-)
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
@@ -54,16 +31,12 @@ def verify_article(page: Page, note_id: str) -> dict:
 
     issues = []
 
-    # 「この記事は閲覧できません」チェック
-    blocked = page.locator('text=この記事は閲覧できません').count()
-    if blocked > 0:
-        issues.append(f"「閲覧できません」カード: {blocked}個")
-
-    # カードURL一覧
-    cards = []
-    elements = page.evaluate("""
+    # 1回のevaluateでカードURL・DOM構造・テキスト内容を一括取得
+    data = page.evaluate("""
         () => {
             const article = document.querySelector('.note-common-styles__textnote-body') || document.body;
+
+            // カードURL一覧
             const cards = [];
             article.querySelectorAll('figure').forEach(fig => {
                 const iframe = fig.querySelector('iframe');
@@ -72,13 +45,46 @@ def verify_article(page: Page, note_id: str) -> dict:
                     if (m) cards.push(m[1]);
                 }
             });
-            return cards;
+
+            // DOM構造（カード前後の空段落チェック用）
+            const elements = [];
+            const walk = (node) => {
+                for (const child of node.children) {
+                    if (child.tagName === 'FIGURE') {
+                        elements.push({type: 'CARD'});
+                    } else if (child.tagName === 'P') {
+                        elements.push({type: child.textContent.trim() ? 'P' : 'EMPTY'});
+                    } else if (child.children && child.children.length > 0) {
+                        walk(child);
+                    }
+                }
+            };
+            walk(article);
+
+            // 「閲覧できません」チェック
+            const blocked = document.querySelectorAll('*').length > 0
+                ? Array.from(document.querySelectorAll('*')).filter(
+                    el => el.children.length === 0 && el.textContent.trim() === 'この記事は閲覧できません'
+                ).length
+                : 0;
+
+            return {
+                cards,
+                elements,
+                blocked,
+                bodyText: document.body.innerText,
+            };
         }
     """)
-    cards = elements
+
+    cards = data["cards"]
+    dom_elements = data["elements"]
+    body_text = data["bodyText"]
+
+    if data["blocked"] > 0:
+        issues.append(f"「閲覧できません」カード: {data['blocked']}個")
 
     # 有料記事リンクチェック
-    body_text = page.inner_text("body")
     try:
         with open(MANIFEST_PATH, encoding="utf-8") as f:
             manifest = json.load(f)
@@ -94,32 +100,12 @@ def verify_article(page: Page, note_id: str) -> dict:
         pass
 
     # カード前後の空段落チェック
-    dom_elements = page.evaluate("""
-        () => {
-            const article = document.querySelector('.note-common-styles__textnote-body') || document.body;
-            const result = [];
-            const walk = (node) => {
-                for (const child of node.children) {
-                    if (child.tagName === 'FIGURE') {
-                        result.push({type: 'CARD'});
-                    } else if (child.tagName === 'P') {
-                        result.push({type: child.textContent.trim() ? 'P' : 'EMPTY'});
-                    } else if (child.children && child.children.length > 0) {
-                        walk(child);
-                    }
-                }
-            };
-            walk(article);
-            return result;
-        }
-    """)
     for i, el in enumerate(dom_elements):
         if el["type"] == "CARD":
             if i > 0 and dom_elements[i - 1]["type"] == "EMPTY":
                 issues.append("カード前に空段落")
                 break
             if i < len(dom_elements) - 1 and dom_elements[i + 1]["type"] == "EMPTY":
-                # カード後の空段落はカード連続の間は許容
                 if i + 1 < len(dom_elements) - 1 and dom_elements[i + 2].get("type") != "CARD":
                     issues.append("カード後に空段落")
                     break

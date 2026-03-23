@@ -344,63 +344,125 @@ def cmd_discard_draft(args):
 
 
 def cmd_discard_all_drafts(args):
-    """公開済み記事に残った下書きを一括破棄する。"""
-    manifest_path = SCRIPT_DIR / "note_manifest.json"
-    with open(manifest_path, encoding="utf-8") as f:
-        manifest = json.load(f)
+    """公開済み記事に残った下書きを一括破棄する。
 
-    published = [a for a in manifest if a.get("url") and a.get("note_key")]
-    print(f"公開済み記事: {len(published)}本を検査します\n")
+    記事一覧（note.com/notes）から「追加編集された未公開の下書きがあります」
+    の記事だけ特定し、「…」→「編集」経由で下書きダイアログを表示して破棄する。
+    直接/edit/URLではダイアログが出ないため、一覧経由が必須。
+    """
+    from note_publish import _launch_browser, _close_browser
 
-    pw, context, page = ops.launch()
-    discarded, skipped, failed = 0, 0, 0
+    pw, context, page = _launch_browser(headless=False)
+    ok, fail, total = 0, 0, 0
     try:
-        for i, a in enumerate(published, 1):
-            note_id = a["note_key"]
-            title = (a.get("sheet_title") or "")[:35]
-
-            page.goto(f"https://editor.note.com/notes/{note_id}/edit/")
+        while True:
+            # 一覧を開いて下書きあり記事を探す
+            page.goto("https://note.com/notes")
             page.wait_for_load_state("networkidle")
             time.sleep(3)
-
-            # モーダル閉じ
-            ops.dismiss_modals(page)
-
-            # 下書きダイアログが出るか確認
-            draft_label = page.locator('label[for="target-draft"]')
-            pub_label = page.locator(ops.SEL["draft_published"])
-
-            if draft_label.count() > 0 and draft_label.first.is_visible():
-                # 下書きがある → 「公開した時点の記事」を選んで下書きを捨てる
-                pub_label.click()
+            for _ in range(15):
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 time.sleep(1)
-                edit_btn = page.locator(ops.SEL["draft_edit"])
-                if edit_btn.count() > 0:
-                    edit_btn.click()
+
+            # 下書きあり記事の「…」ボタンにマークを付ける
+            result = page.evaluate("""
+                () => {
+                    const allEls = document.querySelectorAll('*');
+                    for (const el of allEls) {
+                        if (el.children.length > 0) continue;
+                        if (!el.textContent.includes('追加編集された未公開の下書き')) continue;
+                        let parent = el;
+                        let menuBtn = null, noteId = null;
+                        for (let i = 0; i < 20; i++) {
+                            parent = parent.parentElement;
+                            if (!parent) break;
+                            if (!noteId) {
+                                const links = parent.querySelectorAll('a[href*="/n/"]');
+                                for (const link of links) {
+                                    const m = link.href.match(/\\/n\\/(n[a-f0-9]+)/);
+                                    if (m) { noteId = m[1]; break; }
+                                }
+                            }
+                            if (!menuBtn) {
+                                const btns = parent.querySelectorAll('button[class*="more"], button[class*="ellipsis"]');
+                                if (btns.length > 0) menuBtn = btns[0];
+                            }
+                            if (noteId && menuBtn) break;
+                        }
+                        if (noteId && menuBtn) {
+                            menuBtn.setAttribute('data-discard-target', noteId);
+                            return {noteId};
+                        }
+                    }
+                    return null;
+                }
+            """)
+
+            if not result:
+                break  # 下書きあり記事なし
+
+            total += 1
+            nid = result["noteId"]
+            print(f"  [{total}] {nid}", end="", flush=True)
+
+            try:
+                page.locator(f'button[data-discard-target="{nid}"]').scroll_into_view_if_needed()
+                time.sleep(0.5)
+                page.locator(f'button[data-discard-target="{nid}"]').click()
+                time.sleep(2)
+                page.locator('button:has-text("編集")').first.click()
+                time.sleep(5)
+
+                # 下書きダイアログ → 「公開した時点の記事」
+                pub = page.locator('label[for="target-published"]')
+                if pub.count() > 0 and pub.first.is_visible():
+                    pub.click()
+                    time.sleep(1)
+                    page.locator('button:has-text("編集する")').click()
                     page.wait_for_load_state("networkidle")
                     time.sleep(3)
-
-                # 複数画面ダイアログ
-                ops.handle_multi_edit_dialog(page)
-
-                # そのまま保存（公開版で上書き → 下書き破棄）
-                if ops.save_article(page):
-                    print(f"  [{i}] ✅ {note_id} | {title} → 下書き破棄")
-                    discarded += 1
                 else:
-                    print(f"  [{i}] ❌ {note_id} | {title} → 保存失敗")
-                    failed += 1
-            else:
-                # 下書きなし → スキップ
-                skipped += 1
-                if i % 20 == 0:
-                    print(f"  ... {i}/{len(published)} ({skipped}スキップ)")
+                    print(" → スキップ（ダイアログなし)")
+                    continue
 
-            time.sleep(1)
+                # 複数画面ダイアログ → 「今は保存しない」
+                no_save = page.locator('button:has-text("今は保存しない")')
+                if no_save.count() > 0 and no_save.first.is_visible():
+                    no_save.click()
+                    time.sleep(2)
 
-        print(f"\n完了: {discarded}件破棄 / {skipped}件スキップ / {failed}件失敗")
+                # 「公開に進む」→「更新する」
+                page.keyboard.press("Escape")
+                time.sleep(1)
+                page.wait_for_selector('button:has-text("公開に進む")', timeout=10000).click()
+                page.wait_for_load_state("networkidle")
+                time.sleep(3)
+
+                paywall = page.locator('button:has-text("有料エリア設定")')
+                if paywall.count() > 0 and paywall.first.is_visible():
+                    paywall.first.click()
+                    time.sleep(3)
+                    page.wait_for_selector('button:has-text("更新する")', timeout=5000).click()
+                else:
+                    page.wait_for_selector(
+                        'button:has-text("更新する"), button:has-text("予約投稿")', timeout=5000
+                    ).click()
+                time.sleep(5)
+
+                close = page.locator('button:has-text("閉じる")')
+                if close.count() > 0 and close.first.is_visible():
+                    close.first.click()
+                    time.sleep(2)
+
+                print(" → ✅")
+                ok += 1
+            except Exception as e:
+                print(f" → ❌ ({e})")
+                fail += 1
+
+        print(f"\n完了: {ok}成功 / {fail}失敗 / 合計{total}本")
     finally:
-        ops.close(pw, context)
+        _close_browser(pw, context, wait_for_user=False)
 
 
 def cmd_publish_queue(args):
