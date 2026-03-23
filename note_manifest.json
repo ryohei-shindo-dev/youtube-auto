@@ -2093,5 +2093,39 @@
     "content_type": "brand",
     "theme": "ai_support",
     "linkable": true
+  },
+  {
+    "sheet_no": null,
+    "note_key": "n36f153b979cd",
+    "sheet_title": "投資で揺れた日に使える、AI整理テンプレ集｜ChatGPTに投資相談する前の質問例",
+    "md_path": "note_articles/note_paid_01_AI整理テンプレ集.md",
+    "image_path": null,
+    "url": "https://note.com/gachiho_motive/n/n36f153b979cd",
+    "image_title": null,
+    "image_subtitle": null,
+    "image_bg": null,
+    "photo_path": null,
+    "category": "mental",
+    "content_type": "paid",
+    "theme": "ai_tools",
+    "magazines": [],
+    "linkable": false
+  },
+  {
+    "sheet_no": null,
+    "note_key": "nb40bc390b796",
+    "sheet_title": "投資で「動いて裏目に出た」経験が、なぜこんなにつらいのか｜後悔の6パターンと整理法",
+    "md_path": "note_articles/note_paid_02_後悔パターン整理.md",
+    "image_path": null,
+    "url": "https://note.com/gachiho_motive/n/nb40bc390b796",
+    "image_title": null,
+    "image_subtitle": null,
+    "image_bg": null,
+    "photo_path": null,
+    "category": "mental",
+    "content_type": "paid",
+    "theme": "regret",
+    "magazines": [],
+    "linkable": false
   }
 ]
