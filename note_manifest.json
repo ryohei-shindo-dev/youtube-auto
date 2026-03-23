@@ -1944,5 +1944,47 @@
     "category": "ai_support",
     "content_type": "brand",
     "theme": "ai_support"
+  },
+  {
+    "sheet_no": 106,
+    "note_key": "n1b93028cff20",
+    "sheet_title": "老後資金が間に合わない気がするとき、AIで「不安の中身」を分ける方法",
+    "md_path": "note_articles/note_ai_08_老後資金が間に合わない気がするとき、AIで「不安の中身」を分ける方法.md",
+    "image_path": "note_images/note_ai_08_老後資金.png",
+    "url": "https://note.com/gachiho_motive/n/n1b93028cff20",
+    "image_title": "",
+    "image_subtitle": "",
+    "image_bg": "不安",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT"
+    ],
+    "tag_mode": "merge",
+    "category": "ai_support",
+    "content_type": "brand",
+    "theme": "ai_support"
+  },
+  {
+    "sheet_no": 107,
+    "note_key": "nc1db9d152625",
+    "sheet_title": "口座を見すぎて不安が増えるとき、AIで「確認したい理由」を整理する方法",
+    "md_path": "note_articles/note_ai_09_口座を見すぎて不安が増えるとき、AIで「確認したい理由」を整理する方法.md",
+    "image_path": "note_images/note_ai_09_口座見すぎ.png",
+    "url": "https://note.com/gachiho_motive/n/nc1db9d152625",
+    "image_title": "",
+    "image_subtitle": "",
+    "image_bg": "不安",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT"
+    ],
+    "tag_mode": "merge",
+    "category": "ai_support",
+    "content_type": "brand",
+    "theme": "ai_support"
   }
 ]
