@@ -5,16 +5,77 @@ note_ops.py の低レベル操作を組み合わせて、
 
 使い方:
     from note_workflows import publish_article, rewrite_body, replace_links, verify_article
+    from note_workflows import is_linkable, get_linkable_keys, load_manifest
 """
 from __future__ import annotations
 
 import json
 import pathlib
+import re
 import time
 from playwright.sync_api import Page
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+
+
+# ── リンク可否判定（一元化） ──
+
+def load_manifest() -> list[dict]:
+    """note_manifest.json を読み込む。"""
+    with open(MANIFEST_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def is_linkable(article: dict) -> bool:
+    """この記事へのリンクカードを挿入してよいか判定する。
+
+    条件: linkable==True（明示的にセットされている場合）、
+    または linkable キーがない場合は以下を全て満たすこと:
+      - content_type が 'paid' でない
+      - md_path に 'paid' を含まない
+      - scheduled_at がない（予約投稿中でない）
+    """
+    # 明示的な linkable フラグがあればそれを使う
+    if "linkable" in article:
+        return bool(article["linkable"])
+    # フラグがなければ推定
+    if article.get("content_type") == "paid":
+        return False
+    if "paid" in (article.get("md_path") or ""):
+        return False
+    if article.get("scheduled_at"):
+        return False
+    return True
+
+
+def get_linkable_keys() -> set[str]:
+    """リンクカードとして挿入可能な note_key の集合を返す。"""
+    manifest = load_manifest()
+    return {a["note_key"] for a in manifest if a.get("note_key") and is_linkable(a)}
+
+
+def validate_body_urls(body_text: str) -> tuple[str, list[str]]:
+    """本文中のnote URLをチェックし、非linkableなURLを除去して返す。
+
+    Returns:
+        (cleaned_body, removed_urls)
+    """
+    linkable_keys = get_linkable_keys()
+    url_pattern = re.compile(r"^(https://note\.com/gachiho_motive/n/(n[a-f0-9]+))\s*$")
+
+    cleaned_lines = []
+    removed = []
+    for line in body_text.splitlines():
+        m = url_pattern.match(line.strip())
+        if m:
+            note_key = m.group(2)
+            if note_key not in linkable_keys:
+                removed.append(m.group(1))
+                continue  # この行を除去
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines), removed
 
 
 # ── 検証 ──

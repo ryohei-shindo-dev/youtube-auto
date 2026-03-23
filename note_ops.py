@@ -334,8 +334,20 @@ def _input_body_text(page: Page, body_text: str) -> int:
     URL単独行は press_sequentially + Enter でカード変換をトリガーする。
     insert_text は使わない（noteのProseMirrorでカード変換が動かないため）。
 
+    投入前に非linkableなnote URLを除去する（有料記事・予約投稿中の記事への
+    リンクカードは「この記事は閲覧できません」になるため）。
+
     Returns: カード変換成功数
     """
+    # 非linkableなURLを事前除去
+    try:
+        from note_workflows import validate_body_urls
+        body_text, removed = validate_body_urls(body_text)
+        for url in removed:
+            print(f"    [除去] 非linkable URL: {url}")
+    except Exception:
+        pass  # note_workflows が使えない場合はチェックなしで続行
+
     body = page.locator(SEL["body"])
     body.click()
 
