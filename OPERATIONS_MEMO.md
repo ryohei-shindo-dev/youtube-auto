@@ -6,8 +6,8 @@
 
 ## Current Operating Facts
 - 現在の投稿頻度は `1日2本`。
-- 現在の投稿時刻は `07:00` と `19:00`。
-- 動画ストックは `124本`（2026-03-14 時点、約62日分）。
+- 現在の投稿時刻は `07:00` と `12:00`（A/Bテスト中: 19:00→12:00、3/19〜4/2）。
+- 動画ストックは `84本`（2026-03-23 時点、約42日分）。
 - 自動投稿の実行主体は `launchd + auto_publish.py`（plist は `~/Library/LaunchAgents/com.youtube-auto.publish-*.plist`）。
 
 ## Temporary Priorities
