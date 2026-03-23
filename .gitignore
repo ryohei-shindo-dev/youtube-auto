@@ -63,3 +63,4 @@ note_images/
 all_notes.json
 scheduled_notes.json
 threads_post_history.jsonl
+note_backups/

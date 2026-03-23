@@ -402,12 +402,17 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
 
     末尾だけの部分削除は本文全消し事故の原因になるため、
     常にCtrl+A→削除→全文再入力する方式を使う。
+    破壊操作前に元の本文をバックアップする。
     """
     title, body = load_article(md_path)
     expected_urls = sum(1 for l in body.splitlines() if SEL["url_line"].match(l.strip()))
 
     body_el = page.locator(SEL["body"])
-    original_len = len(body_el.inner_text().strip())
+    original_text = body_el.inner_text().strip()
+    original_len = len(original_text)
+
+    # 破壊操作前にバックアップ
+    _backup_before_rewrite(md_path, original_text)
 
     if count_embed_cards(page) >= expected_urls > 0:
         print(f"    [スキップ] カード既存")
@@ -766,6 +771,19 @@ def take_debug_snapshot(page: Page, label: str):
 # E. ユーティリティ
 #    ファイル読み込み・manifest操作
 # ════════════════════════════════════════════════════
+
+BACKUP_DIR = SCRIPT_DIR / "note_backups"
+
+
+def _backup_before_rewrite(md_path: pathlib.Path, original_text: str):
+    """本文再投入前に元の本文をバックアップする。復元不能事故の防止。"""
+    BACKUP_DIR.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stem = md_path.stem[:30]
+    backup_path = BACKUP_DIR / f"{timestamp}_{stem}.txt"
+    backup_path.write_text(original_text, encoding="utf-8")
+    print(f"    [バックアップ] {backup_path.name}（{len(original_text)}文字）")
+
 
 def load_article(md_path: pathlib.Path) -> tuple[str, str]:
     """mdファイルからタイトルと本文を分離する。"""
