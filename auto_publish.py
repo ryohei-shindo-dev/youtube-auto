@@ -223,14 +223,13 @@ def _preflight_check(
         if not slide.exists():
             errors.append(f"slide_{i+1:02d}.pngなし（{scene.get('role', '?')}）")
 
-    # 5. 音声ファイル存在チェック
+    # 5. 音声ファイル存在チェック（ファイル名は audio_XX.mp3）
     for i in range(len(scenes)):
-        audio = folder / f"voice_{i+1:02d}.mp3"
+        audio = folder / f"audio_{i+1:02d}.mp3"
         if not audio.exists():
-            # wav もチェック
-            audio_wav = folder / f"voice_{i+1:02d}.wav"
+            audio_wav = folder / f"audio_{i+1:02d}.wav"
             if not audio_wav.exists():
-                errors.append(f"voice_{i+1:02d} 音声ファイルなし")
+                errors.append(f"audio_{i+1:02d} 音声ファイルなし")
 
     return errors
 
