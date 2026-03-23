@@ -13,7 +13,6 @@ note_tool.py から呼ばれる。直接実行はしない。
 """
 from __future__ import annotations
 
-import csv
 import json
 import pathlib
 import re
@@ -29,7 +28,7 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 LOG_DIR = SCRIPT_DIR / "note_run_logs"
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.csv"
+MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 
 # ── 定数 ──
 NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]
@@ -778,30 +777,23 @@ def load_article(md_path: pathlib.Path) -> tuple[str, str]:
     return title, "\n".join(body_lines).strip()
 
 
-# ── manifest (CSV) ──
-
-MANIFEST_FIELDS = [
-    "sheet_no", "note_id", "title", "status", "scheduled_at",
-    "md_path", "image_path", "last_action", "last_result", "last_synced_at",
-]
+# ── manifest (JSON) ──
 
 
 def load_manifest(path: pathlib.Path = None) -> list[dict]:
-    """note_manifest.csv を読み込む。"""
+    """note_manifest.json を読み込む。"""
     p = path or MANIFEST_PATH
     if not p.exists():
         return []
     with open(p, encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+        return json.load(f)
 
 
 def save_manifest(data: list[dict], path: pathlib.Path = None):
-    """note_manifest.csv に書き込む。"""
+    """note_manifest.json に書き込む。"""
     p = path or MANIFEST_PATH
-    with open(p, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=MANIFEST_FIELDS, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(data)
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def update_manifest_row(manifest: list[dict], note_id: str,
