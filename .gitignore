@@ -1,5 +1,6 @@
 # ブラウザセッション
 .note_browser/
+.note_browser_*/
 
 # 秘密情報・認証
 .env
@@ -11,6 +12,11 @@ _tiktok_key.pem
 instagram_token.json
 x_token.json
 threads_token.json
+
+# ログ
+api_usage_log.jsonl
+note_run_logs/
+token.json.bak
 
 # Python仮想環境
 venv/
