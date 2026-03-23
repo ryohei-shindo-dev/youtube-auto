@@ -1921,5 +1921,28 @@
     "category": "ai_support",
     "content_type": "brand",
     "theme": "ai_support"
+  },
+  {
+    "sheet_no": 105,
+    "note_key": "n9f2015cc59af",
+    "sheet_title": "オルカンかS&P500か迷う日に、AIで「比較の軸」を減らす方法",
+    "md_path": "note_articles/note_ai_07_オルカンかS&P500か迷う日に、AIで「比較の軸」を減らす方法.md",
+    "image_path": "note_images/note_ai_07_オルカンS&P500.png",
+    "url": "https://note.com/gachiho_motive/n/n9f2015cc59af",
+    "image_title": "",
+    "image_subtitle": "",
+    "image_bg": "比較",
+    "photo_path": null,
+    "magazine": "投資の不安を整理するためのAIメモ",
+    "tags": [
+      "AI投資",
+      "ChatGPT",
+      "オルカン",
+      "S&P500"
+    ],
+    "tag_mode": "merge",
+    "category": "ai_support",
+    "content_type": "brand",
+    "theme": "ai_support"
   }
 ]
