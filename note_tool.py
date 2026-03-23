@@ -343,6 +343,66 @@ def cmd_discard_draft(args):
         ops.close(pw, context)
 
 
+def cmd_discard_all_drafts(args):
+    """公開済み記事に残った下書きを一括破棄する。"""
+    manifest_path = SCRIPT_DIR / "note_manifest.json"
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    published = [a for a in manifest if a.get("url") and a.get("note_key")]
+    print(f"公開済み記事: {len(published)}本を検査します\n")
+
+    pw, context, page = ops.launch()
+    discarded, skipped, failed = 0, 0, 0
+    try:
+        for i, a in enumerate(published, 1):
+            note_id = a["note_key"]
+            title = (a.get("sheet_title") or "")[:35]
+
+            page.goto(f"https://editor.note.com/notes/{note_id}/edit/")
+            page.wait_for_load_state("networkidle")
+            time.sleep(3)
+
+            # モーダル閉じ
+            ops.dismiss_modals(page)
+
+            # 下書きダイアログが出るか確認
+            draft_label = page.locator('label[for="target-draft"]')
+            pub_label = page.locator(ops.SEL["draft_published"])
+
+            if draft_label.count() > 0 and draft_label.first.is_visible():
+                # 下書きがある → 「公開した時点の記事」を選んで下書きを捨てる
+                pub_label.click()
+                time.sleep(1)
+                edit_btn = page.locator(ops.SEL["draft_edit"])
+                if edit_btn.count() > 0:
+                    edit_btn.click()
+                    page.wait_for_load_state("networkidle")
+                    time.sleep(3)
+
+                # 複数画面ダイアログ
+                ops.handle_multi_edit_dialog(page)
+
+                # そのまま保存（公開版で上書き → 下書き破棄）
+                if ops.save_article(page):
+                    print(f"  [{i}] ✅ {note_id} | {title} → 下書き破棄")
+                    discarded += 1
+                else:
+                    print(f"  [{i}] ❌ {note_id} | {title} → 保存失敗")
+                    failed += 1
+            else:
+                # 下書きなし → スキップ
+                skipped += 1
+                if i % 20 == 0:
+                    print(f"  ... {i}/{len(published)} ({skipped}スキップ)")
+
+            time.sleep(1)
+
+        print(f"\n完了: {discarded}件破棄 / {skipped}件スキップ / {failed}件失敗")
+    finally:
+        ops.close(pw, context)
+
+
 def cmd_publish_queue(args):
     """note_publish_queue.json の記事を一括予約投稿する。"""
     queue_path = SCRIPT_DIR / "note_publish_queue.json"
@@ -537,6 +597,42 @@ def cmd_inspect(args):
 
 # ── CLI ──
 
+def cmd_verify(args):
+    """公開ページを検証する。"""
+    from note_publish import _launch_browser, _close_browser
+    from note_workflows import verify_and_report
+
+    pw, context, page = _launch_browser(headless=False)
+    try:
+        if args.note_id:
+            ok = verify_and_report(page, args.note_id)
+            sys.exit(0 if ok else 1)
+
+        if args.all:
+            manifest_path = SCRIPT_DIR / "note_manifest.json"
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest = json.load(f)
+            published = [a for a in manifest if a.get("url") and a.get("note_key")]
+            print(f"検証対象: {len(published)}本\n")
+
+            issues_total = 0
+            for i, a in enumerate(published, 1):
+                key = a["note_key"]
+                ok = verify_and_report(page, key)
+                if not ok:
+                    issues_total += 1
+                if i % 10 == 0:
+                    print(f"  ... {i}/{len(published)}")
+
+            print(f"\n完了: {len(published)}本検証 / {issues_total}本に問題あり")
+            sys.exit(0 if issues_total == 0 else 1)
+
+        print("--note-id または --all を指定してください")
+        sys.exit(1)
+    finally:
+        _close_browser(pw, context, wait_for_user=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description="note記事管理ツール")
     sub = parser.add_subparsers(dest="command")
@@ -584,6 +680,12 @@ def main():
     p = sub.add_parser("inspect", help="記事を開いて手動確認")
     p.add_argument("--note-id", required=True)
 
+    sub.add_parser("discard-all-drafts", help="公開済み記事に残った下書きを一括破棄")
+
+    p = sub.add_parser("verify", help="公開ページを検証（リンク切れ・空行・有料URL残存）")
+    p.add_argument("--note-id", help="特定記事のみ検証")
+    p.add_argument("--all", action="store_true", help="全公開記事を検証")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -600,7 +702,9 @@ def main():
         "reschedule": cmd_reschedule,
         "apply-reschedule-plan": cmd_apply_reschedule_plan,
         "discard-draft": cmd_discard_draft,
+        "discard-all-drafts": cmd_discard_all_drafts,
         "inspect": cmd_inspect,
+        "verify": cmd_verify,
     }
     cmd_map[args.command](args)
 
