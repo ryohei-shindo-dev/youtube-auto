@@ -338,6 +338,9 @@ def _input_body_text(page: Page, body_text: str) -> int:
 
     Returns: カード変換成功数
     """
+    # markdownの太字記法(**text**)を除去（press_sequentiallyではリテラル表示されるため）
+    body_text = body_text.replace("**", "")
+
     # 非linkableなURLを事前除去
     try:
         from note_workflows import validate_body_urls
