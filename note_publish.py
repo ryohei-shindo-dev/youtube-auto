@@ -341,10 +341,9 @@ def _insert_body_blocks(page, blocks: list[dict]):
     """
     body_sel = 'div.ProseMirror[role="textbox"]'
     try:
-        body_el = page.wait_for_selector(body_sel, timeout=10000)
-        body_el.click()
-
         body_loc = page.locator(body_sel)
+        body_loc.wait_for(timeout=10000)
+        body_loc.click()
 
         prev_type = None
         for i, block in enumerate(blocks):
@@ -384,7 +383,7 @@ def _insert_body_blocks(page, blocks: list[dict]):
 
     except Exception as e:
         print(f"  [エラー] ブロック挿入失敗: {e}")
-        page.pause()
+        raise
 
 
 # note埋め込みカード検出用セレクタ
