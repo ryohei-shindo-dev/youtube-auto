@@ -25,7 +25,7 @@ _PROPER_NOUNS = re.compile(
     r"つみたてNISA|積立NISA|iDeCo|確定拠出年金|積立投資信託"
 )
 
-# ── 禁止表現（AGENTS.md Avoid Phrases、検出のみ・自動修正しない） ──
+# ── 禁止表現（正本。AGENTS.md Avoid Phrases と同期。他ファイルはここからimportする） ──
 AVOID_PHRASES: list[str] = [
     "今が買い時",
     "この銘柄を買うべき",
@@ -40,6 +40,7 @@ AVOID_PHRASES: list[str] = [
     "元本保証",
     "今すぐ買え",
     "買わないと損",
+    "100%",
 ]
 
 # ── hookで使うべきでないメディア専門用語（単独使用時のみ検出） ──

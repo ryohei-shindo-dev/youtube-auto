@@ -33,11 +33,8 @@ _EMPATHY_KEYWORDS = [
     "怖い", "焦る", "迷う", "疲れ", "しんどい",
 ]
 
-# --- 禁止表現（AGENTS.md由来の基本チェック） ---
-BANNED_PHRASES = [
-    "絶対に儲かる", "必ず上がる", "損しない", "元本保証",
-    "今すぐ買え", "買わないと損", "100%",
-]
+# --- 禁止表現（style_rules.py が正本。ここでは import して使う） ---
+from style_rules import AVOID_PHRASES as BANNED_PHRASES
 
 # --- 数字検出パターン ---
 _RE_NUMBER = re.compile(r"\d+[万億円%年ヶ月倍本]")
