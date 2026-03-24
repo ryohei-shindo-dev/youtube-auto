@@ -743,8 +743,8 @@ def publish_entry(
     return results
 
 
-# 固定コメント — hookカテゴリ別の共感型テンプレ
-# 議論誘発ではなく「静かな自己投影」を促す方向
+_DEFAULT_COMMENT_CATEGORY = "余韻"
+
 _PINNED_COMMENTS: dict[str, list[str]] = {
     "不安整理": [
         "今日は不安なままで大丈夫です。",
@@ -773,7 +773,6 @@ _PINNED_COMMENTS: dict[str, list[str]] = {
     ],
 }
 
-# hookカテゴリ → 固定コメントカテゴリのマッピング
 _HOOK_TO_COMMENT_CATEGORY: dict[str, str] = {
     "含み損系": "下落暴落",
     "暴落系": "下落暴落",
@@ -793,16 +792,14 @@ _HOOK_TO_COMMENT_CATEGORY: dict[str, str] = {
 def _select_pinned_comment(folder_name: str) -> str:
     """動画のhookカテゴリに合った固定コメントを選択する。"""
     hook_text = _read_hook_text(folder_name)
-    stem = extract_hook_stem(hook_text)
-    hook_category = STEM_TO_CATEGORY.get(stem, "")
-    comment_category = _HOOK_TO_COMMENT_CATEGORY.get(hook_category, "余韻")
-    candidates = _PINNED_COMMENTS.get(comment_category, _PINNED_COMMENTS["余韻"])
-    return random.choice(candidates)
+    hook_category = extract_hook_category(hook_text)
+    comment_category = _HOOK_TO_COMMENT_CATEGORY.get(hook_category, _DEFAULT_COMMENT_CATEGORY)
+    return random.choice(_PINNED_COMMENTS[comment_category])
 
 
 def _post_pinned_comment(youtube, video_id: str, folder_name: str = ""):
     """動画に固定コメントを投稿する。"""
-    comment_text = _select_pinned_comment(folder_name) if folder_name else random.choice(_PINNED_COMMENTS["余韻"])
+    comment_text = _select_pinned_comment(folder_name)
     result = youtube.commentThreads().insert(
         part="snippet",
         body={

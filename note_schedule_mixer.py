@@ -267,6 +267,20 @@ def _score_candidate(
     return score
 
 
+def find_duplicate_slots(entries: list[dict]) -> dict[str, list[str]]:
+    """schedule_at が重複するエントリを検出する。{スロット: [タイトル...]} を返す。"""
+    from collections import Counter
+    slots = [e["schedule_at"] for e in entries]
+    dupes = {s for s, c in Counter(slots).items() if c > 1}
+    if not dupes:
+        return {}
+    result: dict[str, list[str]] = {}
+    for e in entries:
+        if e["schedule_at"] in dupes:
+            result.setdefault(e["schedule_at"], []).append(e.get("title", "")[:40])
+    return result
+
+
 def _next_slot(last_dt: datetime, slot_index: int) -> tuple[datetime, str, int]:
     """次の投稿スロット（日時 + 時刻文字列 + 次のインデックス）を返す。"""
     time_str = TIME_SLOTS[slot_index % len(TIME_SLOTS)]
@@ -404,20 +418,13 @@ def plan_queue(
             "last_error": None,
         })
 
-    # 重複時刻チェック（安全弁）
-    seen_slots: set[str] = set()
-    duplicates: list[str] = []
-    for entry in planned:
-        slot = entry["schedule_at"]
-        if slot in seen_slots:
-            duplicates.append(f"  {slot} | {entry['title'][:40]}")
-        seen_slots.add(slot)
-    if duplicates:
-        print("\n⚠️  [重複検出] 同じ時刻に複数記事が割り当てられています:")
-        for d in duplicates:
-            print(d)
+    dupes = find_duplicate_slots(planned)
+    if dupes:
+        for slot, titles in sorted(dupes.items()):
+            for t in titles:
+                print(f"  {slot} | {t}")
         raise ValueError(
-            f"スケジュールに{len(duplicates)}件の時刻重複があります。"
+            f"スケジュールに{len(dupes)}件の時刻重複があります。"
             "plan_queue() のロジックを確認してください。"
         )
 

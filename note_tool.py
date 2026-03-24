@@ -491,17 +491,13 @@ def cmd_publish_queue(args):
         print("対象記事がありません")
         return
 
-    # 重複時刻チェック（同じ時刻に複数記事があれば中断）
-    from collections import Counter
-    slot_counts = Counter(t["schedule_at"] for t in targets)
-    dupes = {s: c for s, c in slot_counts.items() if c > 1}
+    from note_schedule_mixer import find_duplicate_slots
+    dupes = find_duplicate_slots(targets)
     if dupes:
         print("\n❌ [重複検出] 同じ予約時刻に複数記事が割り当てられています:")
-        for slot, count in sorted(dupes.items()):
-            print(f"  {slot}: {count}本")
-            for t in targets:
-                if t["schedule_at"] == slot:
-                    print(f"    → {t['title'][:40]}")
+        for slot, titles in sorted(dupes.items()):
+            for t in titles:
+                print(f"  {slot} → {t}")
         print("\n重複を解消してから再実行してください。")
         return
 
