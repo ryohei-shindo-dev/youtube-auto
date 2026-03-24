@@ -591,7 +591,7 @@ def publish_entry(
                 try:
                     import sheets
                     youtube = sheets.get_youtube_service()
-                    _post_pinned_comment(youtube, video_id)
+                    _post_pinned_comment(youtube, video_id, entry["folder"])
                     _like_video(youtube, video_id)
                 except Exception as e:
                     print(f"  [警告] 初期ブースト処理に失敗: {e}")
@@ -743,20 +743,66 @@ def publish_entry(
     return results
 
 
-# 固定コメントテンプレ
-_PINNED_COMMENT = (
-    "長期投資で一番つらい時期。\n"
-    "それは今かもしれません。\n"
-    "\n"
-    "でも、退場しない人だけが勝つ。\n"
-    "\n"
-    "このチャンネルでは\n"
-    "「静かな長期投資モチベーション」を毎日配信しています。"
-)
+# 固定コメント — hookカテゴリ別の共感型テンプレ
+# 議論誘発ではなく「静かな自己投影」を促す方向
+_PINNED_COMMENTS: dict[str, list[str]] = {
+    "不安整理": [
+        "今日は不安なままで大丈夫です。",
+        "言葉にしづらい気持ちがあれば、\nここに置いていってください。",
+        "答えが出ない日は、\n出さなくていい日です。",
+    ],
+    "継続支援": [
+        "続けるだけで十分な日もあります。",
+        "派手な判断より、\n離れないことを大事にしたい日です。",
+        "何もしなかった日も、\n続けた日にカウントされます。",
+    ],
+    "下落暴落": [
+        "下がる日ほど、\n気持ちの置き場が必要になります。",
+        "今日は見ない選択も、\nひとつの守り方です。",
+        "数字より先に、気持ちを守ってください。",
+    ],
+    "後悔": [
+        "あのとき別の選択をしていたら、\nと思う日もあります。\nそれでも、今ここにいます。",
+        "過去の判断を責めなくていい。\nその時はそれが最善でした。",
+        "後悔は、真剣だった証拠です。",
+    ],
+    "余韻": [
+        "同じ気持ちの人がひとりでもいれば、\nそれで十分です。",
+        "この言葉が必要だった人がいたら、\nそれだけで意味があります。",
+        "声に出さなくても、\nここに来た時点でひとりじゃないです。",
+    ],
+}
+
+# hookカテゴリ → 固定コメントカテゴリのマッピング
+_HOOK_TO_COMMENT_CATEGORY: dict[str, str] = {
+    "含み損系": "下落暴落",
+    "暴落系": "下落暴落",
+    "売りたい系": "不安整理",
+    "比較焦り系": "不安整理",
+    "増えてない系": "継続支援",
+    "積立疲れ系": "継続支援",
+    "不安系": "不安整理",
+    "後悔系": "後悔",
+    "出口不安系": "不安整理",
+    "制度金額系": "余韻",
+    "機会損失系": "後悔",
+    "継続肯定系": "余韻",
+}
 
 
-def _post_pinned_comment(youtube, video_id: str):
+def _select_pinned_comment(folder_name: str) -> str:
+    """動画のhookカテゴリに合った固定コメントを選択する。"""
+    hook_text = _read_hook_text(folder_name)
+    stem = extract_hook_stem(hook_text)
+    hook_category = STEM_TO_CATEGORY.get(stem, "")
+    comment_category = _HOOK_TO_COMMENT_CATEGORY.get(hook_category, "余韻")
+    candidates = _PINNED_COMMENTS.get(comment_category, _PINNED_COMMENTS["余韻"])
+    return random.choice(candidates)
+
+
+def _post_pinned_comment(youtube, video_id: str, folder_name: str = ""):
     """動画に固定コメントを投稿する。"""
+    comment_text = _select_pinned_comment(folder_name) if folder_name else random.choice(_PINNED_COMMENTS["余韻"])
     result = youtube.commentThreads().insert(
         part="snippet",
         body={
@@ -764,14 +810,14 @@ def _post_pinned_comment(youtube, video_id: str):
                 "videoId": video_id,
                 "topLevelComment": {
                     "snippet": {
-                        "textOriginal": _PINNED_COMMENT,
+                        "textOriginal": comment_text,
                     }
                 },
             }
         },
     ).execute()
     comment_id = result["snippet"]["topLevelComment"]["id"]
-    print(f"  固定コメント投稿完了: {comment_id}")
+    print(f"  固定コメント投稿完了: {comment_id} ({comment_text[:20]}...)")
 
 
 def _like_video(youtube, video_id: str):

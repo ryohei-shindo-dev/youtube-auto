@@ -504,7 +504,8 @@ def _generate_slide_v2_landscape(
 
 def _get_photo(role: str) -> tuple[Image.Image | None, str]:
     """ロールに対応する写真カテゴリからランダムに1枚取得する。
-    縦型写真を優先し、横長すぎる写真（高さ/幅 < 0.6）は除外する。
+    縦型写真（高さ >= 幅）のみ使用する。横長写真はShortsの縦型画面で
+    被写体が大幅にクロップされるため除外。
     """
     category = ROLE_PHOTO_CATEGORY.get(role, "")
     if not category:
@@ -524,9 +525,8 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
         blocked_names.update(_get_recent_published_hook_photo_names(limit=6))
     candidates = [p for p in photos if p.name not in blocked_names] or photos
 
-    # 縦型写真（高さ >= 幅）を優先（サイズはキャッシュして毎回開かない）
+    # 縦型写真（高さ >= 幅）のみ使用。横長写真はShortsで見栄えが悪い
     portrait_candidates = []
-    acceptable_candidates = []
     for p in candidates:
         size = _get_photo_size(p)
         if size is None:
@@ -534,10 +534,8 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
         w, h = size
         if h >= w:
             portrait_candidates.append(p)
-        elif h / w >= 0.6:
-            acceptable_candidates.append(p)
 
-    pool = portrait_candidates or acceptable_candidates or candidates
+    pool = portrait_candidates or candidates
     selected = random.choice(pool)
 
     try:
