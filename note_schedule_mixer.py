@@ -404,6 +404,23 @@ def plan_queue(
             "last_error": None,
         })
 
+    # 重複時刻チェック（安全弁）
+    seen_slots: set[str] = set()
+    duplicates: list[str] = []
+    for entry in planned:
+        slot = entry["schedule_at"]
+        if slot in seen_slots:
+            duplicates.append(f"  {slot} | {entry['title'][:40]}")
+        seen_slots.add(slot)
+    if duplicates:
+        print("\n⚠️  [重複検出] 同じ時刻に複数記事が割り当てられています:")
+        for d in duplicates:
+            print(d)
+        raise ValueError(
+            f"スケジュールに{len(duplicates)}件の時刻重複があります。"
+            "plan_queue() のロジックを確認してください。"
+        )
+
     return planned
 
 
