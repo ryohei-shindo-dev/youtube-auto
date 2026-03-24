@@ -22,9 +22,9 @@ MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 # ── リンク可否判定（一元化） ──
 
 def load_manifest() -> list[dict]:
-    """note_manifest.json を読み込む。"""
-    with open(MANIFEST_PATH, encoding="utf-8") as f:
-        return json.load(f)
+    """note_manifest.json を読み込む。note_ops.load_manifest に委譲。"""
+    import note_ops
+    return note_ops.load_manifest(MANIFEST_PATH)
 
 
 def is_linkable(article: dict) -> bool:
@@ -181,7 +181,7 @@ def verify_article(page: Page, note_id: str) -> dict:
     }
 
 
-def verify_as_reader(pw, note_id: str) -> dict:
+def verify_as_reader(pw, note_id: str, browser=None) -> dict:
     """読者視点（ログアウト状態）で公開ページを検証する。
 
     著者にだけ見える記事（下書き・限定公開）や、
@@ -191,11 +191,14 @@ def verify_as_reader(pw, note_id: str) -> dict:
     Args:
         pw: Playwright インスタンス（launch済み）
         note_id: 検証対象の note_key
+        browser: 既存ブラウザインスタンス（バッチ時に使い回すと高速）
 
     Returns:
         verify_article と同じ形式の dict
     """
-    browser = pw.chromium.launch(headless=True)
+    owned_browser = browser is None
+    if owned_browser:
+        browser = pw.chromium.launch(headless=True)
     context = browser.new_context()  # クッキーなし = ログアウト状態
     page = context.new_page()
     try:
@@ -214,7 +217,8 @@ def verify_as_reader(pw, note_id: str) -> dict:
             result["ok"] = False
     finally:
         context.close()
-        browser.close()
+        if owned_browser:
+            browser.close()
     return result
 
 

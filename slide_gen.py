@@ -57,6 +57,20 @@ PHOTOS_DIR = ASSETS_DIR / "photos"
 PHOTO_HISTORY_PATH = pathlib.Path(__file__).parent / "debug" / "photo_history.json"
 PHOTO_HISTORY_KEEP = 30
 
+_PHOTO_SIZE_CACHE: dict[pathlib.Path, tuple[int, int]] = {}
+
+
+def _get_photo_size(p: pathlib.Path) -> tuple[int, int] | None:
+    """写真のサイズをキャッシュ付きで取得する。毎回Image.openしない。"""
+    if p not in _PHOTO_SIZE_CACHE:
+        try:
+            with Image.open(p) as img:
+                _PHOTO_SIZE_CACHE[p] = img.size
+        except Exception:
+            return None
+    return _PHOTO_SIZE_CACHE.get(p)
+
+
 CHANNEL_NAME = "ガチホのモチベ"
 BRAND_LABEL_COLOR = (180, 180, 180)
 
@@ -510,19 +524,18 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
         blocked_names.update(_get_recent_published_hook_photo_names(limit=6))
     candidates = [p for p in photos if p.name not in blocked_names] or photos
 
-    # 縦型写真（高さ >= 幅）を優先
+    # 縦型写真（高さ >= 幅）を優先（サイズはキャッシュして毎回開かない）
     portrait_candidates = []
-    acceptable_candidates = []  # 横長でもアスペクト比が極端でないもの
+    acceptable_candidates = []
     for p in candidates:
-        try:
-            with Image.open(p) as img:
-                w, h = img.size
-                if h >= w:
-                    portrait_candidates.append(p)
-                elif h / w >= 0.6:
-                    acceptable_candidates.append(p)
-        except Exception:
+        size = _get_photo_size(p)
+        if size is None:
             continue
+        w, h = size
+        if h >= w:
+            portrait_candidates.append(p)
+        elif h / w >= 0.6:
+            acceptable_candidates.append(p)
 
     pool = portrait_candidates or acceptable_candidates or candidates
     selected = random.choice(pool)

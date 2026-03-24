@@ -347,7 +347,7 @@ def _input_body_text(page: Page, body_text: str) -> int:
         body_text, removed = validate_body_urls(body_text)
         for url in removed:
             print(f"    [除去] 非linkable URL: {url}")
-    except Exception:
+    except ImportError:
         pass  # note_workflows が使えない場合はチェックなしで続行
 
     body = page.locator(SEL["body"])

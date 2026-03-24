@@ -189,12 +189,15 @@ def _preflight_check(
     """投稿前の受け入れテスト。1件でもエラーがあれば投稿を中止する。"""
     errors = []
 
-    # 1. 必須ファイル存在チェック
+    # 1. 必須ファイル存在+サイズチェック
     if not video_path.exists():
         errors.append(f"動画ファイルなし: {video_path.name}")
+    elif video_path.stat().st_size < 10_000:
+        errors.append(f"動画ファイルが小さすぎる: {video_path.stat().st_size}バイト")
+
     if not transcript_path.exists():
         errors.append(f"transcript.jsonなし")
-        return errors  # メタデータなしでは以降のチェック不能
+        return errors
 
     # 2. メタデータ検証
     try:
@@ -210,12 +213,6 @@ def _preflight_check(
     scenes = meta.get("scenes", [])
     if not scenes:
         errors.append("scenesが空")
-
-    # 3. 動画ファイルサイズチェック（0バイトや極端に小さいファイルを排除）
-    if video_path.exists():
-        size = video_path.stat().st_size
-        if size < 10_000:  # 10KB未満は異常
-            errors.append(f"動画ファイルが小さすぎる: {size}バイト")
 
     # 4. スライド存在チェック（全シーン分あるか）
     for i, scene in enumerate(scenes):
