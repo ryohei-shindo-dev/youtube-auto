@@ -135,53 +135,13 @@ python analytics_analyze.py
 - APIキーは `~/.zshrc` の `OPENAI_API_KEY` を使用（全プロジェクト共通）
 - モデル変更: `OPENAI_MODEL=gpt-4o-mini python ask_chatgpt.py "相談文"`
 
-## ops_shared 移行（TODO）
+## ops_shared 移行（✅ 完了 2026-03-25）
 
 `~/ops-hub/packages/ops_shared` に共通ライブラリが用意済み。`venv` に `pip install -e` 済み。
 
-### 1. ask_chatgpt.py → ops_shared.chatgpt
-
-現在: `~/youtube-auto/ask_chatgpt.py`（デフォルトモデル gpt-5.4）
-
-移行: `ask_chatgpt.py` を薄いラッパーに書き換え:
-```python
-"""youtube-auto 用 ChatGPT CLI（デフォルトモデル: gpt-5.4）"""
-import os
-os.environ.setdefault("OPENAI_MODEL", "gpt-5.4")
-from ops_shared.chatgpt import main
-if __name__ == "__main__":
-    main()
-```
-
-確認: `venv/bin/python ask_chatgpt.py "テスト"` で応答が返ること。
-
-### 2. error_notify.py → ops_shared.notify + ops_shared.gmail_auth
-
-現在: `~/youtube-auto/error_notify.py`（Gmail API 自前実装。buyma-auto の credentials/token を直接参照）
-
-移行: `error_notify.py` を薄いラッパーに書き換え:
-```python
-from pathlib import Path
-from ops_shared.gmail_auth import GoogleAuthConfig, send_email
-from ops_shared.notify import NotifyConfig, cli_main
-
-GOOGLE_CONFIG = GoogleAuthConfig(
-    credentials_path=Path.home() / "buyma-auto" / "purchase-logger" / "credentials.json",
-    token_path=Path.home() / "buyma-auto" / "purchase-logger" / "token.json",
-    scopes=("https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/spreadsheets"),
-)
-NOTIFY_CONFIG = NotifyConfig(
-    subject_prefix="[youtube-auto]",
-    email_env_var="NOTIFY_EMAIL",
-    sender=lambda to, subject, body: send_email(GOOGLE_CONFIG, to=to, subject=subject, body=body),
-)
-
-if __name__ == "__main__":
-    cli_main(NOTIFY_CONFIG)
-```
-
-確認: `venv/bin/python error_notify.py test-cmd /dev/null` でメールが届くこと。
-`run_with_notify.sh` の呼び出し形式は `cli_main` が互換維持するので変更不要。
+- ✅ `ask_chatgpt.py` → `ops_shared.chatgpt` の薄いラッパーに書き換え済み（デフォルトモデル gpt-5.4）
+- ✅ `error_notify.py` → `ops_shared.notify` + `ops_shared.gmail_auth` の薄いラッパーに書き換え済み
+- `run_with_notify.sh` の呼び出し形式は `cli_main` が互換維持するので変更不要
 
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
