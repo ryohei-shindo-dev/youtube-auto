@@ -111,10 +111,24 @@ def extract_hook_category(hook_text: str) -> str:
     return "その他"
 
 
-def _get_recent_published_hooks(rows: list, limit: int = 7) -> list[dict]:
-    """公開済みエントリから直近N件のhook情報を取得する（pub_date降順）。"""
+def _get_recent_published_hooks(rows: list, limit: int = 7,
+                                platform: str | None = None) -> list[dict]:
+    """公開済みエントリから直近N件のhook情報を取得する（pub_date降順）。
+
+    platform が指定されると、そのプラットフォームに投稿済みのエントリだけを対象にする。
+    これにより Instagram 一覧での隣接事故を防ぐ。
+    """
     import sheets
     C = sheets.COL
+    # PF別URL列のマッピング
+    _PF_URL_COL = {
+        "youtube": C["youtube_url"],
+        "instagram": C["instagram_url"],
+        "x": C["x_url"],
+        "tiktok": C["tiktok_url"],
+    }
+    pf_col = _PF_URL_COL.get(platform) if platform else None
+
     published = []
     for row in rows[1:]:
         status = sheets.get_cell(row, C["status"])
@@ -124,6 +138,11 @@ def _get_recent_published_hooks(rows: list, limit: int = 7) -> list[dict]:
         pub_date = sheets.get_cell(row, C["pub_date"])
         if not folder:
             continue
+        # PF指定があれば、そのPFに投稿済み（URLあり）のエントリだけ対象
+        if pf_col is not None:
+            pf_url = sheets.get_cell(row, pf_col)
+            if not pf_url:
+                continue
         published.append({"folder": folder, "pub_date": pub_date})
 
     # pub_date 降順でソートし、直近 limit 件を取得
@@ -405,7 +424,10 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         generated = _sort_by_score(generated)
 
     # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
-    recent_hooks = _get_recent_published_hooks(rows)
+    # PF別履歴を使う（Instagram一覧での隣接事故を防ぐ）
+    # platforms が1つだけ指定されていればそのPFの履歴、複数なら全体履歴
+    check_pf = platforms[0] if platforms and len(platforms) == 1 else None
+    recent_hooks = _get_recent_published_hooks(rows, platform=check_pf)
 
     if not recent_hooks:
         # 公開済みがなければ近接チェック不要 → 最古の候補を返す
@@ -414,6 +436,12 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     recent_stems = [h["hook_stem"] for h in recent_hooks[:_STEM_PROXIMITY]]
     recent_categories = [h["hook_category"] for h in recent_hooks[:_CATEGORY_PROXIMITY]
                          if h["hook_category"]]
+    # サムネhookテキスト一致チェック用（直近4本の句読点除去テキスト）
+    _HOOK_TEXT_PROXIMITY = 4
+    recent_hook_texts = [
+        h["hook_text"].rstrip("。？！?! ")
+        for h in recent_hooks[:_HOOK_TEXT_PROXIMITY] if h.get("hook_text")
+    ]
 
     best_fallback = None
     best_fallback_recency = -1  # ステムの最終出現位置（大きいほど古い＝良い）
@@ -424,17 +452,25 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
             # hook が取得できない場合はチェックをスキップして候補として返す
             return candidate
 
+        c_cleaned = hook_text.rstrip("。？！?! ")
         c_stem = extract_hook_stem(hook_text)
         c_category = extract_hook_category(hook_text)
 
+        # サムネhookテキスト一致チェック（直近3本と同じhookは絶対避ける）
+        hook_text_conflict = c_cleaned in recent_hook_texts
         # ステム近接チェック
         stem_conflict = c_stem in recent_stems
         # カテゴリ近接チェック
         category_conflict = c_category and c_category in recent_categories
 
-        if not stem_conflict and not category_conflict:
-            print(f"  [hook近接] ✓ hook「{hook_text.rstrip('。？！')}」は直近と被りなし")
+        if not hook_text_conflict and not stem_conflict and not category_conflict:
+            print(f"  [hook近接] ✓ hook「{c_cleaned}」は直近と被りなし")
             return candidate
+
+        if hook_text_conflict:
+            # hookテキスト完全一致はフォールバック候補にもしない
+            print(f"  [hook近接] × hook「{c_cleaned}」が直近3本と一致 → スキップ")
+            continue
 
         # フォールバック用: ステムの最終出現位置が最も古い候補を記録
         if c_stem in recent_stems:
