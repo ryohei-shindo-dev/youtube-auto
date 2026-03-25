@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 from typing import Optional
 
 import anthropic
@@ -483,6 +484,10 @@ def _call_claude(api_key: str, prompt: str) -> Optional[str]:
 def _save_article(article: str, output_dir: pathlib.Path, filename: str) -> pathlib.Path:
     """記事をファイルに保存する。"""
     article = script_gen.normalize_preferred_spelling(article)
+    # 太字閉じの後の余分な句点を除去（Claude が 。**。 と生成するバグ対策）
+    article = re.sub(r'。\*\*。', '。**', article)
+    # 単独行の **。 を除去（太字閉じが改行で分離した場合）
+    article = re.sub(r'\n\*\*。\s*\n', '\n', article)
     body_text = article.replace("#", "").replace("*", "").replace("-", "").strip()
     char_count = len(body_text)
     print(f"  note記事生成完了（{char_count}字）")
