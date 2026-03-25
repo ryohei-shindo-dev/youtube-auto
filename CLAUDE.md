@@ -143,6 +143,13 @@ python analytics_analyze.py
 - ✅ `error_notify.py` → `ops_shared.notify` + `ops_shared.gmail_auth` の薄いラッパーに書き換え済み
 - `run_with_notify.sh` の呼び出し形式は `cli_main` が互換維持するので変更不要
 
+### 障害報告
+- 障害発生時は `docs/incident-YYYYMMDD-short-name.md` を作成する
+- テンプレート: `~/ops-hub/docs/incidents/incident-template.md`（front matter 付き）
+- チェックリスト: `~/ops-hub/docs/incidents/incident-checklist-common.md`
+- Playwright 障害時は `~/ops-hub/docs/incidents/categories/playwright-selector-failures.md` を先に確認
+- `cross_project: true` の教訓は ops-hub のカテゴリ文書にも反映する
+
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
 - `docs/runbook.md` — 日常運用・よくある操作・トラブルシューティング
