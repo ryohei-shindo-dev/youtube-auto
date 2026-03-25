@@ -1,13 +1,13 @@
 {
   "meta": {
-    "generated_at": "2026-03-16T23:00:00+09:00",
-    "sample_size": 28,
-    "confidence": "low",
+    "generated_at": "2026-03-23T23:00:03+09:00",
+    "sample_size": 44,
+    "confidence": "medium",
     "mode": "weekly",
-    "avg_views": 1163,
-    "avg_views_24h": 1025,
-    "avg_like_rate_pct": 0.25,
-    "avg_comment_rate_pct": 0.064
+    "avg_views": 1093,
+    "avg_views_24h": 994,
+    "avg_like_rate_pct": 0.28,
+    "avg_comment_rate_pct": 0.085
   },
   "title_rules": {
     "prefer_specific_timeframes": true,
@@ -24,50 +24,50 @@
   "weak_hooks": [],
   "top_videos": [
     {
+      "title": "高収入じゃなかった。ただ、続けていただけ｜NISA #Shorts",
+      "views": 3154
+    },
+    {
       "title": "配当使ったがつらい人へ｜積立投資 #Shorts",
       "views": 2947
     },
     {
       "title": "コロナで売った人、1800万円の機会損失｜積立投資 #Shorts",
-      "views": 2524
-    },
-    {
-      "title": "年利5%の差が、30年後にこんなに怖い｜資産形成 #Shorts",
-      "views": 2480
+      "views": 2525
     }
   ],
   "bottom_videos": [
+    {
+      "title": "高配当株とインデックスで揺れる人へ｜最初に整理したいちがい",
+      "views": 10
+    },
     {
       "title": "含み損がつらい夜に聞く、静かな整理",
       "views": 7
     },
     {
       "title": "積み立て3年目が一番つらい理由｜増えない時期に何が起きているか",
-      "views": 5
-    },
-    {
-      "title": "オルカンとS&P500で揺れる人へ｜乗り換えたくなるときに整理したいこと",
-      "views": 4
+      "views": 6
     }
   ],
   "high_engagement": [
+    {
+      "title": "高配当株とインデックスで揺れる人へ｜最初に整理したいちがい",
+      "views": 10,
+      "like_rate_pct": 20.0,
+      "comment_rate_pct": 10.0
+    },
+    {
+      "title": "SNSの成功報告、全部信じてませんか｜積立投資 #Shorts",
+      "views": 66,
+      "like_rate_pct": 3.03,
+      "comment_rate_pct": 1.515
+    },
     {
       "title": "100円がつらい人へ｜長期投資の真実 #Shorts",
       "views": 508,
       "like_rate_pct": 0.98,
       "comment_rate_pct": 0.197
-    },
-    {
-      "title": "爆益で悩む人へ｜ガチホの真実 #Shorts",
-      "views": 323,
-      "like_rate_pct": 0.93,
-      "comment_rate_pct": 0.0
-    },
-    {
-      "title": "レバレッジ2倍が気になりだした夜に見てほしい | インデックス投資 #Shorts",
-      "views": 285,
-      "like_rate_pct": 0.7,
-      "comment_rate_pct": 0.351
     }
   ],
   "prompt_guidance": [
@@ -75,7 +75,7 @@
     "期間（3年目、20年、30年後等）もタイトルで効果的。",
     "最近強いhook語: 増えない人へ",
     "いいね率0.3%はやや低め。共感・感情に寄せたhookを増やす。",
-    "エンゲージメント高い動画: 100円がつらい人へ｜長期投資の真実 #、爆益で悩む人へ｜ガチホの真実 #Shor",
+    "エンゲージメント高い動画: 高配当株とインデックスで揺れる人へ｜最初、SNSの成功報告、全部信じてませんか｜積",
     "数字を入れても煽りトーンにしない。落ち着いたトーンを維持。"
   ]
 }
