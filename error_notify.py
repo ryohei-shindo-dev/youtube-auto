@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from ops_shared.gmail_auth import GoogleAuthConfig, send_email
 from ops_shared.notify import NotifyConfig, cli_main
