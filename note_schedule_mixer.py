@@ -29,6 +29,7 @@ MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 SCHEDULED_PATH = SCRIPT_DIR / "scheduled_notes.json"
 PUBLISH_QUEUE_PATH = SCRIPT_DIR / "note_publish_queue.json"
 RESCHEDULE_PLAN_PATH = SCRIPT_DIR / "reschedule_plan.json"
+FULL_SCHEDULE_PATH = SCRIPT_DIR / "full_schedule.json"
 
 # デフォルトのマガジン・タグ（note_ops.py と同じ値）
 DEFAULT_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"
@@ -265,6 +266,80 @@ def _score_candidate(
         score += 10
 
     return score
+
+
+# ── 正本 (full_schedule.json) の読み書き ──
+
+
+def load_schedule() -> list[dict]:
+    """full_schedule.json（正本）を読み込む。存在しなければ空リスト。"""
+    if not FULL_SCHEDULE_PATH.exists():
+        return []
+    data = json.loads(FULL_SCHEDULE_PATH.read_text(encoding="utf-8"))
+    return data.get("entries", [])
+
+
+def save_schedule(entries: list[dict]) -> None:
+    """full_schedule.json にバリデーション付きで保存する。
+
+    検証失敗時は ValueError を raise し、ファイルは変更しない。
+    """
+    from collections import Counter
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    allowed_times = set(TIME_SLOTS)
+
+    for i, e in enumerate(entries):
+        # 必須フィールド
+        for field in ("note_key", "title", "schedule_at", "category"):
+            if not e.get(field):
+                errors.append(f"entries[{i}]: {field} が空です ({e.get('title', '?')[:30]})")
+        # datetime フォーマット
+        sa = e.get("schedule_at", "")
+        try:
+            datetime.strptime(sa, "%Y-%m-%d %H:%M")
+        except (ValueError, TypeError):
+            errors.append(f"entries[{i}]: schedule_at 形式不正 '{sa}'")
+            continue
+        # 許可スロット（例外は警告のみ）
+        time_part = sa.split(" ")[1] if " " in sa else ""
+        if time_part and time_part not in allowed_times:
+            warnings.append(f"entries[{i}]: 非標準スロット {sa} ({e.get('title', '')[:30]})")
+
+    # 同一 schedule_at 重複
+    dupes = find_duplicate_slots(entries)
+    if dupes:
+        for slot, titles in sorted(dupes.items()):
+            errors.append(f"schedule_at 重複: {slot} ({', '.join(titles)})")
+
+    # 同一日に3件以上（過去の公開済みエントリは除外）
+    now_str = datetime.now().strftime("%Y-%m-%d")
+    future_entries = [e for e in entries if e.get("schedule_at", "")[:10] >= now_str]
+    day_counts: dict[str, int] = Counter(
+        e["schedule_at"].split(" ")[0] for e in future_entries if e.get("schedule_at")
+    )
+    for day, count in day_counts.items():
+        if count > 2:
+            errors.append(f"{day} に {count} 件のエントリ（最大2件）")
+
+    for w in warnings:
+        print(f"  [警告] {w}", file=sys.stderr)
+
+    if errors:
+        msg = "save_schedule バリデーション失敗:\n" + "\n".join(f"  - {e}" for e in errors)
+        raise ValueError(msg)
+
+    # ソート＆保存
+    entries.sort(key=lambda e: e.get("schedule_at", ""))
+    data = {"entries": entries}
+    tmp_path = FULL_SCHEDULE_PATH.with_suffix(".tmp")
+    tmp_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    tmp_path.rename(FULL_SCHEDULE_PATH)
+    print(f"✅ {FULL_SCHEDULE_PATH.name} 保存完了（{len(entries)}件、重複0件）")
 
 
 def find_duplicate_slots(entries: list[dict]) -> dict[str, list[str]]:
@@ -610,7 +685,7 @@ def reorganize_queue(
                 continue
             score = _score_candidate(
                 cat, queue_so_far, slot_time, cat_remaining,
-                remaining_total, slots_left,
+                slots_left,
             )
             if score > best_score:
                 best_score = score
@@ -715,6 +790,16 @@ def cmd_plan(args):
             encoding="utf-8",
         )
         print(f"\n✅ {PUBLISH_QUEUE_PATH.name} に保存しました（{len(planned)}本）")
+
+        # 正本（full_schedule.json）にも追加
+        schedule = load_schedule()
+        new_entries = [
+            {"note_key": p.get("note_key") or "", "title": p["title"],
+             "schedule_at": p["schedule_at"], "category": p["category"]}
+            for p in planned
+        ]
+        schedule.extend(new_entries)
+        save_schedule(schedule)
     else:
         print("\n[プレビュー] --write を付けると note_publish_queue.json に保存します")
 
@@ -722,7 +807,7 @@ def cmd_plan(args):
 def cmd_reorganize(args):
     """予約投稿済み記事をthemeバランスで並べ替える。"""
 
-    # 入力ソース: --schedule-file があればそれを使う、なければscheduled_notes.jsonから
+    # 入力ソース: --schedule-file があればそれを使う、なければ full_schedule.json（正本）
     if args.schedule_file:
         data = json.loads(pathlib.Path(args.schedule_file).read_text(encoding="utf-8"))
         if isinstance(data, dict):
@@ -746,7 +831,10 @@ def cmd_reorganize(args):
                 "schedule_at": _get_schedule_at(e),
             })
     else:
-        queue = _load_scheduled_queue()
+        queue = load_schedule()
+        if not queue:
+            print("full_schedule.json が空です。--schedule-file で入力を指定してください")
+            return
 
     # --ids で絞り込み
     if args.ids:
@@ -801,15 +889,25 @@ def cmd_reorganize(args):
     for p in plan:
         print(f"  {p['note_key']} {p['old_schedule_at']} → {p['schedule_at']} {p['title'][:30]}")
 
-    if args.write and plan:
+    if args.write:
+        # 正本（full_schedule.json）を更新 — save_schedule がバリデーション
+        save_entries = [
+            {"note_key": r["note_key"], "title": r["title"],
+             "schedule_at": r["schedule_at"], "category": r["category"]}
+            for r in reorganized
+        ]
+        save_schedule(save_entries)
+        print(f"実行: note_tool.py apply-reschedule-plan で予約日時を一括変更")
+    elif not args.write:
+        print("\n[プレビュー] --write を付けると full_schedule.json を更新します")
+
+    # --write-diff: reschedule_plan.json にもログ出力（後方互換）
+    if getattr(args, "write_diff", False) and plan:
         RESCHEDULE_PLAN_PATH.write_text(
             json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        print(f"\n✅ {RESCHEDULE_PLAN_PATH.name} に保存しました（{len(plan)}本）")
-        print(f"実行: note_tool.py apply-reschedule-plan で予約日時を一括変更")
-    elif not args.write:
-        print("\n[プレビュー] --write を付けると reschedule_plan.json に保存します")
+        print(f"✅ {RESCHEDULE_PLAN_PATH.name} にも保存しました（{len(plan)}本）")
 
 
 def main():
@@ -839,7 +937,9 @@ def main():
     p_reorg.add_argument("--schedule-file", type=str,
                          help="スケジュール付きJSONファイル（各エントリにnote_key, schedule_at, category）")
     p_reorg.add_argument("--write", action="store_true",
-                         help="reschedule_plan.json に保存")
+                         help="full_schedule.json（正本）を更新")
+    p_reorg.add_argument("--write-diff", action="store_true",
+                         help="reschedule_plan.json にも差分を保存（後方互換）")
 
     args = parser.parse_args()
 

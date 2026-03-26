@@ -278,15 +278,63 @@ def cmd_reschedule(args):
         ops.close(pw, context)
 
 
-def cmd_apply_reschedule_plan(args):
-    """reschedule_plan.json の記事を一括リスケジュールする。"""
-    plan_path = SCRIPT_DIR / "reschedule_plan.json"
-    if not plan_path.exists():
-        print("reschedule_plan.json がありません")
-        print("先に: python note_schedule_mixer.py reorganize --write")
-        return
+def _compute_reschedule_diff(desired: list[dict], actual_notes: list[dict]) -> list[dict]:
+    """full_schedule.json（理想）と scheduled_notes.json（現状）を比較して差分を返す。"""
+    # scheduled_notes.json の id → publish_at マッピング
+    actual_by_id: dict[str, str] = {}
+    for n in actual_notes:
+        if n.get("status") == "reserved" and n.get("publish_at"):
+            actual_by_id[n["id"]] = n["publish_at"].strip()[:16]
 
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    diff = []
+    for entry in desired:
+        nk = entry.get("note_key", "")
+        if not nk:
+            continue
+        desired_at = entry["schedule_at"]
+        actual_at = actual_by_id.get(nk, "")
+        if actual_at and actual_at != desired_at:
+            diff.append({
+                "note_key": nk,
+                "title": entry.get("title", ""),
+                "schedule_at": desired_at,
+                "old_schedule_at": actual_at,
+                "needs_reschedule": True,
+            })
+    return diff
+
+
+def cmd_apply_reschedule_plan(args):
+    """full_schedule.json と現状の差分を計算して一括リスケジュールする。"""
+    if getattr(args, "from_file", None):
+        # 後方互換: --from-file で直接ファイル指定
+        plan_path = pathlib.Path(args.from_file)
+        if not plan_path.exists():
+            print(f"{plan_path} がありません")
+            return
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        print(f"[旧方式] {plan_path.name} から {len(plan)}件を読み込み")
+    else:
+        # 新方式: full_schedule.json vs scheduled_notes.json の差分を自動計算
+        from note_schedule_mixer import load_schedule
+        desired = load_schedule()
+        if not desired:
+            print("full_schedule.json が空です")
+            return
+
+        sn_path = SCRIPT_DIR / "scheduled_notes.json"
+        if not sn_path.exists():
+            print("scheduled_notes.json がありません。先に collect-ids を実行してください")
+            return
+        sn_data = json.loads(sn_path.read_text(encoding="utf-8"))
+        actual_notes = sn_data.get("notes", [])
+
+        plan = _compute_reschedule_diff(desired, actual_notes)
+        if not plan:
+            print("リスケジュール不要（full_schedule.json と note.com が一致）")
+            return
+        print(f"差分計算: {len(plan)}件のリスケジュールが必要\n")
+
     if not plan:
         print("リスケジュール対象がありません")
         return
@@ -738,8 +786,11 @@ def main():
     p.add_argument("--note-id", required=True)
     p.add_argument("--schedule", required=True)
 
-    p = sub.add_parser("apply-reschedule-plan", help="reschedule_plan.json の記事を一括リスケジュール")
+    p = sub.add_parser("apply-reschedule-plan",
+                       help="full_schedule.json と現状の差分を一括リスケジュール")
     p.add_argument("--dry-run", action="store_true", help="対象確認のみ")
+    p.add_argument("--from-file", type=str,
+                   help="差分ファイルを直接指定（後方互換）")
 
     p = sub.add_parser("discard-draft", help="下書きを破棄")
     p.add_argument("--note-id", required=True)
