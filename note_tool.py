@@ -322,7 +322,23 @@ def cmd_apply_reschedule_plan(args):
             print("full_schedule.json が空です")
             return
 
+        # scheduled_notes.json を最新化してから差分計算
         sn_path = SCRIPT_DIR / "scheduled_notes.json"
+        if not args.dry_run:
+            print("scheduled_notes.json を最新化しています...")
+            try:
+                import subprocess
+                subprocess.run(
+                    [sys.executable, str(SCRIPT_DIR / "note_tool.py"), "collect-ids"],
+                    check=True, timeout=120,
+                )
+                print("scheduled_notes.json 更新完了\n")
+            except Exception as e:
+                if sn_path.exists():
+                    print(f"  [警告] collect-ids 失敗（{e}）、既存データで続行します\n")
+                else:
+                    print(f"collect-ids 失敗（{e}）。scheduled_notes.json がありません")
+                    return
         if not sn_path.exists():
             print("scheduled_notes.json がありません。先に collect-ids を実行してください")
             return

@@ -22,13 +22,14 @@ import argparse
 import json
 import pathlib
 import sys
+from collections import Counter
 from datetime import datetime, timedelta
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
 SCHEDULED_PATH = SCRIPT_DIR / "scheduled_notes.json"
 PUBLISH_QUEUE_PATH = SCRIPT_DIR / "note_publish_queue.json"
-RESCHEDULE_PLAN_PATH = SCRIPT_DIR / "reschedule_plan.json"
+RESCHEDULE_DIFF_LOG_PATH = SCRIPT_DIR / "reschedule_diff_log.json"
 FULL_SCHEDULE_PATH = SCRIPT_DIR / "full_schedule.json"
 
 # デフォルトのマガジン・タグ（note_ops.py と同じ値）
@@ -284,11 +285,11 @@ def save_schedule(entries: list[dict]) -> None:
 
     検証失敗時は ValueError を raise し、ファイルは変更しない。
     """
-    from collections import Counter
-
     errors: list[str] = []
     warnings: list[str] = []
     allowed_times = set(TIME_SLOTS)
+    allowed_categories = set(CATEGORY_RULES.keys())
+    now_str = datetime.now().strftime("%Y-%m-%d")
 
     for i, e in enumerate(entries):
         # 必須フィールド
@@ -302,10 +303,17 @@ def save_schedule(entries: list[dict]) -> None:
         except (ValueError, TypeError):
             errors.append(f"entries[{i}]: schedule_at 形式不正 '{sa}'")
             continue
-        # 許可スロット（例外は警告のみ）
+        # 許可スロット（未来分はエラー、過去分は警告）
         time_part = sa.split(" ")[1] if " " in sa else ""
         if time_part and time_part not in allowed_times:
-            warnings.append(f"entries[{i}]: 非標準スロット {sa} ({e.get('title', '')[:30]})")
+            if sa[:10] >= now_str:
+                errors.append(f"entries[{i}]: 未来の非標準スロット {sa} ({e.get('title', '')[:30]})")
+            else:
+                warnings.append(f"entries[{i}]: 過去の非標準スロット {sa} ({e.get('title', '')[:30]})")
+        # category 許容値チェック
+        cat = e.get("category", "")
+        if cat and cat not in allowed_categories:
+            errors.append(f"entries[{i}]: 不明なcategory '{cat}' ({e.get('title', '')[:30]})")
 
     # 同一 schedule_at 重複
     dupes = find_duplicate_slots(entries)
@@ -313,8 +321,14 @@ def save_schedule(entries: list[dict]) -> None:
         for slot, titles in sorted(dupes.items()):
             errors.append(f"schedule_at 重複: {slot} ({', '.join(titles)})")
 
+    # 同一 note_key 重複
+    key_counts = Counter(e.get("note_key", "") for e in entries if e.get("note_key"))
+    for key, count in key_counts.items():
+        if count > 1:
+            titles = [e.get("title", "")[:30] for e in entries if e.get("note_key") == key]
+            errors.append(f"note_key 重複: {key} ({', '.join(titles)})")
+
     # 同一日に3件以上（過去の公開済みエントリは除外）
-    now_str = datetime.now().strftime("%Y-%m-%d")
     future_entries = [e for e in entries if e.get("schedule_at", "")[:10] >= now_str]
     day_counts: dict[str, int] = Counter(
         e["schedule_at"].split(" ")[0] for e in future_entries if e.get("schedule_at")
@@ -344,7 +358,6 @@ def save_schedule(entries: list[dict]) -> None:
 
 def find_duplicate_slots(entries: list[dict]) -> dict[str, list[str]]:
     """schedule_at が重複するエントリを検出する。{スロット: [タイトル...]} を返す。"""
-    from collections import Counter
     slots = [e["schedule_at"] for e in entries]
     dupes = {s for s, c in Counter(slots).items() if c > 1}
     if not dupes:
@@ -903,11 +916,11 @@ def cmd_reorganize(args):
 
     # --write-diff: reschedule_plan.json にもログ出力（後方互換）
     if getattr(args, "write_diff", False) and plan:
-        RESCHEDULE_PLAN_PATH.write_text(
+        RESCHEDULE_DIFF_LOG_PATH.write_text(
             json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        print(f"✅ {RESCHEDULE_PLAN_PATH.name} にも保存しました（{len(plan)}本）")
+        print(f"✅ {RESCHEDULE_DIFF_LOG_PATH.name} にも保存しました（{len(plan)}本）")
 
 
 def main():
