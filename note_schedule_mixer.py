@@ -540,13 +540,43 @@ def reorganize_queue(
     fixed_slots = fixed_slots or []
     fixed_datetimes = {f["schedule_at"] for f in fixed_slots}
 
-    # 元のスロット日時リスト（固定スロットを除外）
-    original_slots = []
+    # 元のスロット日時リスト（固定スロットを除外、重複排除）
+    original_slots_raw = []
     for item in existing:
         sa = _get_schedule_at(item)
         if sa and sa not in fixed_datetimes:
+            original_slots_raw.append(sa)
+    # 重複スロットがあれば新スロットで埋める
+    seen: set[str] = set()
+    original_slots: list[str] = []
+    overflow_count = 0
+    for sa in sorted(original_slots_raw):
+        if sa in seen:
+            overflow_count += 1
+        else:
+            seen.add(sa)
             original_slots.append(sa)
-    original_slots.sort()
+    if overflow_count:
+        # 最後のスロットの翌日から 12:30/21:00 交互で補充
+        from datetime import datetime, timedelta
+        last_dt = datetime.strptime(original_slots[-1], "%Y-%m-%d %H:%M")
+        next_day = (last_dt + timedelta(days=1)).replace(hour=12, minute=30)
+        alt = ["12:30", "21:00"]
+        ai = 0
+        for _ in range(overflow_count):
+            new_slot = next_day.strftime(f"%Y-%m-%d {alt[ai]}")
+            while new_slot in seen:
+                ai = (ai + 1) % 2
+                if ai == 0:
+                    next_day += timedelta(days=1)
+                new_slot = next_day.strftime(f"%Y-%m-%d {alt[ai]}")
+            original_slots.append(new_slot)
+            seen.add(new_slot)
+            ai = (ai + 1) % 2
+            if ai == 0:
+                next_day += timedelta(days=1)
+        original_slots.sort()
+        print(f"  [警告] 入力に{overflow_count}件の重複スロットあり → 末尾に新スロット追加")
 
     # 並べ替え対象（固定スロットの記事を除外）
     movable = [item for item in existing
@@ -752,6 +782,18 @@ def cmd_reorganize(args):
     show_queue_with_categories(reorganized)
     print()
     check_balance(reorganized)
+
+    # 重複チェック（plan と同じガード）
+    dupes = find_duplicate_slots(reorganized)
+    if dupes:
+        print("\n⚠ 時刻重複が見つかりました:")
+        for slot, titles in sorted(dupes.items()):
+            for t in titles:
+                print(f"  {slot} | {t}")
+        raise ValueError(
+            f"reorganize結果に{len(dupes)}件の時刻重複があります。"
+            "入力データのスロットに重複がないか確認してください。"
+        )
 
     # reschedule が必要な記事
     plan = make_reschedule_plan(reorganized)
