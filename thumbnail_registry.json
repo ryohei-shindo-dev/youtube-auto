@@ -1,10 +1,5 @@
 [
   {
-    "thumbnail_photo": "thumb018.jpg",
-    "thumbnail_text": "平均リターン年7%、ただし毎",
-    "generated_at": "2026-03-19T22:48:54.846222"
-  },
-  {
     "thumbnail_photo": "thumb048.jpg",
     "thumbnail_text": "2年やってプラマイゼロ\nそれでも続ける理由",
     "generated_at": "2026-03-19T22:49:00.750240"
@@ -498,5 +493,10 @@
     "thumbnail_photo": "thumb053.jpg",
     "thumbnail_text": "続いているだけで十分",
     "generated_at": "2026-03-22T08:46:13.864221"
+  },
+  {
+    "thumbnail_photo": "thumb081.jpg",
+    "thumbnail_text": "投資に疲れた",
+    "generated_at": "2026-03-26T17:07:09.291088"
   }
 ]
