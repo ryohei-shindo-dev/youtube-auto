@@ -76,6 +76,8 @@ for _cat_name, _kws in HOOK_CATEGORIES.items():
 _STEM_PROXIMITY = 8
 # 近接制約: 同じカテゴリは直近N本以内に出さない
 _CATEGORY_PROXIMITY = 5
+# 近接制約: 同じhookテキスト（句読点除去後）は直近N本以内に出さない
+_HOOK_TEXT_PROXIMITY = 4
 
 
 def _read_hook_text(folder_name: str) -> str:
@@ -109,6 +111,42 @@ def extract_hook_category(hook_text: str) -> str:
         if stem in cleaned:
             return cat
     return "その他"
+
+
+def _build_recent_hook_context(rows: list, platforms: list | None) -> dict | None:
+    """直近の公開済み hook 情報をまとめて返す。公開済みがなければ None。"""
+    check_pf = platforms[0] if platforms and len(platforms) == 1 else None
+    recent_hooks = _get_recent_published_hooks(rows, platform=check_pf)
+    if not recent_hooks:
+        return None
+    return {
+        "texts": [
+            h["hook_text"].rstrip("。？！?! ")
+            for h in recent_hooks[:_HOOK_TEXT_PROXIMITY] if h.get("hook_text")
+        ],
+        "stems": [h["hook_stem"] for h in recent_hooks[:_STEM_PROXIMITY]],
+        "categories": [
+            h["hook_category"] for h in recent_hooks[:_CATEGORY_PROXIMITY]
+            if h["hook_category"]
+        ],
+    }
+
+
+def _check_hook_conflict(folder: str, ctx: dict) -> tuple[str, str, str, bool, bool, bool]:
+    """候補の hook を ctx と照合し、(cleaned, stem, category, text衝突, stem衝突, cat衝突) を返す。
+    hook が取得できなければ全て False（衝突なし扱い）。"""
+    hook_text = _read_hook_text(folder)
+    if not hook_text:
+        return "", "", "", False, False, False
+    cleaned = hook_text.rstrip("。？！?! ")
+    stem = extract_hook_stem(hook_text)
+    category = extract_hook_category(hook_text)
+    return (
+        cleaned, stem, category,
+        cleaned in ctx["texts"],
+        stem in ctx["stems"],
+        bool(category and category in ctx["categories"]),
+    )
 
 
 def _get_recent_published_hooks(rows: list, limit: int = 7,
@@ -406,30 +444,17 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
             partial.append(entry)
 
     # 部分投稿済み（他プラットフォームは済みだが指定プラットフォームが未投稿）を優先。
-    # これにより YouTube→X→Instagram の時間差投稿で同じ動画が順番に全プラットフォームに投稿される。
-    # ただし hook 近接チェックを適用し、Instagram 一覧での隣接事故を防ぐ。
+    # hook 近接チェックを適用し、Instagram 一覧での隣接事故を防ぐ。
     if partial:
         partial.sort(key=lambda c: c["gen_date"])
-        if len(partial) >= 2:
-            # 複数の部分投稿候補がある場合、hook が被らないものを優先
-            check_pf_partial = platforms[0] if platforms and len(platforms) == 1 else None
-            recent_hooks_partial = _get_recent_published_hooks(rows, platform=check_pf_partial)
-            if recent_hooks_partial:
-                recent_texts_partial = [
-                    h["hook_text"].rstrip("。？！?! ")
-                    for h in recent_hooks_partial[:_HOOK_TEXT_PROXIMITY] if h.get("hook_text")
-                ]
-                recent_stems_partial = [h["hook_stem"] for h in recent_hooks_partial[:_STEM_PROXIMITY]]
-                for candidate in partial:
-                    hook_text = _read_hook_text(candidate["folder"])
-                    if not hook_text:
-                        return candidate
-                    c_cleaned = hook_text.rstrip("。？！?! ")
-                    c_stem = extract_hook_stem(hook_text)
-                    if c_cleaned not in recent_texts_partial and c_stem not in recent_stems_partial:
-                        print(f"  [hook近接] ✓ partial「{c_cleaned}」は直近と被りなし")
-                        return candidate
-                print(f"  [hook近接] ⚠ partial全候補がhook重複、最古を優先")
+        ctx = _build_recent_hook_context(rows, platforms)
+        if ctx:
+            for candidate in partial:
+                cleaned, stem, _, text_hit, stem_hit, _ = _check_hook_conflict(candidate["folder"], ctx)
+                if not text_hit and not stem_hit:
+                    print(f"  [hook近接] ✓ partial「{cleaned}」は直近と被りなし")
+                    return candidate
+            print(f"  [hook近接] ⚠ partial全候補がhook重複、最古を優先")
         return partial[0]
     if not generated:
         return None
@@ -445,60 +470,33 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         generated = _sort_by_score(generated)
 
     # hook 近接チェック: 直近の公開済み動画とhookが被らない候補を優先選択
-    # PF別履歴を使う（Instagram一覧での隣接事故を防ぐ）
-    # platforms が1つだけ指定されていればそのPFの履歴、複数なら全体履歴
-    check_pf = platforms[0] if platforms and len(platforms) == 1 else None
-    recent_hooks = _get_recent_published_hooks(rows, platform=check_pf)
+    ctx = _build_recent_hook_context(rows, platforms)
 
-    if not recent_hooks:
-        # 公開済みがなければ近接チェック不要 → 最古の候補を返す
+    if not ctx:
         return generated[0]
-
-    recent_stems = [h["hook_stem"] for h in recent_hooks[:_STEM_PROXIMITY]]
-    recent_categories = [h["hook_category"] for h in recent_hooks[:_CATEGORY_PROXIMITY]
-                         if h["hook_category"]]
-    # サムネhookテキスト一致チェック用（直近4本の句読点除去テキスト）
-    _HOOK_TEXT_PROXIMITY = 4
-    recent_hook_texts = [
-        h["hook_text"].rstrip("。？！?! ")
-        for h in recent_hooks[:_HOOK_TEXT_PROXIMITY] if h.get("hook_text")
-    ]
 
     best_fallback = None
     best_fallback_recency = -1  # ステムの最終出現位置（大きいほど古い＝良い）
 
     for candidate in generated:
-        hook_text = _read_hook_text(candidate["folder"])
-        if not hook_text:
-            # hook が取得できない場合はチェックをスキップして候補として返す
+        c_cleaned, c_stem, c_category, text_hit, stem_hit, cat_hit = _check_hook_conflict(
+            candidate["folder"], ctx)
+        if not c_cleaned:
             return candidate
 
-        c_cleaned = hook_text.rstrip("。？！?! ")
-        c_stem = extract_hook_stem(hook_text)
-        c_category = extract_hook_category(hook_text)
-
-        # サムネhookテキスト一致チェック（直近3本と同じhookは絶対避ける）
-        hook_text_conflict = c_cleaned in recent_hook_texts
-        # ステム近接チェック
-        stem_conflict = c_stem in recent_stems
-        # カテゴリ近接チェック
-        category_conflict = c_category and c_category in recent_categories
-
-        if not hook_text_conflict and not stem_conflict and not category_conflict:
+        if not text_hit and not stem_hit and not cat_hit:
             print(f"  [hook近接] ✓ hook「{c_cleaned}」は直近と被りなし")
             return candidate
 
-        if hook_text_conflict:
-            # hookテキスト完全一致はフォールバック候補にもしない
-            print(f"  [hook近接] × hook「{c_cleaned}」が直近3本と一致 → スキップ")
+        if text_hit:
+            print(f"  [hook近接] × hook「{c_cleaned}」が直近と一致 → スキップ")
             continue
 
         # フォールバック用: ステムの最終出現位置が最も古い候補を記録
-        if c_stem in recent_stems:
-            # recent_stems のインデックス（0が最新、大きいほど古い）
-            recency = recent_stems.index(c_stem)
+        if c_stem in ctx["stems"]:
+            recency = ctx["stems"].index(c_stem)
         else:
-            recency = len(recent_stems)  # ステムは被ってない（カテゴリだけ被り）
+            recency = len(ctx["stems"])  # ステムは被ってない（カテゴリだけ被り）
 
         if recency > best_fallback_recency:
             best_fallback_recency = recency
