@@ -1357,7 +1357,7 @@ def _make_thumbnail_text_v2(title: str, scenes: list) -> str:
 _NO_HEAD_CHARS = set("、。，．・：；！？）」』】〉》!?,.)]}%‰+をにへとがはもでの")
 
 # 行末禁止文字（開き括弧・「第」「約」など）
-_NO_TAIL_CHARS = set("（「『【〈《([{第約")
+_NO_TAIL_CHARS = set("（「『【〈《([{第約っッ")
 
 # 2行目先頭に来てはいけない2文字機能語
 _NO_HEAD_BIGRAMS = {
