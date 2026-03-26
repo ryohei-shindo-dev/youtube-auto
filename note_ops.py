@@ -91,6 +91,8 @@ SEL = {
     ],
     # URL検出（本文内のURL単独行をカード変換するため）
     "url_line": re.compile(r"^https?://\S+$"),
+    # 株価チャート埋め込み: ^証券コード（日本株）/ $ティッカー（米国株）
+    "chart_ticker": re.compile(r"^[\^$][A-Za-z0-9]+$"),
     # カード検出（埋め込みカードの存在確認用）
     "embed_selectors": [
         "div.ProseMirror iframe",
@@ -354,6 +356,7 @@ def _input_body_text(page: Page, body_text: str) -> int:
     body.click()
 
     card_count = 0
+    chart_count = 0
     for line in body_text.splitlines():
         stripped = line.strip()
         if SEL["url_line"].match(stripped):
@@ -369,15 +372,34 @@ def _input_body_text(page: Page, body_text: str) -> int:
             else:
                 body.press("Enter")
                 time.sleep(1)
+        elif SEL["chart_ticker"].match(stripped):
+            # 株価チャート埋め込み: ^証券コード or $ティッカー
+            before = count_embed_cards(page)
+            body.press_sequentially(stripped, delay=15)
+            body.press("Enter")
+            deadline = time.time() + 8  # チャートはカードより変換に時間がかかる可能性
+            while time.time() < deadline:
+                if count_embed_cards(page) > before:
+                    chart_count += 1
+                    print(f"    [チャート] {stripped} 埋め込み成功")
+                    break
+                time.sleep(0.5)
+            else:
+                print(f"    [チャート] {stripped} 変換未確認（テキストとして残った可能性）")
+                body.press("Enter")
+                time.sleep(1)
         else:
             if line:
                 body.press_sequentially(line, delay=3)
             body.press("Enter")
 
+    if chart_count:
+        print(f"    [チャート] 合計 {chart_count} 件埋め込み")
+
     time.sleep(1)
     body.press("Escape")
     time.sleep(0.5)
-    return card_count
+    return card_count + chart_count
 
 
 def fill_editor(page: Page, title: str, body_text: str) -> int:
