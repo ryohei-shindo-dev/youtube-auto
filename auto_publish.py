@@ -407,8 +407,29 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
 
     # 部分投稿済み（他プラットフォームは済みだが指定プラットフォームが未投稿）を優先。
     # これにより YouTube→X→Instagram の時間差投稿で同じ動画が順番に全プラットフォームに投稿される。
+    # ただし hook 近接チェックを適用し、Instagram 一覧での隣接事故を防ぐ。
     if partial:
         partial.sort(key=lambda c: c["gen_date"])
+        if len(partial) >= 2:
+            # 複数の部分投稿候補がある場合、hook が被らないものを優先
+            check_pf_partial = platforms[0] if platforms and len(platforms) == 1 else None
+            recent_hooks_partial = _get_recent_published_hooks(rows, platform=check_pf_partial)
+            if recent_hooks_partial:
+                recent_texts_partial = [
+                    h["hook_text"].rstrip("。？！?! ")
+                    for h in recent_hooks_partial[:_HOOK_TEXT_PROXIMITY] if h.get("hook_text")
+                ]
+                recent_stems_partial = [h["hook_stem"] for h in recent_hooks_partial[:_STEM_PROXIMITY]]
+                for candidate in partial:
+                    hook_text = _read_hook_text(candidate["folder"])
+                    if not hook_text:
+                        return candidate
+                    c_cleaned = hook_text.rstrip("。？！?! ")
+                    c_stem = extract_hook_stem(hook_text)
+                    if c_cleaned not in recent_texts_partial and c_stem not in recent_stems_partial:
+                        print(f"  [hook近接] ✓ partial「{c_cleaned}」は直近と被りなし")
+                        return candidate
+                print(f"  [hook近接] ⚠ partial全候補がhook重複、最古を優先")
         return partial[0]
     if not generated:
         return None

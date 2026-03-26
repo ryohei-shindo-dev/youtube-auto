@@ -22,7 +22,7 @@ cd "$SCRIPT_DIR"
 
 # ── 共通ランナー: 日別ログに追記 ──
 PROJECT_ROOT="$SCRIPT_DIR"
-RUN_JOB_CORE="/Users/shindoryohei/ops-hub/locks/run-job-core.sh"
+RUN_JOB_CORE="/Users/shindoryohei/ops-hub/runtime/run-job-core.sh"
 if [ -f "$RUN_JOB_CORE" ]; then
   source "$RUN_JOB_CORE"
   job_setup "youtube-auto" "$CMD_NAME" "${JOB_TRIGGER:-launchd}"
