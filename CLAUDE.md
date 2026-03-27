@@ -150,6 +150,14 @@ python analytics_analyze.py
 - Playwright 障害時は `~/ops-hub/docs/incidents/categories/playwright-selector-failures.md` を先に確認
 - `cross_project: true` の教訓は ops-hub のカテゴリ文書にも反映する
 
+### note 記事操作
+
+- note エディタ操作の変更時は、先に `~/ops-hub/docs/incidents/categories/note-prosemirror-pitfalls.md` を確認すること
+- 予防原則: `~/ops-hub/docs/incidents/active-lessons.md` の #16-20
+- dev-stack-watch にも note 投稿機能あり: `jobs/note_post.py`。同じ落とし穴を共有している
+- note 関連の不具合修正をしたら、ops-hub の横断ナレッジ（note-prosemirror-pitfalls.md, active-lessons）への反映が必要か確認する
+- 共通ライブラリ: `~/ops-hub/packages/ops_note/`（pip install -e 済み）
+
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
 - `docs/runbook.md` — 日常運用・よくある操作・トラブルシューティング
