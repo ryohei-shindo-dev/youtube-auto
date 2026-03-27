@@ -291,17 +291,24 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     body_font = _load_font(FONT_BOLD, 62)
     accent = _accent_color(card["role"])
 
-    bbox = draw.textbbox((0, 0), card["title"], font=title_font)
+    title_y = 300
+    bbox = draw.multiline_textbbox((0, 0), card["title"], font=title_font, spacing=20)
     title_w = bbox[2] - bbox[0]
+    title_h = bbox[3] - bbox[1]
     title_x = (VIDEO_WIDTH - title_w) // 2
-    draw.text((title_x, 300), card["title"], font=title_font, fill=accent, stroke_width=6, stroke_fill=(0, 0, 0))
+    draw.multiline_text(
+        (title_x, title_y), card["title"], font=title_font, fill=accent,
+        spacing=20, align="center", stroke_width=6, stroke_fill=(0, 0, 0),
+    )
 
+    # body の Y位置を title の下端から計算（重なり防止）
+    body_y = title_y + title_h + 40
     wrapped_body = "\n".join(textwrap.wrap(card["body"], width=18, break_long_words=False))
     bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=18)
     body_w = bbox_body[2] - bbox_body[0]
     body_x = (VIDEO_WIDTH - body_w) // 2
     draw.multiline_text(
-        (body_x, 560), wrapped_body, font=body_font,
+        (body_x, body_y), wrapped_body, font=body_font,
         fill=(245, 245, 245), spacing=18, align="center",
         stroke_width=4, stroke_fill=(0, 0, 0),
     )
