@@ -873,26 +873,33 @@ def _strip_slide_connector(text: str) -> str:
 
 
 # 日本語の危険な末尾パターン（意味が途中で切れてしまう語尾）
-# 長いものから順にマッチさせる
+# endswith() で判定するため並び順は動作に影響しない
 _DANGLING_ENDINGS = (
-    # 3文字: 丁寧語・補助動詞の途中
-    "でき", "まし", "ませ", "され", "して", "なけ", "たくな",
-    # 2文字: 助動詞・否定・て形の途中
+    # 3文字
+    "たくな", "でき", "まし", "ませ", "され", "して", "なけ",
+    # 2文字
     "てい", "でい", "から", "かも", "だろ", "ない",
-    # 1文字: 促音・拗音・活用語尾（最も多い事故パターン）
+    # 1文字: 促音・拗音
     "っ", "ッ", "ゃ", "ゅ", "ょ", "ャ", "ュ", "ョ",
-    "し", "き", "ぎ", "み", "り", "ち", "び", "に",
-    "な", "れ", "い", "て", "で", "ま", "ら", "け",
+    # 1文字: 活用語尾
+    "し", "き", "ぎ", "み", "り", "ち", "び",
+    "な", "れ", "い", "て", "ま", "ら", "け",
 )
-# 安全な切れ目になれる文字（助詞・句読点・記号）
-_SAFE_BREAK_CHARS = set("はがをにでのもへとや、，")
+# 安全な切れ目になれる文字（助詞・句読点）
+# 「で」「に」は助詞としても活用語尾としても使われるため除外
+_SAFE_BREAK_CHARS = set("はがをのもへとや、，")
+
+
+def _ends_dangling(text: str) -> bool:
+    """テキスト末尾が日本語として不自然な途中切れかどうかを判定する。"""
+    return any(text.endswith(e) for e in _DANGLING_ENDINGS)
 
 
 def _safe_truncate_slide_text(text: str, max_len: int = 14, max_extra: int = 3) -> str:
     """日本語として不自然な途中切れを防ぐ安全な切り詰め。
 
     1. max_len で切る
-    2. 数字の途中切れを保護（既存ロジック）
+    2. 数字の途中切れを保護
     3. 危険な末尾パターンに該当する場合:
        a. まず +max_extra 文字まで延長して安全な切れ目を探す
        b. 見つからなければ手前の安全な切れ目まで戻す
@@ -903,44 +910,30 @@ def _safe_truncate_slide_text(text: str, max_len: int = 14, max_extra: int = 3) 
     truncated = text[:max_len]
     rest = text[max_len:]
 
-    # 数字の途中切れ保護（既存ロジック）
+    # 数字の途中切れ保護
     if truncated and truncated[-1].isdigit():
         m = re.match(r"(\d*[万億千百兆円%％年月日本倍回件人]?[後前目間分]?)", rest)
         if m and m.group(1):
             truncated += m.group(1)
             return truncated
 
-    # 危険末尾チェック
-    is_dangling = False
-    for ending in _DANGLING_ENDINGS:
-        if truncated.endswith(ending):
-            is_dangling = True
-            break
-
-    if not is_dangling:
+    if not _ends_dangling(truncated):
         return truncated
 
     # 戦略A: 前方に最大 max_extra 文字延長して安全な切れ目を探す
     for i in range(1, min(max_extra + 1, len(rest) + 1)):
         candidate = text[:max_len + i]
-        # 延長先が安全な切れ目か、または危険でなくなったか
-        still_dangling = False
-        for ending in _DANGLING_ENDINGS:
-            if candidate.endswith(ending):
-                still_dangling = True
-                break
-        if not still_dangling:
+        if not _ends_dangling(candidate):
             return candidate
 
     # 戦略B: 手前の安全な切れ目まで戻す
     for i in range(len(truncated) - 1, max(0, max_len - 6), -1):
         if truncated[i] in _SAFE_BREAK_CHARS:
             return truncated[:i + 1].rstrip("、，")
-        # 助詞の直後（助詞+1文字目）も安全
         if i > 0 and truncated[i - 1] in _SAFE_BREAK_CHARS:
             return truncated[:i]
 
-    # どちらも失敗 → 延長した結果をそのまま使う（最悪ケース）
+    # どちらも失敗 → 延長した結果をそのまま使う
     return text[:max_len + max_extra] if len(text) > max_len + max_extra else text
 
 
