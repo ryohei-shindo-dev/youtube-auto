@@ -436,11 +436,14 @@ def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> lis
     # （リンク除去で孤立した見出しが残るのを防ぐ）
     _AWASE_HEADING = "<h3>あわせて読みたい</h3>"
     for i, seg in enumerate(segments):
-        if seg["type"] == "html" and seg["content"].rstrip().endswith(_AWASE_HEADING):
-            has_url_after = (i + 1 < len(segments) and segments[i + 1]["type"] == "url")
-            if not has_url_after:
-                seg["content"] = seg["content"].rstrip()
-                seg["content"] = seg["content"][: -len(_AWASE_HEADING)].rstrip()
+        if seg["type"] != "html":
+            continue
+        stripped = seg["content"].rstrip()
+        if not stripped.endswith(_AWASE_HEADING):
+            continue
+        has_url_after = (i + 1 < len(segments) and segments[i + 1]["type"] == "url")
+        if not has_url_after:
+            seg["content"] = stripped[: -len(_AWASE_HEADING)].rstrip()
 
     # URL セグメントの前後にある空段落を除去（カード間の余白をなくす）
     empty = "<p><br></p>"
@@ -487,6 +490,8 @@ def _insert_segments(page, segments: list[dict]):
     """
     prev_type = None
     for seg in segments:
+        if seg["type"] == "html" and not seg["content"]:
+            continue
         if seg["type"] == "html":
             page.evaluate(
                 """html => {
