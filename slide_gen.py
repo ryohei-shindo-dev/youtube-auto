@@ -1043,7 +1043,7 @@ def generate_shorts_thumbnail(
     from PIL import ImageEnhance
 
     # ── テキスト: titleから短いサムネ専用文を作る ──
-    thumb_text = _make_thumbnail_text(title, scenes)
+    thumb_text = _make_thumbnail_text_v2(title, scenes)
     if not thumb_text:
         return None
 
