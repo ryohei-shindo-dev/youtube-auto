@@ -1078,6 +1078,44 @@ def _find_article_body_html(no: int, title: str = "") -> tuple[str, list[str]] |
     return None
 
 
+def _find_article_body(no: int, title: str = "") -> str | None:
+    """記事No.またはタイトルから生Markdown本文を取得する。"""
+    # 1. manifest から取得
+    try:
+        _, body, _, _ = _find_article(no)
+        return body
+    except FileNotFoundError:
+        pass
+
+    # 2. No. 1-15 (first batch)
+    pattern = f"note_{no:02d}_*"
+    matches = list(ARTICLES_DIR.glob(pattern))
+    if matches:
+        return _body_from_file(matches[0])
+
+    # 3. Title match against all files
+    if title:
+        for md_file in sorted(ARTICLES_DIR.glob("*.md")):
+            file_title = _extract_title_from_file(md_file)
+            if file_title and (file_title[:15] in title or title[:15] in file_title):
+                return _body_from_file(md_file)
+
+    return None
+
+
+def _body_from_file(md_file: pathlib.Path) -> str:
+    """markdown ファイルの本文（タイトル行以降）を生テキストで返す。"""
+    text = md_file.read_text(encoding="utf-8")
+    body_lines: list[str] = []
+    past_title = False
+    for line in text.split("\n"):
+        if line.startswith("# ") and not past_title:
+            past_title = True
+        else:
+            body_lines.append(line)
+    return "\n".join(body_lines).strip()
+
+
 def _extract_title_from_file(md_file: pathlib.Path) -> str:
     """markdown ファイルの先頭 # 行からタイトルを抽出する。"""
     for line in md_file.read_text(encoding="utf-8").split("\n"):
@@ -1100,13 +1138,15 @@ def _body_html_from_file(md_file: pathlib.Path) -> tuple[str, list[str]]:
 
 
 def _repair_single_article(
-    page: Page, note_id: str, body_html: str,
-    url_lines: list[str] | None = None,
+    page: Page, note_id: str, body: str,
 ) -> bool:
     """1本の記事の本文フォーマットを修正する。
 
-    エディタを開き → タイトル確認 → 本文を全選択 → 削除 → insertHTML
+    エディタを開き → タイトル確認 → 本文を全選択 → 削除 → 小ブロック挿入
     → 下書き保存でstate確定 → 「公開に進む」→「更新する」。
+
+    Args:
+        body: 生のMarkdown本文（タイトル行を除く）
     """
     edit_url = f"https://editor.note.com/notes/{note_id}/edit/"
     page.goto(edit_url)
@@ -1133,8 +1173,9 @@ def _repair_single_article(
     page.keyboard.press("Backspace")
     time.sleep(0.5)
 
-    # insertHTML + URL press_sequentially（共通関数）
-    _insert_body_with_cards(page, body_html, url_lines or [])
+    # 小ブロック分割 + カード変換（共通関数）
+    blocks = _split_body_into_blocks(body)
+    _insert_body_blocks(page, blocks)
 
     # 下書き保存でstate確定（「タイトル、本文を入力してください」エラー防止）
     page.keyboard.press("Escape")
@@ -1195,13 +1236,12 @@ def do_repair():
 
     print(f"  シート上の記事（URL付き）: {len(articles)}本")
 
-    # 2. 各記事の本文HTMLを事前に準備（ブラウザを開く前に全件確認）
+    # 2. 各記事の本文を事前に準備（ブラウザを開く前に全件確認）
     repair_list: list[dict] = []
     for art in articles:
-        result = _find_article_body_html(art["no"], art["title"])
+        result = _find_article_body(art["no"], art["title"])
         if result:
-            body_html, url_lines = result
-            repair_list.append({**art, "body_html": body_html, "url_lines": url_lines})
+            repair_list.append({**art, "body": result})
         else:
             print(f"  [スキップ] #{art['no']} {art['title'][:30]}: ローカルファイルなし")
 
@@ -1220,7 +1260,7 @@ def do_repair():
         for art in repair_list:
             print(f"  修正中: #{art['no']} {art['title'][:35]}...", end="", flush=True)
             try:
-                _repair_single_article(page, art["key"], art["body_html"], art.get("url_lines", []))
+                _repair_single_article(page, art["key"], art["body"])
                 repaired += 1
                 print(" 完了")
             except Exception as e:
@@ -1274,11 +1314,11 @@ def do_repair_add():
             continue
 
         title = _extract_title_from_file(md_file)
-        body_html, url_lines = _body_html_from_file(md_file)
-        if title and body_html:
+        body = _body_from_file(md_file)
+        if title and body:
             targets.append({
-                "title": title, "body_html": body_html,
-                "url_lines": url_lines, "file": md_file.name,
+                "title": title, "body": body,
+                "file": md_file.name,
                 "note_key": note_key,
             })
 
@@ -1300,8 +1340,7 @@ def do_repair_add():
             print(f"  修正中: {target['title'][:40]}...", end="", flush=True)
             try:
                 _repair_single_article(
-                    page, target["note_key"],
-                    target["body_html"], target.get("url_lines", []),
+                    page, target["note_key"], target["body"],
                 )
                 repaired += 1
                 print(" 完了")
