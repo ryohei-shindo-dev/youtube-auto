@@ -389,16 +389,107 @@ def _validate_card_links(blocks: list[dict], manifest_path: str = "note_manifest
             )
 
 
+def _focus_body_end(page, body_sel: str = 'div.ProseMirror[role="textbox"]'):
+    """本文エディタ末尾にカーソルを確実に移動する。
+
+    Meta+ArrowDown 単発ではなく、body 再クリック→末尾移動→フォールバックの
+    3段階で確実性を担保する。
+    """
+    try:
+        body_loc = page.locator(body_sel)
+        body_loc.click()
+        time.sleep(0.15)
+        page.keyboard.press("Meta+ArrowDown")
+        time.sleep(0.15)
+        # フォールバック: 最終段落にフォーカス
+        page.evaluate("""() => {
+            const editor = document.querySelector('div.ProseMirror[role="textbox"]');
+            if (!editor) return;
+            const last = editor.lastElementChild;
+            if (last) {
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(last);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }""")
+        time.sleep(0.15)
+    except Exception:
+        # 最低限のフォールバック
+        page.keyboard.press("Meta+ArrowDown")
+        time.sleep(0.2)
+
+
+def _verify_card_order(page, expected_urls: list[str]) -> bool:
+    """挿入後のカード順序が期待通りか検証する。
+
+    エディタ内の埋め込みカード（iframe src / data-embed-card href）から
+    URLを抽出し、期待順序と比較する。
+    """
+    if not expected_urls:
+        return True
+
+    try:
+        actual_urls = page.evaluate("""() => {
+            const editor = document.querySelector('div.ProseMirror[role="textbox"]');
+            if (!editor) return [];
+            const urls = [];
+            // iframe src からURL抽出
+            editor.querySelectorAll('iframe').forEach(iframe => {
+                const src = iframe.getAttribute('src') || '';
+                const m = src.match(/note\\.com\\/[^/]+\\/n\\/[a-z0-9]+/);
+                if (m) urls.push('https://' + m[0]);
+            });
+            // data-embed-card / href からURL抽出
+            if (urls.length === 0) {
+                editor.querySelectorAll('[data-embed-card], [class*="embed"] a').forEach(el => {
+                    const href = el.getAttribute('href') || el.getAttribute('data-embed-card') || '';
+                    if (href.includes('note.com')) urls.push(href);
+                });
+            }
+            return urls;
+        }""")
+
+        if len(actual_urls) != len(expected_urls):
+            print(f"  [検証警告] カード数不一致: 期待{len(expected_urls)}本, 実際{len(actual_urls)}本")
+            return False
+
+        for i, (expected, actual) in enumerate(zip(expected_urls, actual_urls)):
+            # note_key部分で比較（URLの末尾部分）
+            exp_key = expected.rstrip("/").split("/")[-1]
+            if exp_key not in actual:
+                print(f"  [検証警告] カード{i+1}位置ずれ: 期待={exp_key}, 実際={actual[:60]}")
+                return False
+
+        print(f"  カード順序検証OK（{len(expected_urls)}本）")
+        return True
+
+    except Exception as e:
+        print(f"  [検証警告] カード順序検証失敗: {e}")
+        return False
+
+
+# --- ブロック境界の空白規則 ---
+# html → html : Enter で改段落
+# html → card : Enter で改段落（カードの前に空行）
+# card → html : Enter 不要（カード変換後に自動で空段落が入る）
+# card → card : Enter 不要（同上）
+
+
 def _insert_body_blocks(page, blocks: list[dict]):
     """ブロック列を出現順どおりに挿入する。
 
     htmlブロックはinsertHTMLで、cardブロックはpress_sequentiallyでカード変換。
-    これにより本文途中のリンクカードも正しい位置に配置できる。
+    挿入後にカード順序を検証する。
     """
     # リンク先の事前バリデーション
     _validate_card_links(blocks)
 
     body_sel = 'div.ProseMirror[role="textbox"]'
+    expected_card_urls = [b["url"] for b in blocks if b["type"] == "card"]
+
     try:
         body_loc = page.locator(body_sel)
         body_loc.wait_for(timeout=10000)
@@ -418,6 +509,8 @@ def _insert_body_blocks(page, blocks: list[dict]):
                     block["html"],
                 )
                 time.sleep(0.5)
+                # insertHTML後のカーソルを末尾に確実に移動
+                _focus_body_end(page, body_sel)
 
             elif block["type"] == "card":
                 before_count = _count_embed_cards(page)
@@ -439,6 +532,9 @@ def _insert_body_blocks(page, blocks: list[dict]):
 
         time.sleep(1)
         print(f"  ブロック挿入完了（{len(blocks)}ブロック）")
+
+        # 挿入後のカード順序検証
+        _verify_card_order(page, expected_card_urls)
 
     except Exception as e:
         print(f"  [エラー] ブロック挿入失敗: {e}")
@@ -502,7 +598,7 @@ def post_article(
         記事URL（成功時）、None（失敗時）
     """
     title, body, image_path, meta = _find_article(no)
-    body_html, url_lines = _split_body_for_note(body)
+    blocks = _split_body_into_blocks(body)
     tags = _resolve_tags(no, meta)
     magazine = _resolve_magazine(meta)
 
@@ -556,8 +652,8 @@ def post_article(
         print(f"  手動でタイトルを入力してください: {title}")
         raise
 
-    # --- 本文入力（insertHTML + URL行はpress_sequentiallyでカード変換） ---
-    _insert_body_with_cards(page, body_html, url_lines)
+    # --- 本文入力（小ブロック分割 + カード変換） ---
+    _insert_body_blocks(page, blocks)
 
     # --- 公開設定画面へ ---
     try:

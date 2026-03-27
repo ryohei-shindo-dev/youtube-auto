@@ -18,7 +18,8 @@ from playwright.sync_api import Page
 
 from note_publish import (
     _launch_browser, _close_browser, _markdown_to_note_html,
-    _split_body_for_note, _insert_body_with_cards,
+    _split_body_for_note, _split_body_into_blocks,
+    _insert_body_with_cards, _insert_body_blocks,
     _URL_LINE_RE_PUBLISH as _URL_LINE_RE,
     _EMBED_SELECTORS, _wait_for_embed_card, _count_embed_cards,
 )
@@ -345,8 +346,8 @@ def verify_specs() -> list[str]:
     return errors
 
 
-def _load_article(spec: dict) -> tuple[str, str, list[str], pathlib.Path]:
-    """記事ファイルを読み込み、(タイトル, HTML, URL行リスト, 画像パス) を返す。"""
+def _load_article(spec: dict) -> tuple[str, list[dict], pathlib.Path]:
+    """記事ファイルを読み込み、(タイトル, ブロック列, 画像パス) を返す。"""
     text = spec["article_path"].read_text(encoding="utf-8")
     title = ""
     body_lines = []
@@ -356,8 +357,8 @@ def _load_article(spec: dict) -> tuple[str, str, list[str], pathlib.Path]:
         else:
             body_lines.append(line)
     body = "\n".join(body_lines).strip()
-    body_html, url_lines = _split_body_for_note(body)
-    return title, body_html, url_lines, spec["image_path"]
+    blocks = _split_body_into_blocks(body)
+    return title, blocks, spec["image_path"]
 
 
 def _upload_header_image(page: Page, image_path: pathlib.Path):
@@ -379,7 +380,7 @@ def _upload_header_image(page: Page, image_path: pathlib.Path):
 
 
 
-def _fill_editor(page: Page, title: str, body_html: str, url_lines: list[str] | None = None):
+def _fill_editor(page: Page, title: str, blocks: list[dict]):
     title_el = page.wait_for_selector('textarea[placeholder="記事タイトル"]', timeout=10000)
     title_el.click()
     page.keyboard.type(title, delay=10)
@@ -388,8 +389,8 @@ def _fill_editor(page: Page, title: str, body_html: str, url_lines: list[str] | 
     if current_title != title:
         raise RuntimeError(f"タイトル入力未反映: {current_title!r}")
 
-    # insertHTML + URL press_sequentially（note_publish.py の共通関数）
-    _insert_body_with_cards(page, body_html, url_lines or [])
+    # 小ブロック分割 + カード変換（note_publish.py の共通関数）
+    _insert_body_blocks(page, blocks)
 
 
 def _go_publish(page: Page):
@@ -442,7 +443,7 @@ def _finalize(page: Page):
 
 
 def post_spec(page: Page, spec: dict):
-    title, body_html, url_lines, image_path = _load_article(spec)
+    title, blocks, image_path = _load_article(spec)
     print(f"\n=== {spec['id']} {title} ===")
 
     page.goto("https://note.com/new")
@@ -450,7 +451,7 @@ def post_spec(page: Page, spec: dict):
     time.sleep(2)
 
     _upload_header_image(page, image_path)
-    _fill_editor(page, title, body_html, url_lines)
+    _fill_editor(page, title, blocks)
     _go_publish(page)
 
     if spec["schedule"]:
