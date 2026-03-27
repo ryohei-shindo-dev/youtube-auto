@@ -39,6 +39,8 @@ def load_manifest() -> dict[int, dict]:
     rows = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     manifest: dict[int, dict] = {}
     for row in rows:
+        if row.get("sheet_no") is None:
+            continue
         sn = int(row["sheet_no"])
         if sn in manifest:
             raise ValueError(f"duplicate sheet_no: {sn}")
@@ -429,6 +431,16 @@ def _md_to_segments(body: str, published_keys: Optional[set[str]] = None) -> lis
         html_parts.append(f"<p>{text}</p>")
 
     flush_html()
+
+    # 「あわせて読みたい」見出しの直後にURLセグメントがない場合、見出しを除去
+    # （リンク除去で孤立した見出しが残るのを防ぐ）
+    _AWASE_HEADING = "<h3>あわせて読みたい</h3>"
+    for i, seg in enumerate(segments):
+        if seg["type"] == "html" and seg["content"].rstrip().endswith(_AWASE_HEADING):
+            has_url_after = (i + 1 < len(segments) and segments[i + 1]["type"] == "url")
+            if not has_url_after:
+                seg["content"] = seg["content"].rstrip()
+                seg["content"] = seg["content"][: -len(_AWASE_HEADING)].rstrip()
 
     # URL セグメントの前後にある空段落を除去（カード間の余白をなくす）
     empty = "<p><br></p>"
