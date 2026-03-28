@@ -1315,10 +1315,12 @@ def _make_thumbnail_text_v2(title: str, scenes: list) -> str:
             break
 
     # ── 3a. dataテキストが使えるなら、hook+dataの組み合わせ ──
+    # ただし hookがdataに含まれる場合は文言重複になるのでスキップ
     if data_text and hook_text and len(hook_text) <= 12 and len(data_text) <= 12:
-        total = len(hook_text) + len(data_text)
-        if 8 <= total <= 20:
-            return f"{hook_text}\n{data_text}"
+        if hook_text not in data_text and data_text not in hook_text:
+            total = len(hook_text) + len(data_text)
+            if 8 <= total <= 20:
+                return f"{hook_text}\n{data_text}"
 
     # ── 3b. dataテキスト単体（14文字以内で意味が通る） ──
     if data_text and 6 <= len(data_text) <= 14:
