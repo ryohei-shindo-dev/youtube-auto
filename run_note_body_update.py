@@ -113,8 +113,20 @@ def main():
         return
 
     total_cards = sum(len(v) for v in append_tasks.values())
-    print(f"\n差分追加: {len(append_tasks)}記事、合計{total_cards}カード\n")
+    print(f"\n差分検出: {len(append_tasks)}記事、合計{total_cards}カード")
+    print("  ※ 自動カード追加は廃止されました（D+E方針: 2026-03-28）")
+    print("  ※ 既存記事へのカード追加は手動で行ってください")
+    for sn, urls in sorted(append_tasks.items()):
+        art = manifest[sn]
+        print(f"  #{sn} {art['sheet_title'][:40]}… → {len(urls)}カード未追加")
+        for url in urls:
+            print(f"    {url}")
 
+    # カード追加は実行しない（検出のみ）
+    save_state(current_published_sns, cards_state)
+    return
+
+    # === 以下は廃止（2026-03-28 D+E方針） ===
     # Playwright でカード追加
     from note_publish import _launch_browser, _close_browser
     from note_article_updater import _append_card_links
