@@ -24,6 +24,15 @@ from playwright.sync_api import Page, BrowserContext
 
 from note_publish import _launch_browser, _close_browser
 
+# ops_note: note ProseMirror 危険操作の共通ライブラリ（ops-hub 管理）
+from ops_note import (
+    SEL as _BASE_SEL,
+    count_embed_cards,
+    handle_draft_dialog,
+    handle_multi_edit_dialog,
+    resync_editor_state,
+)
+
 SCRIPT_DIR = pathlib.Path(__file__).parent
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
@@ -41,48 +50,23 @@ RESULT_FAILED = "failed"
 RESULT_ERROR = "error"
 RESULT_SKIPPED = "skipped"
 
-# ── セレクタ一覧（変更時はここだけ修正） ──
-SEL = {
-    # エディタ
-    "title": 'textarea[placeholder="記事タイトル"]',
-    "body": 'div.ProseMirror[role="textbox"]',
-    # 画像
-    #   ×ボタン: 画像アップロード後に既存画像を削除するために使う。
-    #   span[role="img"][aria-label="削除"] の親buttonがクリック対象。
-    "img_add": 'button[aria-label="画像を追加"]',
+# ── セレクタ一覧（ops_note.SEL をベースに youtube-auto 固有を拡張） ──
+SEL = {**_BASE_SEL}
+SEL.update({
+    # 画像（追加）
     "img_delete": 'span[role="img"][aria-label="削除"]',
-    "img_upload": 'button:has-text("画像をアップロード")',
-    "img_save": '.ReactModal__Content button:has-text("保存")',
-    # ナビゲーション
-    "publish_nav": 'button:has-text("公開に進む")',
+    # ナビゲーション（追加）
     "detail_tab": 'text="詳細設定"',
-    # 保存ボタン
-    #   予約投稿: 予約設定済みの記事で使う
-    #   更新する/更新: 公開済み記事の再保存で使う
-    "btn_reserve": 'button:has-text("予約投稿")',
-    "btn_update": 'button:has-text("更新する"), button:has-text("更新")',
+    # 保存ボタン（追加）
     "btn_finalize": 'button:has-text("予約投稿"), button:has-text("更新する"), button:has-text("更新")',
     # 日時ピッカー
-    #   既に予約設定済みの記事では datepicker_btn に日時テキストが表示される。
-    #   未設定の場合は「日時の設定」ボタンが表示される。
     "datepicker_btn": ".react-datepicker__input-container button",
     "datepicker_next": ".react-datepicker__navigation--next",
     "datepicker_prev": ".react-datepicker__navigation--previous",
     "datepicker_month": ".react-datepicker__current-month",
-    # ダイアログ
-    #   下書きダイアログ: 編集画面を開いたとき、下書きがあると
-    #   「公開した時点の記事」「最新の下書き」の選択肢が出る。
-    #   常に「公開した時点の記事」を選び、下書きを破棄する。
-    "draft_published": 'label[for="target-published"]',
-    "draft_edit": 'button:has-text("編集する")',
-    #   複数画面ダイアログ: 別タブで同じ記事を開いていると出る。
-    "multi_local": 'label[for="local-checkbox"]',
-    "multi_save": 'button:has-text("保存する")',
     # リンクカード（正本: figure[data-src]。iframe[src]は補助。a[href]は使わない）
     "card_figure": 'figure[data-src*="note.com/gachiho_motive/n/"]',
     "card_iframe": 'iframe[src*="note.com/embed/notes/"]',
-    # タグ
-    "tag_input": 'input[placeholder="ハッシュタグを追加する"]',
     # モーダル（バッジ獲得等の予期せぬポップアップ）
     "modal_close": [
         'div[role="dialog"] button[aria-label="閉じる"]',
@@ -100,7 +84,7 @@ SEL = {
         'div.ProseMirror .embed-card',
         'div.ProseMirror [class*="embed"]',
     ],
-}
+})
 
 
 # ════════════════════════════════════════════════════
@@ -131,40 +115,7 @@ def dismiss_modals(page: Page):
             pass
 
 
-def handle_draft_dialog(page: Page) -> bool:
-    """下書きダイアログを処理する。
-    下書きが残っている記事を開くと「公開した時点の記事」「最新の下書き」の
-    選択ダイアログが出る。常に「公開した時点の記事」を選んで下書きを破棄する。
-    """
-    try:
-        pub = page.locator(SEL["draft_published"])
-        if pub.count() > 0:
-            pub.click()
-            time.sleep(1)
-            page.locator(SEL["draft_edit"]).click()
-            time.sleep(3)
-            return True
-    except Exception:
-        pass
-    return False
-
-
-def handle_multi_edit_dialog(page: Page) -> bool:
-    """「複数画面で編集されています」ダイアログを処理する。
-    別タブで同じ記事を開いていた場合に出現する。
-    「現在の画面」を選んで「保存する」。
-    """
-    try:
-        local = page.locator(SEL["multi_local"])
-        if local.count() > 0:
-            local.click()
-            time.sleep(1)
-            page.locator(SEL["multi_save"]).click()
-            time.sleep(3)
-            return True
-    except Exception:
-        pass
-    return False
+# handle_draft_dialog, handle_multi_edit_dialog: ops_note から import 済み
 
 
 def open_editor(page: Page, note_id: str):
@@ -192,33 +143,7 @@ def wait_for_editor_ready(page: Page) -> bool:
         return False
 
 
-def resync_editor_state(page: Page):
-    """タイトル・本文に1文字入力→削除でエディタの内部状態を再同期する。
-
-    なぜ必要か:
-    画像の削除→再アップロード後にそのまま「公開に進む」を押すと、
-    noteのProseMirrorが「タイトル・本文未入力」と判定してエラーになる。
-    実際の入力イベントを発生させることで、エディタの内部状態を再計算させる。
-    """
-    title_el = page.locator(SEL["title"])
-    if title_el.count() > 0:
-        title_el.click()
-        time.sleep(0.3)
-        page.keyboard.press("End")
-        page.keyboard.type(" ")
-        time.sleep(0.3)
-        page.keyboard.press("Backspace")
-        time.sleep(0.5)
-
-    body_el = page.locator(SEL["body"])
-    if body_el.count() > 0:
-        body_el.click()
-        time.sleep(0.3)
-        page.keyboard.press("End")
-        page.keyboard.type(".")
-        time.sleep(0.3)
-        page.keyboard.press("Backspace")
-        time.sleep(0.5)
+# resync_editor_state: ops_note から import 済み
 
 
 def go_to_publish(page: Page):
@@ -320,13 +245,7 @@ def upload_header_image(page: Page, image_path: pathlib.Path) -> bool:
 
 # ── 本文 ──
 
-def count_embed_cards(page: Page) -> int:
-    """埋め込みカード数を返す。"""
-    for sel in SEL["embed_selectors"]:
-        c = page.locator(sel).count()
-        if c > 0:
-            return c
-    return 0
+# count_embed_cards: ops_note から import 済み
 
 
 def _input_body_text(page: Page, body_text: str) -> int:
