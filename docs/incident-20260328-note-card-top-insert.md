@@ -4,7 +4,7 @@ severity: medium
 category: note-prosemirror
 affected: youtube-auto
 cross_project: true
-status: investigating
+status: resolved
 ---
 
 # note 記事冒頭にカードリンクが誤挿入される
