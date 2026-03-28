@@ -1,10 +1,5 @@
 [
   {
-    "thumbnail_photo": "thumb048.jpg",
-    "thumbnail_text": "2年やってプラマイゼロ\nそれでも続ける理由",
-    "generated_at": "2026-03-19T22:49:00.750240"
-  },
-  {
     "thumbnail_photo": "thumb038.jpg",
     "thumbnail_text": "インフレに勝てるのは株だけ",
     "generated_at": "2026-03-19T22:49:06.798647"
@@ -498,5 +493,10 @@
     "thumbnail_photo": "thumb081.jpg",
     "thumbnail_text": "投資に疲れた",
     "generated_at": "2026-03-26T17:07:09.291088"
+  },
+  {
+    "thumbnail_photo": "thumb018.jpg",
+    "thumbnail_text": "暴落\n暴落後1年、平均＋25%",
+    "generated_at": "2026-03-28T20:47:14.164630"
   }
 ]

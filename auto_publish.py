@@ -285,6 +285,10 @@ def _preflight_check(
             if not audio_wav.exists():
                 errors.append(f"audio_{i+1:02d} 音声ファイルなし")
 
+    # 6. thumbnail_frame.png 存在チェック（v2レイアウト必須）
+    if not (folder / "thumbnail_frame.png").exists():
+        errors.append("thumbnail_frame.pngなし（旧式レイアウトの可能性）")
+
     return errors
 
 
