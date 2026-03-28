@@ -4,6 +4,13 @@
 
 `AGENTS.md` を参照。コンテンツルール・表現規則・禁止表現はすべて `AGENTS.md` が一次資料。
 
+## ops-hub 管理下
+
+- スケジュール正本: `~/ops-hub/schedule/tasks.yaml`
+- 横断ルール: `~/ops-hub/CLAUDE.md`
+- 横断教訓: `~/ops-hub/docs/incidents/active-lessons.md`
+- note エディタ操作時: `~/ops-hub/docs/incidents/categories/note-prosemirror-pitfalls.md` を確認
+
 ## Repo Map
 
 ```
@@ -134,6 +141,16 @@ python analytics_analyze.py
 - 使い方: `python ask_chatgpt.py "相談文"` または `python ask_chatgpt.py -f prompt.txt`
 - APIキーは `~/.zshrc` の `OPENAI_API_KEY` を使用（全プロジェクト共通）
 - モデル変更: `OPENAI_MODEL=gpt-4o-mini python ask_chatgpt.py "相談文"`
+
+## 変更前チェック
+
+- [ ] note エディタ操作は **`press_sequentially` 必須**（insertHTML/fill/innerHTML 禁止）
+- [ ] LLM生成テキストは `。**。` パターンを後処理で修正
+- [ ] Markdown記法（`- `, `**`）は入力前に除去
+- [ ] note エディタを開いたら**下書きダイアログを必ず処理**（公開版を選択）
+- [ ] 管理シートの照合は **content_id（X列）を使う**（A列・タイトル検索は禁止）
+- [ ] Sheets API は `valueRenderOption: "UNFORMATTED_VALUE"` を明示
+- [ ] note 修正したら **dev-stack-watch にも同じ実装がないか確認**
 
 ## ops_shared 移行（✅ 完了 2026-03-25）
 
