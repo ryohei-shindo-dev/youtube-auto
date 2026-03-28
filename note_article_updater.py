@@ -554,6 +554,39 @@ def _append_card_links(page, art: dict, urls: list[str]) -> str:
         page.keyboard.press("Meta+ArrowDown")
         time.sleep(0.5)
 
+        # カーソルが末尾にあるか検証（最後の子要素付近にいるか）
+        is_at_end = page.evaluate("""() => {
+            const editor = document.querySelector('.ProseMirror[role="textbox"]');
+            if (!editor) return false;
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return false;
+            const range = sel.getRangeAt(0);
+            const node = range.startContainer;
+            // カーソルのノードがエディタの最後の子孫付近にあるか確認
+            const children = editor.children;
+            if (children.length === 0) return true;
+            const lastChild = children[children.length - 1];
+            // カーソルが最後の子要素内、またはその直後にあればOK
+            return lastChild.contains(node) || node === editor;
+        }""")
+
+        if not is_at_end:
+            print(f"    [警告] カーソルが末尾にない → 末尾の最後の段落をクリックしてリトライ")
+            # 最後の段落要素を直接クリックしてフォーカス
+            page.evaluate("""() => {
+                const editor = document.querySelector('.ProseMirror[role="textbox"]');
+                if (!editor || editor.children.length === 0) return;
+                const last = editor.children[editor.children.length - 1];
+                last.scrollIntoView({block: 'center'});
+            }""")
+            time.sleep(0.3)
+            # 最後の段落の末尾をクリック
+            last_el = page.locator(f'{body_sel} > :last-child')
+            last_el.click()
+            time.sleep(0.3)
+            page.keyboard.press("End")
+            time.sleep(0.3)
+
         # URLをカード化して追加
         for url in urls:
             page.keyboard.press("Enter")
