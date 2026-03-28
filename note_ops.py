@@ -115,9 +115,6 @@ def dismiss_modals(page: Page):
             pass
 
 
-# handle_draft_dialog, handle_multi_edit_dialog: ops_note から import 済み
-
-
 def open_editor(page: Page, note_id: str):
     """記事の編集画面を開き、全ダイアログを処理する。
     編集操作の最初に必ず呼ぶ。
@@ -141,9 +138,6 @@ def wait_for_editor_ready(page: Page) -> bool:
         return True
     except Exception:
         return False
-
-
-# resync_editor_state: ops_note から import 済み
 
 
 def go_to_publish(page: Page):
@@ -244,9 +238,6 @@ def upload_header_image(page: Page, image_path: pathlib.Path) -> bool:
 
 
 # ── 本文 ──
-
-# count_embed_cards: ops_note から import 済み
-
 
 def _input_body_text(page: Page, body_text: str) -> int:
     """本文テキストをエディタに入力する（内部用）。
