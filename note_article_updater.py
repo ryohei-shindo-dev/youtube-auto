@@ -533,18 +533,25 @@ def _save_article(page):
 
 def _append_card_links(page, art: dict, urls: list[str]) -> str:
     """既存記事の末尾にカードリンクを差分追加する（全上書きしない）。"""
+    from ops_note import handle_draft_dialog, handle_multi_edit_dialog
+
     key = art["note_key"]
     edit_url = f"https://editor.note.com/notes/{key}/edit/"
     page.goto(edit_url)
     page.wait_for_load_state("networkidle")
     time.sleep(3)
 
+    handle_draft_dialog(page)
+    handle_multi_edit_dialog(page)
+
     try:
         body_sel = 'div.ProseMirror[role="textbox"]'
-        page.wait_for_selector(body_sel, timeout=10000)
+        body = page.wait_for_selector(body_sel, timeout=10000)
 
-        # 本文末尾にカーソルを移動
-        page.keyboard.press("Meta+End")
+        # 本文末尾にカーソルを移動（クリックでフォーカス → 末尾へ）
+        body.click()
+        time.sleep(0.3)
+        page.keyboard.press("Meta+ArrowDown")
         time.sleep(0.5)
 
         # URLをカード化して追加
