@@ -196,7 +196,7 @@ def _save_article(page) -> str:
         'button:has-text("公開に進む")', timeout=10000
     )
     publish_nav.click()
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("domcontentloaded")
     time.sleep(2)
     save_btn = page.wait_for_selector(
         'button:has-text("更新する"), button:has-text("予約投稿")',
@@ -214,7 +214,7 @@ def repair_one(page, art: dict, dry_run: bool) -> str:
     edit_url = f"https://editor.note.com/notes/{key}/edit/"
 
     page.goto(edit_url)
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("domcontentloaded")
     time.sleep(3)
 
     handle_draft_dialog(page)
@@ -267,7 +267,7 @@ def repair_one(page, art: dict, dry_run: bool) -> str:
     # 修復後検証
     time.sleep(2)
     page.goto(edit_url)
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("domcontentloaded")
     time.sleep(3)
     handle_draft_dialog(page)
     handle_multi_edit_dialog(page)
@@ -334,7 +334,7 @@ def main():
 
         print(f"\n完了: 修正 {ok} / 正常 {skip} / 失敗 {fail}")
     finally:
-        _close_browser(pw, context)
+        _close_browser(pw, context, wait_for_user=False)
 
 
 if __name__ == "__main__":
