@@ -20,6 +20,13 @@ fi
 
 cd "$SCRIPT_DIR"
 
+# ── .env から環境変数を読み込む（launchd では未設定のため） ──
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
+
 # ── 共通ランナー: 日別ログに追記 ──
 PROJECT_ROOT="$SCRIPT_DIR"
 RUN_JOB_CORE="/Users/shindoryohei/ops-hub/runtime/run-job-core.sh"
