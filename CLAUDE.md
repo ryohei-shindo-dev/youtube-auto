@@ -136,46 +136,18 @@ python analytics_analyze.py
 | `CHANNEL_STRATEGY.md` | ブランド戦略・構成設計 | 両方 |
 | `OPERATIONS_MEMO.md` | 変動する運用数値・一時的な優先事項 | 両方 |
 
-### ChatGPT レビュー連携
-- ChatGPT（GPT-4o）へのレビュー・相談は `ask_chatgpt.py` 経由で **Claude Code が直接実行する**。ユーザーにコピペさせない
-- 使い方: `python ask_chatgpt.py "相談文"` または `python ask_chatgpt.py -f prompt.txt`
-- APIキーは `~/.zshrc` の `OPENAI_API_KEY` を使用（全プロジェクト共通）
-- モデル変更: `OPENAI_MODEL=gpt-4o-mini python ask_chatgpt.py "相談文"`
-
-## 変更前チェック
-
-- [ ] note エディタ操作は **`press_sequentially` 必須**（insertHTML/fill/innerHTML 禁止）
-- [ ] LLM生成テキストは `。**。` パターンを後処理で修正
-- [ ] Markdown記法（`- `, `**`）は入力前に除去
-- [ ] note エディタを開いたら**下書きダイアログを必ず処理**（公開版を選択）
-- [ ] 管理シートの照合は **content_id（X列）を使う**（A列・タイトル検索は禁止）
-- [ ] Sheets API は `valueRenderOption: "UNFORMATTED_VALUE"` を明示
-- [ ] note 修正したら **dev-stack-watch にも同じ実装がないか確認**
-
-## ops_shared 移行（✅ 完了 2026-03-25）
-
-`~/ops-hub/packages/ops_shared` に共通ライブラリが用意済み。`venv` に `pip install -e` 済み。
-
-- ✅ `ask_chatgpt.py` → `ops_shared.chatgpt` の薄いラッパーに書き換え済み（デフォルトモデル gpt-5.4）
-- ✅ `error_notify.py` → `ops_shared.notify` + `ops_shared.gmail_auth` の薄いラッパーに書き換え済み
-- `run_with_notify.sh` の呼び出し形式は `cli_main` が互換維持するので変更不要
-
-### 障害報告
-- 障害発生時は `docs/incident-YYYYMMDD-short-name.md` を作成する
-- テンプレート: `~/ops-hub/docs/incidents/incident-template.md`（front matter 付き）
-- チェックリスト: `~/ops-hub/docs/incidents/incident-checklist-common.md`
-- Playwright 障害時は `~/ops-hub/docs/incidents/categories/playwright-selector-failures.md` を先に確認
-- `cross_project: true` の教訓は ops-hub のカテゴリ文書にも反映する
-
-### note 記事操作
-
-- note エディタ操作の変更時は、先に `~/ops-hub/docs/incidents/categories/note-prosemirror-pitfalls.md` を確認すること
-- 予防原則: `~/ops-hub/docs/incidents/active-lessons.md` の #16-20
-- dev-stack-watch にも note 投稿機能あり: `jobs/note_post.py`。同じ落とし穴を共有している
-- note 関連の不具合修正をしたら、ops-hub の横断ナレッジ（note-prosemirror-pitfalls.md, active-lessons）への反映が必要か確認する
-- 共通ライブラリ: `~/ops-hub/packages/ops_note/`（pip install -e 済み）
-
 ### 詳細ドキュメント
 - `docs/architecture.md` — システム全体像・各ステップの詳細・外部サービス依存
 - `docs/runbook.md` — 日常運用・よくある操作・トラブルシューティング
 - `docs/long-video.md` — 長尺動画のビジュアルルール・ディレクトリ構成
+
+## .claude/rules/ に分割済みの指示
+
+以下の指示はパススコープ付きルールとして `.claude/rules/` に移動済み（関連ファイル編集時に自動ロード）:
+- `note-editor.md` — note エディタ操作の安全ルール
+- `sheets-content.md` — 投稿管理シートの照合ルール
+
+グローバルルール（`~/.claude/rules/`）:
+- `chatgpt-review.md` — ChatGPTレビュー連携
+- `incident-reporting.md` — 障害報告手順
+- `playwright-common.md` — Playwright共通ルール
