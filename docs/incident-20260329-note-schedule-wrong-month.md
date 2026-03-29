@@ -3,7 +3,7 @@ id: incident-2026-03-29-note-schedule-wrong-month
 date: 2026-03-29
 project: youtube-auto
 severity: high
-status: active
+status: resolved
 tags:
   - note
   - schedule

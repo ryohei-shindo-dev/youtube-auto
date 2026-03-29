@@ -193,6 +193,42 @@ def _close_browser(pw, context, wait_for_user: bool = True):
     pw.stop()
 
 
+def _navigate_calendar_to_month(page, target_year: int, target_month: int):
+    """react-datepicker のカレンダーを目標の年月まで送る。"""
+    for _ in range(13):
+        header = page.locator('.react-datepicker__current-month')
+        if header.count() == 0:
+            break
+        text = header.text_content()
+        # ヘッダー形式: "4月 2026" または "2026年4月"
+        m = re.search(r'(\d{1,2})月\s*(\d{4})', text)
+        if not m:
+            m = re.search(r'(\d{4})年(\d{1,2})月', text)
+            if m:
+                current_year, current_month = int(m.group(1)), int(m.group(2))
+            else:
+                break
+        else:
+            current_month, current_year = int(m.group(1)), int(m.group(2))
+
+        if current_year == target_year and current_month == target_month:
+            return
+        if (target_year, target_month) > (current_year, current_month):
+            next_btn = page.locator('.react-datepicker__navigation--next')
+            if next_btn.count() > 0:
+                next_btn.first.click()
+                time.sleep(0.5)
+            else:
+                break
+        else:
+            prev_btn = page.locator('.react-datepicker__navigation--previous')
+            if prev_btn.count() > 0:
+                prev_btn.first.click()
+                time.sleep(0.5)
+            else:
+                break
+
+
 def do_login():
     """ブラウザを開いてログインしてもらう。"""
     print("ブラウザを起動します。noteにログインしてください。")
@@ -707,39 +743,47 @@ def post_article(
     # --- 予約投稿設定 ---
     if schedule_str and not draft_only:
         dt = datetime.strptime(schedule_str, "%Y-%m-%d %H:%M")
-        try:
-            # 「予約投稿」セクションまでスクロールして「日時の設定」をクリック
-            schedule_btn = page.wait_for_selector(
-                'button:has-text("日時の設定")', timeout=5000
-            )
-            schedule_btn.scroll_into_view_if_needed()
-            schedule_btn.click()
-            time.sleep(1)
+        # 過去日ガード
+        if dt < datetime.now():
+            print(f"  [エラー] 予約日時が過去です: {schedule_str}")
+            print(f"  手動で予約日時を設定してください。")
+        else:
+            try:
+                # 「予約投稿」セクションまでスクロールして「日時の設定」をクリック
+                schedule_btn = page.wait_for_selector(
+                    'button:has-text("日時の設定")', timeout=5000
+                )
+                schedule_btn.scroll_into_view_if_needed()
+                schedule_btn.click()
+                time.sleep(1)
 
-            # --- カレンダーで日付を選択 ---
-            # 日付セルの aria-label で特定（例: "Choose 2026年3月21日金曜日"）
-            day = dt.day
-            date_cell = page.wait_for_selector(
-                f'.react-datepicker__day--0{day:02d}:not(.react-datepicker__day--outside-month)',
-                timeout=5000,
-            )
-            date_cell.click()
-            time.sleep(0.5)
+                # --- カレンダーで目標月まで送る ---
+                _navigate_calendar_to_month(page, dt.year, dt.month)
 
-            # --- 時刻リストから選択 ---
-            time_str = dt.strftime("%H:%M")
-            time_item = page.wait_for_selector(
-                f'li.react-datepicker__time-list-item:text-is("{time_str}")',
-                timeout=5000,
-            )
-            time_item.scroll_into_view_if_needed()
-            time_item.click()
-            time.sleep(1)
+                # --- カレンダーで日付を選択 ---
+                # react-datepicker のクラス: --001〜--009, --010〜--031
+                day_str = f"{dt.day:03d}"
+                date_cell = page.wait_for_selector(
+                    f'.react-datepicker__day--{day_str}:not(.react-datepicker__day--outside-month)',
+                    timeout=5000,
+                )
+                date_cell.click()
+                time.sleep(0.5)
 
-            print(f"  予約設定完了: {schedule_str}")
-        except Exception as e:
-            print(f"  [警告] 予約設定失敗: {e}")
-            print(f"  手動で予約日時を設定してください: {schedule_str}")
+                # --- 時刻リストから選択 ---
+                time_str = dt.strftime("%H:%M")
+                time_item = page.wait_for_selector(
+                    f'li.react-datepicker__time-list-item:text-is("{time_str}")',
+                    timeout=5000,
+                )
+                time_item.scroll_into_view_if_needed()
+                time_item.click()
+                time.sleep(1)
+
+                print(f"  予約設定完了: {schedule_str}")
+            except Exception as e:
+                print(f"  [警告] 予約設定失敗: {e}")
+                print(f"  手動で予約日時を設定してください: {schedule_str}")
 
     # --- 下書き / 投稿 ---
     if draft_only:
