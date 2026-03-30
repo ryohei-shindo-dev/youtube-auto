@@ -1,0 +1,98 @@
+{
+  "title": "暴落で売ると何を失うのか｜戻れなくなる前に整理したいこと",
+  "description": "暴落が来て、怖くて売った。\nでも売ったあと、相場は戻った。\n\nこの動画では、暴落で市場を離れると何を失いやすいのかを、静かに整理します。\n逃した金額だけでなく、もう一度買い直せなかった理由、\n後悔が長引く構造を、感情の面からも言葉にしていきます。\n\n長期投資 / インデックス投資 / NISA / 資産形成 を前提にした内容です。\n\n※投資助言ではありません\n※特定の金融商品の購入・売却を勧めるものではありません\n\nYouTube Shorts「ガチホのモチベ」では、\n長期投資を続けるモチベーションを毎日投稿しています。\n\n#暴落 #長期投資 #インデックス投資 #NISA #資産形成 #ガチホ",
+  "tags": ["暴落", "長期投資", "インデックス投資", "NISA", "資産形成", "売却", "含み損", "ガチホのモチベ"],
+
+  "role_order": ["hook", "overview", "why_painful", "data", "interpret", "data2", "action", "closing"],
+
+  "role_audio": {
+    "hook": "01_hook.mp3",
+    "overview": "02_overview.mp3",
+    "why_painful": "03_why_painful.mp3",
+    "data": "04_data.mp3",
+    "interpret": "05_interpret.mp3",
+    "data2": "06_data2.mp3",
+    "action": "07_action.mp3",
+    "closing": "08_closing.mp3"
+  },
+
+  "role_bg": {
+    "hook": "random:anxiety",
+    "overview": "random:anxiety",
+    "why_painful": "random:comparison",
+    "data": "random:data",
+    "interpret": "random:steady",
+    "data2": "random:data",
+    "action": "random:recovery",
+    "closing": "random:steady"
+  },
+
+  "role_bg_alt": {
+    "why_painful": ["random:anxiety", "random:comparison", "random:anxiety"],
+    "interpret": ["random:recovery", "random:steady"],
+    "data2": ["random:steady", "random:data"],
+    "action": ["random:steady", "random:recovery"],
+    "closing": ["random:recovery", "random:steady"]
+  },
+
+  "role_zoom_dir": {
+    "hook": "in", "overview": "in", "why_painful": "in", "data": "in",
+    "interpret": "out", "data2": "in", "action": "out", "closing": "out"
+  },
+
+  "role_pan_dir": {
+    "hook": "left_to_right", "overview": "center", "why_painful": "right_to_left",
+    "data": "bottom_to_top", "interpret": "center", "data2": "left_to_right",
+    "action": "top_to_bottom", "closing": "center"
+  },
+
+  "zoom_ratio": 0.07,
+
+  "thumbnail": {
+    "bg_photo": "random:anxiety",
+    "brightness": 0.75,
+    "blur": 1,
+    "overlay_alpha": 45,
+    "main_lines": ["暴落で売ると", "何を失うのか"],
+    "sub_text": "戻れなくなる前に整理したいこと",
+    "main_font_size": 126,
+    "sub_font_size": 60,
+    "text_x": 60,
+    "text_y": 140,
+    "line_height": 145
+  },
+
+  "storyboard": [
+    {"role": "hook", "title": "暴落で売った", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "hook", "title": "そのあと\n相場は戻った", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "hook", "title": "何を失いやすいのか", "body": "今日は静かに整理する", "share": 1.0, "layout": "corner"},
+
+    {"role": "overview", "title": "逃したのは\n金額だけじゃない", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "overview", "title": "買い直せなかった\nという事実", "body": "", "share": 1.0, "layout": "full"},
+
+    {"role": "why_painful", "title": "売った直後の\n安堵", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "why_painful", "title": "戻り始めた相場を\n見ている自分", "body": "", "share": 0.8, "layout": "full", "bg_idx": 0},
+    {"role": "why_painful", "title": "売った価格より\n高くなった", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+    {"role": "why_painful", "title": "戻れなくなる\n苦しさ", "body": "", "share": 0.8, "layout": "full", "bg_idx": 2},
+
+    {"role": "data", "title": "大きな下落のあと", "body": "1年後に二桁回復が多い", "share": 1.0, "layout": "number"},
+    {"role": "data", "title": "売る判断より\n戻る判断が難しい", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "data", "title": "回復局面を\n取りこぼしやすい", "body": "", "share": 1.0, "layout": "full"},
+
+    {"role": "interpret", "title": "逃したのは\nリターンだけじゃない", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "interpret", "title": "売却は1回の判断\n復帰は毎日の判断", "body": "", "share": 1.0, "layout": "full", "bg_idx": 0},
+    {"role": "interpret", "title": "怖くて戻れない\nという構造", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+
+    {"role": "data2", "title": "コロナショック", "body": "34%下落後に高値回復", "share": 1.0, "layout": "number"},
+    {"role": "data2", "title": "下落後の回復を\n取りこぼしやすい", "body": "", "share": 1.0, "layout": "full", "bg_idx": 0},
+    {"role": "data2", "title": "持ち続けた人が\n回復に乗れた", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+
+    {"role": "action", "title": "暴落の日に見る\n言葉を用意する", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "action", "title": "すぐには売らない", "body": "翌日まで待つ", "share": 1.0, "layout": "corner", "bg_idx": 0},
+    {"role": "action", "title": "先に用意しておく", "body": "それだけで判断は変わる", "share": 1.0, "layout": "corner", "bg_idx": 1},
+
+    {"role": "closing", "title": "次に大きく下がる日は\nまた来る", "body": "", "share": 1.2, "layout": "full"},
+    {"role": "closing", "title": "慌てて決めなくて\nいいように", "body": "", "share": 0.8, "layout": "full", "bg_idx": 0},
+    {"role": "closing", "title": "ガチホのモチベ", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1}
+  ]
+}

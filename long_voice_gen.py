@@ -802,6 +802,121 @@ def _text_to_speech_long(
         return False
 
 
+# ── 6本目: 暴落で売ると何を失うのか ──────────────────────────
+SCRIPT_06_SCENES = [
+    {
+        "role": "hook",
+        "text": (
+            "暴落が来て、怖くて売った。\n"
+            "含み損が広がるのを見ていられなかった。\n"
+            "でも、売ったあと、相場は戻った。\n"
+            "\n"
+            "今日は、\n"
+            "暴落で売ると何を失いやすいのかを、\n"
+            "静かに整理します。"
+        ),
+    },
+    {
+        "role": "overview",
+        "text": (
+            "逃したのは、金額だけじゃありません。\n"
+            "「もう一度買い直せなかった」という事実のほうが、\n"
+            "あとから重くなります。\n"
+            "\n"
+            "売るのは一瞬の判断でできます。\n"
+            "でも、戻るタイミングは、誰にもわかりません。"
+        ),
+    },
+    {
+        "role": "why_painful",
+        "text": (
+            "暴落の日、売った瞬間は、正直ほっとします。\n"
+            "これ以上減らなくてよかった、と。\n"
+            "\n"
+            "でも、数日後、相場が少し戻り始める。\n"
+            "そのとき、自分が売った価格より高くなっていることに気づく。\n"
+            "\n"
+            "もう少し下がったら買おう。\n"
+            "そう思っているうちに、さらに上がっていく。\n"
+            "売った価格より高い値段で買い直すのは、\n"
+            "心理的にとても難しい。\n"
+            "\n"
+            "こうして、売ったあとに戻れなくなる苦しさが残ることがあります。"
+        ),
+    },
+    {
+        "role": "data",
+        "text": (
+            "過去の大きな下落のあと、\n"
+            "1年後には二桁のプラスに戻っていた時期が多くあります。\n"
+            "\n"
+            "リーマンショックのあとも、\n"
+            "数年かけて高値水準を回復しました。\n"
+            "\n"
+            "つまり、暴落の直後に市場を離れると、\n"
+            "回復局面を取りこぼしやすくなる。\n"
+            "ここが、売却後に苦しくなりやすいポイントです。"
+        ),
+    },
+    {
+        "role": "interpret",
+        "text": (
+            "ここで大事なのは、\n"
+            "逃したのはリターンだけではない、ということです。\n"
+            "\n"
+            "売却は、1回の判断で終わります。\n"
+            "でも、市場に戻るには、\n"
+            "毎日「今日買い直すか」を判断し続けなければいけない。\n"
+            "この非対称性が、暴落売却の本当の痛みです。\n"
+            "\n"
+            "さらに、損失回避バイアスがあります。\n"
+            "人は、得をするよりも、損を2倍重く感じる。\n"
+            "だから、暴落で売った人ほど、\n"
+            "もう一度損するのが怖くて戻れない。\n"
+            "\n"
+            "結果的に、持ち続けた人との差が開いていきます。"
+        ),
+    },
+    {
+        "role": "data2",
+        "text": (
+            "2020年のコロナショックでは、\n"
+            "S&P500は短期間でおよそ34%下落しました。\n"
+            "それでも、その後は比較的早く高値を回復しています。\n"
+            "\n"
+            "下がったときに市場を離れた人ほど、\n"
+            "戻る判断が難しくなった局面でした。\n"
+            "\n"
+            "暴落のあとに回復が来ること自体は、\n"
+            "歴史が繰り返し示しています。"
+        ),
+    },
+    {
+        "role": "action",
+        "text": (
+            "今のうちに、1行だけ残しておくとしたら何でしょう。\n"
+            "\n"
+            "「次に下がっても、すぐには売らない」でもいいし、\n"
+            "「売りたくなったら、翌日まで待つ」でもかまいません。\n"
+            "\n"
+            "暴落の日に見る言葉を、先に用意しておく。\n"
+            "それだけでも判断は変わりやすくなります。"
+        ),
+    },
+    {
+        "role": "closing",
+        "text": (
+            "次に大きく下がる日は、また来るはずです。\n"
+            "そのときに慌てて決めなくていいように。\n"
+            "今日の整理が、未来の自分を助けます。\n"
+            "\n"
+            "ガチホのモチベでは、\n"
+            "こうした迷いを静かに整える動画を毎日投稿しています。"
+        ),
+    },
+]
+
+
 def generate_long_video_voice(
     scenes: list[dict],
     output_dir: pathlib.Path,
@@ -967,9 +1082,44 @@ def main_04():
     print(f"\n結果を保存: {result_path}")
 
 
+def main_06():
+    """6本目「暴落で売ると何を失うのか」の音声を生成する。"""
+    env_path = pathlib.Path(__file__).parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+    output_dir = pathlib.Path(__file__).parent / "long_video" / "06_bouraku_songai" / "audio"
+    print(f"出力先: {output_dir}")
+    print(f"speed: {LONG_VIDEO_SPEED}（Shorts: 1.15 → 5分動画: {LONG_VIDEO_SPEED}）")
+    print()
+
+    scenes = generate_long_video_voice(SCRIPT_06_SCENES, output_dir)
+
+    result_path = output_dir.parent / "voice_result.json"
+    result_data = [
+        {
+            "role": s["role"],
+            "audio_path": s.get("audio_path"),
+            "duration_sec": s.get("actual_duration_sec", 0),
+        }
+        for s in scenes
+    ]
+    result_path.write_text(
+        json.dumps(result_data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"\n結果を保存: {result_path}")
+
+
 if __name__ == "__main__":
     import sys as _sys
-    if "--04" in _sys.argv:
+    if "--06" in _sys.argv:
+        main_06()
+    elif "--04" in _sys.argv:
         main_04()
     elif "--02" in _sys.argv:
         main_02()
