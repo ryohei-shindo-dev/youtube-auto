@@ -373,14 +373,14 @@ def _split_body_into_blocks(body: str) -> list[dict]:
     return blocks
 
 
-def _validate_card_links(blocks: list[dict], manifest_path: str = "data/manifests/note_manifest.json"):
+def _validate_card_links(blocks: list[dict]):
     """cardブロックのリンク先が公開済み無料記事かを検証する。
 
     有料記事・未公開記事へのリンクカードは「この記事は閲覧できません」になるため、
     事前にブロックして事故を防ぐ。
     """
     try:
-        with open(manifest_path, encoding="utf-8") as f:
+        with open(MANIFEST_PATH, encoding="utf-8") as f:
             manifest = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return  # manifestがない場合はスキップ
@@ -1328,12 +1328,11 @@ def do_repair_add():
     import json as _json
 
     # 1. note_manifest.json から md_path → note_key マッピングを構築
-    manifest_path = pathlib.Path(__file__).parent / "data" / "manifests" / "note_manifest.json"
-    if not manifest_path.exists():
-        print("[エラー] note_manifest.json が見つかりません")
+    if not MANIFEST_PATH.exists():
+        print(f"[エラー] {MANIFEST_PATH} が見つかりません")
         return
 
-    manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = _json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     md_to_key: dict[str, str] = {}
     for entry in manifest:
         md = entry.get("md_path")
