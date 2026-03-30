@@ -3,7 +3,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from note_article_updater import load_manifest, _check_published, NOTE_KEY_RE
+from note.workflows import (
+    load_manifest_by_sheet_no as load_manifest,
+    check_published as _check_published,
+    NOTE_KEY_RE,
+)
 from run_note_body_update import save_state
 
 SCRIPT_DIR = Path(__file__).parent.resolve()

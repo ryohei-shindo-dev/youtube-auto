@@ -13,10 +13,10 @@ import json
 import time
 from pathlib import Path
 
-from note_article_updater import (
-    load_manifest,
+from note.workflows import (
+    load_manifest_by_sheet_no as load_manifest,
     NOTE_KEY_RE,
-    _check_published,
+    check_published as _check_published,
 )
 
 SCRIPT_DIR = Path(__file__).parent.resolve()

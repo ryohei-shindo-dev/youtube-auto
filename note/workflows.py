@@ -19,12 +19,65 @@ SCRIPT_DIR = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 
-# ── リンク可否判定（一元化） ──
+# ── 共通定数 ──
+
+NOTE_KEY_RE = re.compile(r"https://note\.com/gachiho_motive/n/([a-z0-9]+)")
+
+
+# ── manifest 操作 ──
 
 def load_manifest() -> list[dict]:
     """note_manifest.json を読み込む。note_ops.load_manifest に委譲。"""
     import note.ops as note_ops
     return note_ops.load_manifest(MANIFEST_PATH)
+
+
+def load_manifest_by_sheet_no() -> dict[int, dict]:
+    """manifest を sheet_no をキーにした dict で返す。"""
+    rows = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest: dict[int, dict] = {}
+    for row in rows:
+        if row.get("sheet_no") is None:
+            continue
+        sn = int(row["sheet_no"])
+        if sn in manifest:
+            raise ValueError(f"duplicate sheet_no: {sn}")
+        manifest[sn] = row
+    return manifest
+
+
+def check_published(manifest: dict[int, dict]) -> tuple[set[int], set[str]]:
+    """manifest内の全記事の公開状態をHTTP HEADでチェックする。
+
+    Returns:
+        (published_sns, published_keys) — 公開済みの sheet_no と note_key のセット
+    """
+    import urllib.request
+    import urllib.error
+
+    published_sns: set[int] = set()
+    published_keys: set[str] = set()
+    total = len(manifest)
+    print(f"  公開状態チェック中（{total}本）...")
+    for sn in sorted(manifest.keys()):
+        row = manifest[sn]
+        url = row["url"]
+        key = row["note_key"]
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            req.add_header("User-Agent", "Mozilla/5.0")
+            resp = urllib.request.urlopen(req, timeout=10)
+            if resp.getcode() == 200:
+                published_sns.add(sn)
+                published_keys.add(key)
+        except Exception:
+            pass
+        time.sleep(0.2)
+    print(f"  公開済み: {len(published_keys)}/{total}本")
+    return published_sns, published_keys
+
+
+# ── リンク可否判定（一元化） ──
 
 
 def is_linkable(article: dict) -> bool:
