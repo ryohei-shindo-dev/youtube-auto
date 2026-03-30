@@ -43,8 +43,8 @@
 ├── error_notify.py      # 定期実行失敗時 Gmail 通知
 ├── run_with_notify.sh   # 定期実行ラッパー（エラー検知 → 通知）
 │
-├── long_video/          # 長尺動画の素材・出力
-├── long_video_builder.py
+├── long_video/          # 長尺動画の素材・出力（各フォルダに build_config.json）
+├── long_video_builder.py # 長尺動画汎用ビルドエンジン（設定ファイル方式）
 ├── long_voice_gen.py
 ├── publish_long_video.py
 │

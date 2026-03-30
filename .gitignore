@@ -30,6 +30,7 @@ long_video/**
 !long_video/*/
 !long_video/*/video_meta.json
 !long_video/*/thumbnail.png
+!long_video/*/build_config.json
 !long_video/CLAUDE.md
 archive/
 

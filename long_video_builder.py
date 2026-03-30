@@ -1,13 +1,20 @@
 """
 long_video_builder.py
-長尺動画のスライド生成、サムネイル生成、動画合成をまとめて行う。
+長尺動画の汎用ビルドエンジン。
 
-初回実装では 1本目「含み損で眠れない夜」の完成を対象にする。
+各動画の固有データは long_video/{folder}/build_config.json に格納し、
+共通の描画・合成ロジックをこのファイルに集約する。
+
+使い方:
+    python long_video_builder.py 04_haitou_index
+    python long_video_builder.py 05_ikkatsu_tsumitate --thumbnail-only
 """
 from __future__ import annotations
 
+import argparse
 import json
 import pathlib
+import random
 import shutil
 import subprocess
 import tempfile
@@ -15,16 +22,9 @@ import textwrap
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from long_voice_gen import SCRIPT_01_SCENES
-
 BASE_DIR = pathlib.Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
-LONG_DIR = BASE_DIR / "long_video" / "01_fukumison"
-SLIDES_DIR = LONG_DIR / "slides"
-OVERLAYS_DIR = LONG_DIR / "overlays"
-OUTPUT_VIDEO = LONG_DIR / "output.mp4"
-OUTPUT_THUMB = LONG_DIR / "thumbnail.png"
-OUTPUT_META = LONG_DIR / "video_meta.json"
+PHOTOS_DIR = ASSETS_DIR / "photos"
 BGM_PATH = ASSETS_DIR / "bgm_ambient.m4a"
 
 VIDEO_WIDTH = 1920
@@ -36,151 +36,219 @@ SECTION_PAUSE = 0.9
 
 FONT_HEAVY = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
 FONT_BOLD = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
-FONT_REGULAR = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
 FONT_MINCHO = "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc"
+FONT_W8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
 
-TITLE = "含み損がつらい夜に聞く、静かな整理"
-DESCRIPTION = (
-    "含み損の夜は、数字そのものより、\n"
-    "自分の判断が間違っていた気がしてつらくなります。\n\n"
-    "この動画では、金融危機の数字を一つ置きながら、\n"
-    "含み損で眠れない夜に、今日は何をしないのがいいのかを静かに整理します。\n\n"
-    "長期投資 / 積立投資 / NISA / 投資メンタル を前提にした内容です。\n\n"
-    "※投資助言ではありません\n"
-    "※特定の金融商品の購入・売却を勧めるものではありません\n\n"
-    "YouTube Shorts「ガチホのモチベ」では、\n"
-    "長期投資を続けるモチベーションを毎日投稿しています。\n\n"
-    "#長期投資 #積立投資 #投資メンタル"
-)
-TAGS = ["長期投資", "積立投資", "投資メンタル", "NISA", "資産形成", "含み損", "ガチホ"]
-
-ROLE_AUDIO = {
-    "hook": LONG_DIR / "audio" / "01_hook.mp3",
-    "overview": LONG_DIR / "audio" / "02_overview.mp3",
-    "why_painful": LONG_DIR / "audio" / "03_why_painful.mp3",
-    "data": LONG_DIR / "audio" / "04_data.mp3",
-    "interpret": LONG_DIR / "audio" / "05_interpret.mp3",
-    "action": LONG_DIR / "audio" / "06_action.mp3",
-    "closing": LONG_DIR / "audio" / "07_closing.mp3",
+# ロール別アクセントカラー
+ACCENT_COLORS: dict[str, tuple[int, int, int]] = {
+    "hook": (220, 110, 90),
+    "overview": (205, 170, 70),
+    "why_painful": (145, 165, 210),
+    "data": (100, 190, 255),
+    "data2": (100, 190, 255),
+    "interpret": (120, 220, 180),
+    "action": (255, 215, 120),
+    "closing": (180, 235, 160),
 }
 
-PHOTOS_DIR = ASSETS_DIR / "photos"
-ROLE_BG = {
-    "hook": PHOTOS_DIR / "anxiety" / "anxiety05.jpg",
-    "overview": PHOTOS_DIR / "anxiety" / "anxiety03.jpg",
-    "why_painful": PHOTOS_DIR / "comparison" / "comparison05.jpg",
-    "data": PHOTOS_DIR / "data" / "data01.jpg",
-    "interpret": PHOTOS_DIR / "steady" / "steady05.jpg",
-    "action": PHOTOS_DIR / "recovery" / "recovery01.jpg",
-    "closing": PHOTOS_DIR / "steady" / "steady02.jpg",
-}
-
-# ロールごとのズーム方向（内面系=in / 余韻系=out）
-ROLE_ZOOM_DIR: dict[str, str] = {
-    "hook": "in",
-    "overview": "in",
-    "why_painful": "in",
-    "data": "in",
-    "interpret": "out",
-    "action": "out",
-    "closing": "out",
-}
-
-# scale→crop 方式のパラメータ（iMovie Ken Burns 方式）
+# Ken Burns パラメータ
 UPSCALE = 1.5
-ZOOM_RATIO = 0.035  # 100% → 103.5%
+DEFAULT_ZOOM_RATIO = 0.035
 
-# ロールごとのパン方向（単調にならないようバリエーション）
-ROLE_PAN_DIR: dict[str, str] = {
-    "hook": "left_to_right",
-    "overview": "center",
-    "why_painful": "right_to_left",
-    "data": "bottom_to_top",
-    "interpret": "center",
-    "action": "top_to_bottom",
-    "closing": "center",
-}
 
-STORYBOARD = [
-    {"role": "hook", "title": "含み損", "body": "夜が長い", "share": 1.0, "layout": "number"},
-    {"role": "hook", "title": "つらさの正体", "body": "判断まで疑い始める", "share": 1.0, "layout": "corner"},
-    {"role": "hook", "title": "今夜の話", "body": "なぜつらいのか\n今夜どう動かないか", "share": 1.0, "layout": "split"},
-    {"role": "overview", "title": "二つだけ整理する", "body": "夜がつらい理由\n今夜しない方がいいこと", "share": 1.0, "layout": "corner"},
-    {"role": "overview", "title": "時間が武器", "body": "Shorts の話を今日は少し長く", "share": 1.0, "layout": "number"},
-    {"role": "why_painful", "title": "戻らなかったら", "body": "", "share": 1.0, "layout": "full"},
-    {"role": "why_painful", "title": "自分だけ失敗したら", "body": "", "share": 1.0, "layout": "full"},
-    {"role": "why_painful", "title": "口座を何度も見る", "body": "朝見て 昼見て 夜見て", "share": 1.0, "layout": "split"},
-    {"role": "why_painful", "title": "反応として普通", "body": "損失は重く感じやすい", "share": 1.0, "layout": "corner"},
-    {"role": "data", "title": "-57%", "body": "2007年高値から\n2009年の底まで", "share": 1.0, "layout": "number"},
-    {"role": "data", "title": "2007 → 2009", "body": "半分以上の下落", "share": 1.0, "layout": "split"},
-    {"role": "data", "title": "2013回復", "body": "時間を伸ばすと景色が変わる", "share": 1.0, "layout": "number"},
-    {"role": "interpret", "title": "同じではない", "body": "", "share": 0.6, "layout": "full"},
-    {"role": "interpret", "title": "途中で決めない", "body": "今日の価格は途中\n途中の数字で全部を決めない", "share": 1.4, "layout": "corner"},
-    {"role": "action", "title": "今夜やること", "body": "口座を開かない\n設定を変えない", "share": 1.0, "layout": "corner"},
-    {"role": "action", "title": "何もしない", "body": "動かなかったことが正解になる", "share": 1.0, "layout": "number"},
-    {"role": "closing", "title": "今日はそれで十分", "body": "途中の数字で全部を決めない", "share": 1.0, "layout": "corner"},
-]
+# ── 設定読み込み ──────────────────────────────────────
 
+def load_config(folder: str) -> dict:
+    """long_video/{folder}/build_config.json を読み込む。"""
+    config_path = BASE_DIR / "long_video" / folder / "build_config.json"
+    if not config_path.exists():
+        raise FileNotFoundError(f"build_config.json が見つかりません: {config_path}")
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["_folder"] = folder
+    config["_long_dir"] = BASE_DIR / "long_video" / folder
+    return config
+
+
+def _resolve_audio_paths(config: dict) -> dict[str, pathlib.Path]:
+    """設定の role_audio を実パスに変換する。"""
+    long_dir = config["_long_dir"]
+    return {
+        role: long_dir / "audio" / filename
+        for role, filename in config["role_audio"].items()
+    }
+
+
+def _resolve_bg_paths(config: dict) -> dict[str, pathlib.Path]:
+    """背景画像パスを解決する。"random:category" 形式ならランダム選択。"""
+    result = {}
+    for role, spec in config.get("role_bg", {}).items():
+        if isinstance(spec, str) and spec.startswith("random:"):
+            category = spec.split(":", 1)[1]
+            result[role] = _pick_landscape_photo(category)
+        else:
+            result[role] = pathlib.Path(spec) if not pathlib.Path(spec).is_absolute() else pathlib.Path(spec)
+            if not result[role].is_absolute():
+                result[role] = BASE_DIR / result[role]
+    return result
+
+
+def _resolve_bg_alt_paths(config: dict) -> dict[str, list[pathlib.Path]]:
+    """代替背景画像パスを解決する。"""
+    result = {}
+    for role, specs in config.get("role_bg_alt", {}).items():
+        paths = []
+        for spec in specs:
+            if isinstance(spec, str) and spec.startswith("random:"):
+                category = spec.split(":", 1)[1]
+                paths.append(_pick_landscape_photo(category))
+            else:
+                p = pathlib.Path(spec)
+                paths.append(p if p.is_absolute() else BASE_DIR / p)
+        result[role] = paths
+    return result
+
+
+def _pick_landscape_photo(category: str) -> pathlib.Path:
+    """横長の写真のみランダム選択する。長尺動画は1920x1080なので縦長は不可。"""
+    cat_dir = PHOTOS_DIR / category
+    blacklist_dir = cat_dir / "blacklist"
+    all_photos = [
+        p for p in sorted(cat_dir.glob("*.jpg"))
+        if not str(p).startswith(str(blacklist_dir))
+    ]
+    landscape = []
+    for p in all_photos:
+        with Image.open(p) as img:
+            if img.width >= img.height:
+                landscape.append(p)
+    if not landscape:
+        landscape = all_photos
+    if not landscape:
+        raise FileNotFoundError(f"写真が見つかりません: {cat_dir}")
+    return random.choice(landscape)
+
+
+# ── メイン処理 ────────────────────────────────────────
 
 def main():
-    SLIDES_DIR.mkdir(parents=True, exist_ok=True)
-    OVERLAYS_DIR.mkdir(parents=True, exist_ok=True)
-    resolved_storyboard = _resolve_storyboard()
+    parser = argparse.ArgumentParser(description="長尺動画ビルドエンジン")
+    parser.add_argument("folder", help="long_video/ 配下のフォルダ名")
+    parser.add_argument("--thumbnail-only", action="store_true", help="サムネイルのみ生成")
+    args = parser.parse_args()
 
+    config = load_config(args.folder)
+    long_dir = config["_long_dir"]
+    slides_dir = long_dir / "slides"
+    overlays_dir = long_dir / "overlays"
+    slides_dir.mkdir(parents=True, exist_ok=True)
+    overlays_dir.mkdir(parents=True, exist_ok=True)
+
+    role_audio = _resolve_audio_paths(config)
+    role_bg = _resolve_bg_paths(config)
+    role_bg_alt = _resolve_bg_alt_paths(config)
+    role_zoom_dir = config.get("role_zoom_dir", {})
+    role_pan_dir = config.get("role_pan_dir", {})
+    role_order = config.get("role_order", list(role_audio.keys()))
+    zoom_ratio = config.get("zoom_ratio", DEFAULT_ZOOM_RATIO)
+    storyboard = config["storyboard"]
+    title = config["title"]
+    description = config["description"]
+    tags = config["tags"]
+
+    # サムネイル生成
+    thumb_path = long_dir / "thumbnail.png"
+    _render_thumbnail(config, role_bg, thumb_path)
+    print(f"サムネイル: {thumb_path}")
+
+    if args.thumbnail_only:
+        return
+
+    # ストーリーボード解決（durationを計算）
+    resolved = _resolve_storyboard(storyboard, role_order, role_audio, role_bg, role_bg_alt)
+
+    # スライド生成
+    print(f"スライド生成中（{len(resolved)}枚）...")
     background_paths = []
     overlay_paths = []
-    for index, card in enumerate(resolved_storyboard, start=1):
-        background_path = SLIDES_DIR / f"{index:02d}_{card['role']}.png"
-        overlay_path = OVERLAYS_DIR / f"{index:02d}_{card['role']}.png"
-        _render_slide_layers(card, background_path, overlay_path)
-        background_paths.append(background_path)
-        overlay_paths.append(overlay_path)
+    for index, card in enumerate(resolved, start=1):
+        bg_path = slides_dir / f"{index:02d}_{card['role']}.png"
+        ov_path = overlays_dir / f"{index:02d}_{card['role']}.png"
+        _render_slide_layers(card, bg_path, ov_path)
+        background_paths.append(bg_path)
+        overlay_paths.append(ov_path)
+        print(f"  [{index:02d}] {card['role']:15s} {card['title']:15s} ({card['duration']:.1f}秒)")
 
-    _render_thumbnail(OUTPUT_THUMB)
-    output_path = _compose_video(resolved_storyboard, background_paths, overlay_paths)
+    # 動画合成
+    print("\n動画合成中...")
+    output_video = long_dir / "output.mp4"
+    _compose_video(
+        resolved, background_paths, overlay_paths,
+        role_audio, role_zoom_dir, role_pan_dir,
+        output_video, zoom_ratio,
+    )
 
+    # メタデータ
     meta = {
-        "title": TITLE,
-        "description": DESCRIPTION,
-        "tags": TAGS,
-        "video_path": str(output_path),
-        "thumbnail_path": str(OUTPUT_THUMB),
+        "title": title,
+        "description": description,
+        "tags": tags,
+        "video_path": str(output_video),
+        "thumbnail_path": str(thumb_path),
         "slides": [
             {
                 "role": card["role"],
                 "title": card["title"],
                 "duration": card["duration"],
-                "slide_path": str(bg_path),
-                "overlay_path": str(overlay_path),
+                "slide_path": str(bg),
+                "overlay_path": str(ov),
             }
-            for card, bg_path, overlay_path in zip(resolved_storyboard, background_paths, overlay_paths)
+            for card, bg, ov in zip(resolved, background_paths, overlay_paths)
         ],
     }
-    OUTPUT_META.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_path = long_dir / "video_meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"動画生成完了: {output_path}")
-    print(f"サムネイル: {OUTPUT_THUMB}")
-    print(f"メタデータ: {OUTPUT_META}")
+    total_sec = sum(c["duration"] for c in resolved)
+    print(f"\n=== 完了 ===")
+    print(f"動画: {output_video}（{total_sec:.1f}秒 / {total_sec/60:.1f}分）")
+    print(f"メタデータ: {meta_path}")
 
 
-def _resolve_storyboard() -> list[dict]:
+# ── ストーリーボード解決 ──────────────────────────────
+
+def _resolve_storyboard(
+    storyboard: list[dict],
+    role_order: list[str],
+    role_audio: dict[str, pathlib.Path],
+    role_bg: dict[str, pathlib.Path],
+    role_bg_alt: dict[str, list[pathlib.Path]],
+) -> list[dict]:
+    """ストーリーボードにdurationとbg_pathを付与する。"""
     cards_by_role: dict[str, list[dict]] = {}
-    for card in STORYBOARD:
+    for card in storyboard:
         cards_by_role.setdefault(card["role"], []).append(dict(card))
 
     resolved: list[dict] = []
-    for scene in SCRIPT_01_SCENES:
-        role = scene["role"]
+    for role in role_order:
         cards = cards_by_role.get(role, [])
         if not cards:
-            raise ValueError(f"storyboard missing role: {role}")
-
-        total_duration = _audio_duration(ROLE_AUDIO[role])
-        total_share = sum(card.get("share", 1.0) for card in cards)
+            continue
+        total_duration = _audio_duration(role_audio[role])
+        total_share = sum(c.get("share", 1.0) for c in cards)
         assigned = 0.0
 
         for index, card in enumerate(cards):
             new_card = dict(card)
+
+            # 背景画像の解決
+            bg_idx = new_card.pop("bg_idx", None)
+            if bg_idx is not None and role in role_bg_alt:
+                alts = role_bg_alt[role]
+                new_card["bg_path"] = str(alts[bg_idx % len(alts)])
+            elif "bg_path" not in new_card:
+                new_card["bg_path"] = str(role_bg.get(role, ""))
+
+            # duration計算
             if index == len(cards) - 1:
                 duration = total_duration - assigned
             else:
@@ -192,10 +260,17 @@ def _resolve_storyboard() -> list[dict]:
     return resolved
 
 
+# ── スライド描画 ──────────────────────────────────────
+
 def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path: pathlib.Path):
-    bg_path = card.get("bg_path") or ROLE_BG[card["role"]]
-    if isinstance(bg_path, str):
-        bg_path = pathlib.Path(bg_path)
+    bg_path_str = card.get("bg_path", "")
+    if bg_path_str:
+        bg_path = pathlib.Path(bg_path_str)
+        if not bg_path.is_absolute():
+            bg_path = BASE_DIR / bg_path
+    else:
+        bg_path = PHOTOS_DIR / "steady" / "steady01.jpg"  # フォールバック
+
     background = _prepare_background(bg_path)
     overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -216,55 +291,16 @@ def _render_slide_layers(card: dict, background_path: pathlib.Path, overlay_path
     overlay.save(overlay_path, "PNG", optimize=True)
 
 
-def _render_thumbnail(output_path: pathlib.Path):
-    # 背景画像を読み込み、暗め加工
-    bg_path = PHOTOS_DIR / "anxiety" / "anxiety05.jpg"
-    if bg_path.exists():
-        bg = Image.open(bg_path).convert("RGB")
-        bg = _crop_to_landscape(bg, THUMB_WIDTH, THUMB_HEIGHT)
-        from PIL import ImageEnhance
-        bg = ImageEnhance.Brightness(bg).enhance(0.70)
-        canvas = bg
-    else:
-        canvas = Image.new("RGB", (THUMB_WIDTH, THUMB_HEIGHT), (10, 10, 10))
-    draw = ImageDraw.Draw(canvas)
-
-    # サムネ用フォント（本編より少し強め）
-    thumb_font_w8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
-    thumb_font_w6 = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
-    pain_font = _load_font(thumb_font_w8, 126)
-    body_font = _load_font(thumb_font_w6, 62)
-
-    line1 = "含み損の夜"
-    line2 = "今日は動かない"
-
-    # 左寄せ配置（やや上寄り）
-    text_x = 80
-    draw.text(
-        (text_x, 200), line1, font=pain_font,
-        fill=(240, 200, 60), stroke_width=6, stroke_fill=(0, 0, 0),
-    )
-    draw.text(
-        (text_x, 360), line2, font=body_font,
-        fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0),
-    )
-
-    canvas.save(output_path, "PNG", optimize=True)
-
-
 def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 82)
     body_font = _load_font(FONT_BOLD, 58)
-    text_x = 160
-    text_y = 200
-
     draw.text(
-        (text_x, text_y), card["title"], font=title_font,
+        (160, 200), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
     wrapped_body = "\n".join(textwrap.wrap(card["body"], width=13, break_long_words=False))
     draw.multiline_text(
-        (text_x + 2, text_y + 140), wrapped_body, font=body_font,
+        (162, 340), wrapped_body, font=body_font,
         fill=(230, 235, 240), spacing=16,
         stroke_width=4, stroke_fill=(0, 0, 0),
     )
@@ -273,7 +309,6 @@ def _draw_panel_layout(draw: ImageDraw.Draw, card: dict):
 def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 78)
     body_font = _load_font(FONT_BOLD, 58)
-
     draw.text(
         (140, 180), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
@@ -289,7 +324,7 @@ def _draw_split_layout(draw: ImageDraw.Draw, card: dict):
 def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 145)
     body_font = _load_font(FONT_BOLD, 62)
-    accent = _accent_color(card["role"])
+    accent = ACCENT_COLORS.get(card["role"], (255, 255, 255))
 
     title_y = 300
     bbox = draw.multiline_textbbox((0, 0), card["title"], font=title_font, spacing=20)
@@ -301,7 +336,6 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
         spacing=20, align="center", stroke_width=6, stroke_fill=(0, 0, 0),
     )
 
-    # body の Y位置を title の下端から計算（重なり防止）
     body_y = title_y + title_h + 40
     wrapped_body = "\n".join(textwrap.wrap(card["body"], width=18, break_long_words=False))
     bbox_body = draw.multiline_textbbox((0, 0), wrapped_body, font=body_font, spacing=18)
@@ -315,36 +349,30 @@ def _draw_number_layout(draw: ImageDraw.Draw, card: dict):
 
 
 def _draw_full_layout(draw: ImageDraw.Draw, card: dict):
-    title_font = _load_font(FONT_HEAVY, 108)
+    font_path = card.get("full_font", FONT_HEAVY)
+    title_font = _load_font(font_path, 108)
     bbox = draw.multiline_textbbox((0, 0), card["title"], font=title_font, spacing=20)
     width = bbox[2] - bbox[0]
     height = bbox[3] - bbox[1]
     x = (VIDEO_WIDTH - width) // 2
     y = (VIDEO_HEIGHT - height) // 2
     draw.multiline_text(
-        (x, y),
-        card["title"],
-        font=title_font,
-        fill=(255, 255, 255),
-        spacing=20,
-        align="center",
-        stroke_width=6,
-        stroke_fill=(0, 0, 0),
+        (x, y), card["title"], font=title_font,
+        fill=(255, 255, 255), spacing=20, align="center",
+        stroke_width=6, stroke_fill=(0, 0, 0),
     )
 
 
 def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
     title_font = _load_font(FONT_HEAVY, 78)
     body_font = _load_font(FONT_BOLD, 56)
-
     text_x = 140
     text_y = 140
     draw.text(
         (text_x, text_y), card["title"], font=title_font,
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
-
-    if card["body"]:
+    if card.get("body"):
         wrapped_body = "\n".join(textwrap.wrap(card["body"], width=14, break_long_words=False))
         draw.multiline_text(
             (text_x + 2, text_y + 130), wrapped_body, font=body_font,
@@ -353,8 +381,75 @@ def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
         )
 
 
+# ── サムネイル ────────────────────────────────────────
+
+def _render_thumbnail(config: dict, role_bg: dict, output_path: pathlib.Path):
+    """設定ファイルの thumbnail セクションからサムネイルを生成する。"""
+    thumb_cfg = config.get("thumbnail", {})
+
+    # 背景画像
+    bg_spec = thumb_cfg.get("bg_photo", "")
+    if bg_spec.startswith("random:"):
+        bg_path = _pick_landscape_photo(bg_spec.split(":", 1)[1])
+    elif bg_spec:
+        bg_path = pathlib.Path(bg_spec)
+        if not bg_path.is_absolute():
+            bg_path = BASE_DIR / bg_spec
+    else:
+        first_bg = next(iter(role_bg.values()), None)
+        bg_path = first_bg if first_bg else PHOTOS_DIR / "steady" / "steady01.jpg"
+
+    bg = Image.open(bg_path).convert("RGB")
+    bg = _crop_to_landscape(bg, THUMB_WIDTH, THUMB_HEIGHT)
+    brightness = thumb_cfg.get("brightness", 0.75)
+    blur = thumb_cfg.get("blur", 1)
+    if blur > 0:
+        bg = bg.filter(ImageFilter.GaussianBlur(radius=blur))
+    bg = ImageEnhance.Brightness(bg).enhance(brightness)
+
+    # オーバーレイ（暗くする）
+    overlay_alpha = thumb_cfg.get("overlay_alpha", 40)
+    if overlay_alpha > 0:
+        bg = bg.convert("RGBA")
+        ov = Image.new("RGBA", (THUMB_WIDTH, THUMB_HEIGHT), (15, 20, 40, overlay_alpha))
+        bg = Image.alpha_composite(bg, ov).convert("RGB")
+
+    draw = ImageDraw.Draw(bg)
+
+    # テキスト描画
+    main_lines = thumb_cfg.get("main_lines", [])
+    sub_text = thumb_cfg.get("sub_text", "")
+    main_font_size = thumb_cfg.get("main_font_size", 96)
+    sub_font_size = thumb_cfg.get("sub_font_size", 40)
+    main_color = tuple(thumb_cfg.get("main_color", [255, 210, 50]))
+    sub_color = tuple(thumb_cfg.get("sub_color", [255, 255, 255]))
+    text_x = thumb_cfg.get("text_x", 60)
+    text_y = thumb_cfg.get("text_y", 200)
+    line_height = thumb_cfg.get("line_height", 110)
+
+    main_font = _load_font(FONT_W8, main_font_size)
+    sub_font = _load_font(FONT_HEAVY, sub_font_size)
+
+    y = text_y
+    for line in main_lines:
+        draw.text(
+            (text_x, y), line, font=main_font, fill=main_color,
+            stroke_width=6, stroke_fill=(0, 0, 0),
+        )
+        y += line_height
+
+    if sub_text:
+        draw.text(
+            (text_x, y + 15), sub_text, font=sub_font, fill=sub_color,
+            stroke_width=3, stroke_fill=(0, 0, 0),
+        )
+
+    bg.save(str(output_path), "PNG", optimize=True)
+
+
+# ── 動画合成 ──────────────────────────────────────────
+
 def _group_by_role(storyboard, background_paths, overlay_paths):
-    """ストーリーボードを連続する同じロールごとにグループ化する。"""
     groups = []
     current_role = None
     for card, bg, ov in zip(storyboard, background_paths, overlay_paths):
@@ -371,7 +466,12 @@ def _compose_video(
     storyboard: list[dict],
     background_paths: list[pathlib.Path],
     overlay_paths: list[pathlib.Path],
-) -> pathlib.Path:
+    role_audio: dict[str, pathlib.Path],
+    role_zoom_dir: dict[str, str],
+    role_pan_dir: dict[str, str],
+    output_video: pathlib.Path,
+    zoom_ratio: float = DEFAULT_ZOOM_RATIO,
+):
     groups = _group_by_role(storyboard, background_paths, overlay_paths)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -384,54 +484,47 @@ def _compose_video(
             cards = group["cards"]
             total_dur = sum(c["duration"] for c in cards)
 
-            # セクション切替時に間を挿入
             if gi > 0:
                 prev_group = groups[gi - 1]
-                prev_bg = prev_group["bgs"][-1]
-                prev_ov = prev_group["overlays"][-1]
                 pause_video = tmp / f"pause_{gi:02d}.mp4"
                 pause_audio = tmp / f"pause_{gi:02d}.m4a"
-                _make_pause_video(prev_bg, prev_ov, SECTION_PAUSE, pause_video)
+                _make_pause_video(prev_group["bgs"][-1], prev_group["overlays"][-1], SECTION_PAUSE, pause_video)
                 _make_silence_audio(SECTION_PAUSE, pause_audio)
                 video_paths.append(pause_video)
                 audio_paths.append(pause_audio)
 
-            # ロール全体で1本の連続クリップ（背景カットなし、テキストだけ切替）
-            zoom_dir = ROLE_ZOOM_DIR.get(role, "in")
-            pan_dir = ROLE_PAN_DIR.get(role, "center")
+            zoom_dir = role_zoom_dir.get(role, "in")
+            pan_dir = role_pan_dir.get(role, "center")
+            print(f"  ロール [{role}] {len(cards)}カード {total_dur:.1f}秒 （パン: {pan_dir}）...")
 
             role_video = tmp / f"role_{gi:02d}_{role}.mp4"
             _make_role_clip(
-                group["bgs"][0],
-                group["overlays"],
-                cards,
-                total_dur,
-                role_video,
-                zoom_out=(zoom_dir == "out"),
-                pan_dir=pan_dir,
+                group["bgs"][0], group["overlays"], cards, total_dur,
+                role_video, zoom_out=(zoom_dir == "out"), pan_dir=pan_dir,
+                zoom_ratio=zoom_ratio,
             )
             video_paths.append(role_video)
 
-            # 音声クリップ（ロール全体で1つ）
             audio_clip = tmp / f"audio_{gi:02d}_{role}.m4a"
-            _make_audio_clip(ROLE_AUDIO[role], 0.0, total_dur, audio_clip)
+            _make_audio_clip(role_audio[role], 0.0, total_dur, audio_clip)
             audio_paths.append(audio_clip)
 
         raw_video = tmp / "raw_video.mp4"
         raw_audio = tmp / "raw_audio.m4a"
         final_audio = tmp / "final_audio.m4a"
 
+        print(f"  {len(video_paths)} クリップを結合中...")
         _concat_files(video_paths, raw_video)
         _concat_files(audio_paths, raw_audio)
 
         if BGM_PATH.exists():
+            print(f"  BGMミキシング中（音量: {BGM_VOLUME}）...")
             _mix_bgm(raw_audio, final_audio)
         else:
             shutil.copy2(raw_audio, final_audio)
 
-        _mux_video_audio(raw_video, final_audio, OUTPUT_VIDEO)
-
-    return OUTPUT_VIDEO
+        print(f"  映像+音声を結合中...")
+        _mux_video_audio(raw_video, final_audio, output_video)
 
 
 def _make_role_clip(
@@ -442,15 +535,14 @@ def _make_role_clip(
     output_path: pathlib.Path,
     zoom_out: bool = False,
     pan_dir: str = "center",
+    zoom_ratio: float = DEFAULT_ZOOM_RATIO,
 ):
-    """ロール全体で1本の連続クリップを生成。
-    背景はカットなしでKen Burnsパン、テキストだけ時間指定で切り替える。"""
     up_w = int(VIDEO_WIDTH * UPSCALE)
     up_h = int(VIDEO_HEIGHT * UPSCALE)
     cx = (up_w - VIDEO_WIDTH) // 2
     cy = (up_h - VIDEO_HEIGHT) // 2
-    pan_x = int(VIDEO_WIDTH * ZOOM_RATIO / 2)
-    pan_y = int(VIDEO_HEIGHT * ZOOM_RATIO / 2)
+    pan_x = int(VIDEO_WIDTH * zoom_ratio / 2)
+    pan_y = int(VIDEO_HEIGHT * zoom_ratio / 2)
 
     if pan_dir == "left_to_right":
         dx_factor, dy_factor = 2 * pan_x, 0
@@ -479,12 +571,10 @@ def _make_role_clip(
         f"x={x_expr}:y={y_expr}"
     )
 
-    # 入力: [0]=背景, [1]=overlay1, [2]=overlay2, ...
     inputs = ["-loop", "1", "-i", str(background_path)]
     for ov_path in overlay_paths:
         inputs += ["-loop", "1", "-i", str(ov_path)]
 
-    # フィルタ: 背景にKen Burns → 各オーバーレイを時間指定で重ねる
     filter_parts = [f"[0:v]{crop_expr}[bg]"]
     for i in range(len(overlay_paths)):
         filter_parts.append(f"[{i+1}:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[ov{i}]")
@@ -503,45 +593,32 @@ def _make_role_clip(
         t_offset = t_end
 
     filter_parts[-1] = filter_parts[-1].rsplit("[", 1)[0] + ",format=yuv420p[v]"
-
     filter_complex = ";".join(filter_parts)
 
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
         *inputs,
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
         "-filter_complex", filter_complex,
-        "-map", "[v]",
-        "-t", str(total_dur),
-        "-r", "30",
-        "-an",
+        "-map", "[v]", "-t", str(total_dur), "-r", "30", "-an",
         str(output_path),
     ]
     _run(cmd, timeout=300)
 
 
-def _make_pause_video(
-    background_path: pathlib.Path,
-    overlay_path: pathlib.Path,
-    duration: float,
-    output_path: pathlib.Path,
-):
+def _make_pause_video(bg_path: pathlib.Path, ov_path: pathlib.Path, duration: float, output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-loop", "1", "-i", str(background_path),
-        "-loop", "1", "-i", str(overlay_path),
-        "-c:v", "libx264",
-        "-tune", "stillimage",
+        "-loop", "1", "-i", str(bg_path),
+        "-loop", "1", "-i", str(ov_path),
+        "-c:v", "libx264", "-tune", "stillimage",
         "-filter_complex",
         (
             f"[0:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[bg];"
             f"[1:v]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}[fg];"
             "[bg][fg]overlay=0:0:format=auto,format=yuv420p[v]"
         ),
-        "-map", "[v]",
-        "-t", str(duration),
-        "-an",
+        "-map", "[v]", "-t", str(duration), "-an",
         str(output_path),
     ]
     _run(cmd, timeout=60)
@@ -550,14 +627,10 @@ def _make_pause_video(
 def _make_audio_clip(audio_path: pathlib.Path, offset: float, duration: float, output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-ss", str(offset),
-        "-t", str(duration),
+        "-ss", str(offset), "-t", str(duration),
         "-i", str(audio_path),
-        "-vn",
-        "-ac", "1",
-        "-ar", "44100",
-        "-c:a", "aac",
-        "-b:a", "160k",
+        "-vn", "-ac", "1", "-ar", "44100",
+        "-c:a", "aac", "-b:a", "160k",
         str(output_path),
     ]
     _run(cmd, timeout=120)
@@ -566,11 +639,9 @@ def _make_audio_clip(audio_path: pathlib.Path, offset: float, duration: float, o
 def _make_silence_audio(duration: float, output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-f", "lavfi",
-        "-i", "anullsrc=r=44100:cl=mono",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
         "-t", str(duration),
-        "-c:a", "aac",
-        "-b:a", "128k",
+        "-c:a", "aac", "-b:a", "128k",
         str(output_path),
     ]
     _run(cmd, timeout=60)
@@ -582,8 +653,7 @@ def _concat_files(paths: list[pathlib.Path], output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
         "-f", "concat", "-safe", "0",
-        "-i", str(concat_list),
-        "-c", "copy",
+        "-i", str(concat_list), "-c", "copy",
         str(output_path),
     ]
     _run(cmd, timeout=240)
@@ -593,16 +663,13 @@ def _mix_bgm(audio_path: pathlib.Path, output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
         "-i", str(audio_path),
-        "-stream_loop", "-1",
-        "-i", str(BGM_PATH),
+        "-stream_loop", "-1", "-i", str(BGM_PATH),
         "-filter_complex",
         (
             f"[1:a]volume={BGM_VOLUME},afade=t=in:d=2,afade=t=out:st=999:d=3[bgm];"
             "[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]"
         ),
-        "-map", "[aout]",
-        "-c:a", "aac",
-        "-b:a", "192k",
+        "-map", "[aout]", "-c:a", "aac", "-b:a", "192k",
         str(output_path),
     ]
     _run(cmd, timeout=240)
@@ -611,17 +678,16 @@ def _mix_bgm(audio_path: pathlib.Path, output_path: pathlib.Path):
 def _mux_video_audio(video_path: pathlib.Path, audio_path: pathlib.Path, output_path: pathlib.Path):
     cmd = [
         "ffmpeg", "-loglevel", "error", "-y",
-        "-i", str(video_path),
-        "-i", str(audio_path),
-        "-map", "0:v",
-        "-map", "1:a",
-        "-c:v", "copy",
-        "-c:a", "copy",
+        "-i", str(video_path), "-i", str(audio_path),
+        "-map", "0:v", "-map", "1:a",
+        "-c:v", "copy", "-c:a", "copy",
         "-movflags", "+faststart",
         str(output_path),
     ]
     _run(cmd, timeout=240)
 
+
+# ── ユーティリティ ────────────────────────────────────
 
 def _prepare_background(bg_path: pathlib.Path) -> Image.Image:
     img = Image.open(bg_path).convert("RGB")
@@ -634,38 +700,16 @@ def _prepare_background(bg_path: pathlib.Path) -> Image.Image:
 def _crop_to_landscape(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     src_w, src_h = img.size
     target_ratio = target_w / target_h
-
     if src_w / src_h > target_ratio:
         crop_h = src_h
         crop_w = int(src_h * target_ratio)
     else:
         crop_w = src_w
         crop_h = int(src_w / target_ratio)
-
     left = (src_w - crop_w) // 2
     top = (src_h - crop_h) // 2
     img = img.crop((left, top, left + crop_w, top + crop_h))
     return img.resize((target_w, target_h), Image.LANCZOS)
-
-
-def _accent_color(role: str) -> tuple[int, int, int]:
-    colors = {
-        "hook": (220, 110, 90),
-        "overview": (205, 170, 70),
-        "why_painful": (145, 165, 210),
-        "data": (100, 190, 255),
-        "interpret": (120, 220, 180),
-        "action": (255, 215, 120),
-        "closing": (180, 235, 160),
-    }
-    return colors.get(role, (255, 255, 255))
-
-
-def _draw_centered(draw: ImageDraw.Draw, text: str, font, color: tuple[int, int, int], y: int):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    width = bbox[2] - bbox[0]
-    x = (THUMB_WIDTH - width) // 2
-    draw.text((x, y), text, font=font, fill=color, stroke_width=5, stroke_fill=(0, 0, 0))
 
 
 def _load_font(path: str, size: int):
@@ -683,10 +727,7 @@ def _audio_duration(audio_path: pathlib.Path) -> float:
             "-of", "default=noprint_wrappers=1:nokey=1",
             str(audio_path),
         ],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=True,
+        capture_output=True, text=True, timeout=10, check=True,
     )
     return float(result.stdout.strip())
 
