@@ -414,7 +414,7 @@ def populate_from_topics_json(spreadsheet_id: str):
     """topics.json の全ネタをシートに初期投入する。"""
     import json
 
-    topics_path = _DIR / "topics.json"
+    topics_path = _DIR / "data" / "content" / "topics.json"
     if not topics_path.exists():
         print("  [エラー] topics.json が見つかりません。")
         return

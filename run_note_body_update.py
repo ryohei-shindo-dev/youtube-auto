@@ -20,7 +20,7 @@ from note_article_updater import (
 )
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
-STATE_FILE = SCRIPT_DIR / "note_body_update_state.json"
+STATE_FILE = SCRIPT_DIR / "data" / "state" / "note_body_update_state.json"
 
 NOTE_URL_FMT = "https://note.com/gachiho_motive/n/{key}"
 

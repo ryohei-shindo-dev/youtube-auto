@@ -491,7 +491,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         return None
 
     # publish_queue.json があればその順序を優先、なければスコア順
-    queue_path = SCRIPT_DIR / "publish_queue.json"
+    queue_path = SCRIPT_DIR / "data" / "queues" / "publish_queue.json"
     try:
         queue_order = json.loads(queue_path.read_text(encoding="utf-8"))
         queue_index = {folder: idx for idx, folder in enumerate(queue_order)}

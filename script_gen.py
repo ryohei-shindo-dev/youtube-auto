@@ -72,7 +72,7 @@ def get_model_for_theme(theme: str) -> str:
     return _THEME_MODEL_MAP.get(theme, SCRIPT_MODEL)
 
 # --- 分析結果の読み込み ---
-INSIGHTS_FILE = pathlib.Path(__file__).parent / "analytics_insights.json"
+INSIGHTS_FILE = pathlib.Path(__file__).parent / "data" / "analytics" / "analytics_insights.json"
 
 
 def load_insights() -> dict:

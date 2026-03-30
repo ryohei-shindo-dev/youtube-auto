@@ -21,7 +21,7 @@ DONE_DIR = pathlib.Path(__file__).parent / "done"
 
 def _get_target_folders() -> list[pathlib.Path]:
     """publish_queue.json に載っている未投稿フォルダのみ対象にする。"""
-    queue_path = pathlib.Path(__file__).parent / "publish_queue.json"
+    queue_path = pathlib.Path(__file__).parent / "data" / "queues" / "publish_queue.json"
     if not queue_path.exists():
         print("[エラー] publish_queue.json が見つかりません")
         return []

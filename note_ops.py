@@ -37,7 +37,7 @@ SCRIPT_DIR = pathlib.Path(__file__).parent
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 LOG_DIR = SCRIPT_DIR / "note_run_logs"
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 # ── 定数 ──
 NOTE_TAGS = ["長期投資", "積立投資", "資産形成", "投資メンタル", "NISA"]

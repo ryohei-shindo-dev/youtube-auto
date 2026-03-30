@@ -56,10 +56,16 @@
 ├── CHANNEL_STRATEGY.md  # ブランド戦略・感情曲線・テーマ設計
 ├── OPERATIONS_MEMO.md   # 変動する運用情報・一時的な優先事項
 │
-├── analytics_insights.json  # 分析結果 → script_gen に自動注入
-├── hooks.json               # hook ワード 50 個（5 タイプ × 10）
-├── analytics_log.json       # 再生数の時系列ログ
-└── topics.json              # トピックマスタ
+├── data/
+│   ├── analytics/           # analytics_insights.json, analytics_log.json
+│   ├── content/             # hooks.json, topics.json, playlists.json, x_murmur_posts.json, threads_candidates.json
+│   ├── manifests/           # note_manifest.json, image_manifest.json, thumbnail_registry.json
+│   ├── queues/              # publish_queue.json, note_publish_queue.json
+│   ├── schedule/            # full_schedule.json, reschedule_diff_log.json
+│   └── state/               # note_body_update_state.json, note_image_photo_log.json
+├── archive/                 # 使い捨てスクリプトの退避先（.gitignore）
+│
+└── scratch/                 # README.md のみ残存（棚卸し済み 2026-03-30）
 ```
 
 ## Pipeline Flow

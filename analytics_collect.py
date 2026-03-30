@@ -18,7 +18,7 @@ from datetime import datetime
 import sheets
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-ANALYTICS_FILE = SCRIPT_DIR / "analytics_log.json"
+ANALYTICS_FILE = SCRIPT_DIR / "data" / "analytics" / "analytics_log.json"
 STRATEGY_FILE = SCRIPT_DIR / "CHANNEL_STRATEGY.md"
 
 

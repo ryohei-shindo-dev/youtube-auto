@@ -16,7 +16,7 @@ import time
 from playwright.sync_api import Page
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 
 # ── リンク可否判定（一元化） ──

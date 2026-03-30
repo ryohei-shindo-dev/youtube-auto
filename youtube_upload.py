@@ -22,7 +22,7 @@ import time
 from googleapiclient.http import MediaFileUpload
 
 _DIR = pathlib.Path(__file__).parent
-_PLAYLISTS_PATH = _DIR / "playlists.json"
+_PLAYLISTS_PATH = _DIR / "data" / "content" / "playlists.json"
 
 
 def upload_video(

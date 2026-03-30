@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 
 load_dotenv(pathlib.Path(__file__).parent / ".env")
 
-MURMUR_FILE = pathlib.Path(__file__).parent / "x_murmur_posts.json"
+MURMUR_FILE = pathlib.Path(__file__).parent / "data" / "content" / "x_murmur_posts.json"
 HISTORY_FILE = pathlib.Path(__file__).parent / "x_post_history.jsonl"
 # 直近N件との類似度チェック
 HISTORY_CHECK_COUNT = 20

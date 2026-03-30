@@ -20,7 +20,7 @@ load_dotenv(SCRIPT_DIR / ".env")
 
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 
 def build():

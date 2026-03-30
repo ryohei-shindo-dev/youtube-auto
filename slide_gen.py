@@ -1195,7 +1195,7 @@ def _make_thumbnail_text(title: str, scenes: list) -> str:
 # ── サムネフレーム（動画内埋め込み用） ──────────────────────
 
 THUMBNAIL_DIR = PHOTOS_DIR / "thumbnail"
-THUMBNAIL_REGISTRY_PATH = pathlib.Path(__file__).parent / "thumbnail_registry.json"
+THUMBNAIL_REGISTRY_PATH = pathlib.Path(__file__).parent / "data" / "manifests" / "thumbnail_registry.json"
 _THUMBNAIL_NO_REUSE_WINDOW = 30  # 直近30本で同じ写真を使わない
 
 

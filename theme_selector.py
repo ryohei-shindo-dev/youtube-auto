@@ -33,7 +33,7 @@ load_dotenv(pathlib.Path(__file__).parent / ".env")
 from script_gen import STRONG_HOOKS as PAIN_WORDS, load_insights as _load_insights
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-TOPICS_FILE = SCRIPT_DIR / "topics.json"
+TOPICS_FILE = SCRIPT_DIR / "data" / "content" / "topics.json"
 
 # --- 強い数字パターン ---
 NUMBER_PATTERNS = [

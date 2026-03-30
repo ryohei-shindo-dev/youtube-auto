@@ -40,7 +40,7 @@ IMAGES_DIR = SCRIPT_DIR / "note_images"
 # 環境変数 NOTE_BROWSER_PROFILE で切り替え可能（デフォルトは手動用）
 _BROWSER_PROFILE = os.environ.get("NOTE_BROWSER_PROFILE", "manual")
 USER_DATA_DIR = SCRIPT_DIR / f".note_browser_{_BROWSER_PROFILE}"
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 # note アカウント情報
 NOTE_USER = "gachiho_motive"
@@ -373,7 +373,7 @@ def _split_body_into_blocks(body: str) -> list[dict]:
     return blocks
 
 
-def _validate_card_links(blocks: list[dict], manifest_path: str = "note_manifest.json"):
+def _validate_card_links(blocks: list[dict], manifest_path: str = "data/manifests/note_manifest.json"):
     """cardブロックのリンク先が公開済み無料記事かを検証する。
 
     有料記事・未公開記事へのリンクカードは「この記事は閲覧できません」になるため、
@@ -1328,7 +1328,7 @@ def do_repair_add():
     import json as _json
 
     # 1. note_manifest.json から md_path → note_key マッピングを構築
-    manifest_path = pathlib.Path(__file__).parent / "note_manifest.json"
+    manifest_path = pathlib.Path(__file__).parent / "data" / "manifests" / "note_manifest.json"
     if not manifest_path.exists():
         print("[エラー] note_manifest.json が見つかりません")
         return

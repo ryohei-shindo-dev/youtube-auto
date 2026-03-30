@@ -23,7 +23,7 @@ from style_rules import normalize_text
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 DONE_DIR = SCRIPT_DIR / "done"
-QUEUE_PATH = SCRIPT_DIR / "publish_queue.json"
+QUEUE_PATH = SCRIPT_DIR / "data" / "queues" / "publish_queue.json"
 
 # 数字+単位の抽出パターン
 _RE_NUMERIC = re.compile(r"\d+[万億千百円%％年ヶ月倍本歳日回件人割分]*")

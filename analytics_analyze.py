@@ -25,8 +25,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-ANALYTICS_FILE = SCRIPT_DIR / "analytics_log.json"
-INSIGHTS_FILE = SCRIPT_DIR / "analytics_insights.json"
+ANALYTICS_FILE = SCRIPT_DIR / "data" / "analytics" / "analytics_log.json"
+INSIGHTS_FILE = SCRIPT_DIR / "data" / "analytics" / "analytics_insights.json"
 
 # --- 分析に必要な最小本数 ---
 MIN_VIDEOS_WEEKLY = 5      # 週次軽分析の最低本数

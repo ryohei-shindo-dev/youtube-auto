@@ -26,11 +26,11 @@ from collections import Counter
 from datetime import datetime, timedelta
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 SCHEDULED_PATH = SCRIPT_DIR / "scheduled_notes.json"
-PUBLISH_QUEUE_PATH = SCRIPT_DIR / "note_publish_queue.json"
-RESCHEDULE_DIFF_LOG_PATH = SCRIPT_DIR / "reschedule_diff_log.json"
-FULL_SCHEDULE_PATH = SCRIPT_DIR / "full_schedule.json"
+PUBLISH_QUEUE_PATH = SCRIPT_DIR / "data" / "queues" / "note_publish_queue.json"
+RESCHEDULE_DIFF_LOG_PATH = SCRIPT_DIR / "data" / "schedule" / "reschedule_diff_log.json"
+FULL_SCHEDULE_PATH = SCRIPT_DIR / "data" / "schedule" / "full_schedule.json"
 
 # デフォルトのマガジン・タグ（note_ops.py と同じ値）
 DEFAULT_MAGAZINE = "こつこつ積み立てを続ける人の読みもの"

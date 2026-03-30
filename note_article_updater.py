@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
 load_dotenv(SCRIPT_DIR / ".env")
 
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
 DEBUG_DIR = SCRIPT_DIR / "debug"
 DEBUG_DIR.mkdir(exist_ok=True)

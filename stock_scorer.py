@@ -496,7 +496,7 @@ def main() -> None:
     if args.dry_run:
         print("\n[dry-run] publish_queue.json への書き出しをスキップしました。")
     else:
-        out_path = SCRIPT_DIR / "publish_queue.json"
+        out_path = SCRIPT_DIR / "data" / "queues" / "publish_queue.json"
         out_path.write_text(
             json.dumps(queue, ensure_ascii=False, indent=2),
             encoding="utf-8",

@@ -75,7 +75,7 @@ def main() -> None:
                 theme_pending_count[theme] = theme_pending_count.get(theme, 0) + 1
 
     # topics.json を読み込み
-    topics_path = pathlib.Path(__file__).parent / "topics.json"
+    topics_path = pathlib.Path(__file__).parent / "data" / "content" / "topics.json"
     with open(topics_path, encoding="utf-8") as f:
         topics_data = json.load(f)
 

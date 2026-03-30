@@ -16,7 +16,7 @@ def main():
     dry_run = "--dry-run" in sys.argv
     force = "--force" in sys.argv
 
-    queue_path = pathlib.Path("publish_queue.json")
+    queue_path = pathlib.Path(__file__).parent / "data" / "queues" / "publish_queue.json"
     queue = json.loads(queue_path.read_text())
 
     targets = []

@@ -14,7 +14,7 @@ import time
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 _URL_RE = re.compile(r"^https?://\S+$")
 

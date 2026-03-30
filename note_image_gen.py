@@ -26,7 +26,7 @@ from typing import Optional
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 # ---------- 写真パス記録 ----------
-_IMAGE_PHOTO_LOG = pathlib.Path(__file__).parent / "note_image_photo_log.json"
+_IMAGE_PHOTO_LOG = pathlib.Path(__file__).parent / "data" / "state" / "note_image_photo_log.json"
 
 
 def _record_photo(image_name: str, photo_path: pathlib.Path):

@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 SCRIPT_DIR = pathlib.Path(__file__).parent
 load_dotenv(SCRIPT_DIR / ".env")
 
-CANDIDATES_FILE = SCRIPT_DIR / "threads_candidates.json"
+CANDIDATES_FILE = SCRIPT_DIR / "data" / "content" / "threads_candidates.json"
 HISTORY_FILE = SCRIPT_DIR / "threads_post_history.jsonl"
 
 # 安全策の定数

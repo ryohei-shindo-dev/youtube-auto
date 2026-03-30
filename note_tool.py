@@ -531,7 +531,7 @@ def cmd_discard_all_drafts(args):
 
 def cmd_publish_queue(args):
     """note_publish_queue.json の記事を一括予約投稿する。"""
-    queue_path = SCRIPT_DIR / "note_publish_queue.json"
+    queue_path = SCRIPT_DIR / "data" / "queues" / "note_publish_queue.json"
     if not queue_path.exists():
         print("note_publish_queue.json がありません")
         print("先に note_schedule_mixer.py plan --write を実行してください")
@@ -572,7 +572,7 @@ def cmd_publish_queue(args):
         return
 
     # manifest を読み込み（成功時に反映するため）
-    manifest_path = SCRIPT_DIR / "note_manifest.json"
+    manifest_path = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest_by_no = {m["sheet_no"]: m for m in manifest}
 
@@ -745,7 +745,7 @@ def cmd_verify(args):
             sys.exit(0 if ok else 1)
 
         if args.all:
-            manifest_path = SCRIPT_DIR / "note_manifest.json"
+            manifest_path = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
             with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
             published = [a for a in manifest if a.get("url") and a.get("note_key")]

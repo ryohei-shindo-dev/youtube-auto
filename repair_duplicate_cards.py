@@ -26,8 +26,8 @@ load_dotenv(SCRIPT_DIR / ".env")
 from note_publish import _launch_browser, _close_browser
 from ops_note import SEL, handle_draft_dialog, handle_multi_edit_dialog
 
-MANIFEST_PATH = SCRIPT_DIR / "note_manifest.json"
-STATE_PATH = SCRIPT_DIR / "note_body_update_state.json"
+MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
+STATE_PATH = SCRIPT_DIR / "data" / "state" / "note_body_update_state.json"
 DEBUG_DIR = SCRIPT_DIR / "debug"
 
 # 影響記事（3/27〜28 の _append_card_links 対象）
