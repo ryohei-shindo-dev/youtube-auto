@@ -14,9 +14,11 @@
 ## Repo Map
 
 ```
-├── script_gen.py        # 1. 台本生成（Claude API）
+├── script_gen.py        # 1. 台本生成ロジック（Claude API）
+├── script_config.py     #    台本の定数・テンプレート・マッピング
 ├── voice_gen.py         # 2. 音声合成（ElevenLabs）
 ├── slide_gen.py         # 3. スライド画像生成（Pillow）
+├── slide_thumbnail.py   #    サムネイル生成（Shorts+フレーム）
 ├── video_gen.py         # 4. 動画合成（FFmpeg）
 ├── thumbnail_gen.py     # 5. サムネイル生成（Pillow）
 ├── subtitle_gen.py      # 6. 字幕生成（SRT + JSON）
