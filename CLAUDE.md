@@ -29,7 +29,8 @@
 │   ├── publish_additional.py  # 追加記事投稿（ARTICLE_SPECS駆動）
 │   ├── cli.py           #   note操作の統一CLI（旧 note_tool.py）
 │   ├── ops.py           #   Playwright UI操作ライブラリ
-│   ├── article_updater.py  # 画像再生成・本文更新（レガシー、廃止予定）
+│   ├── convert.py       #   Markdown→note HTML変換（Playwright不要）
+│   ├── editor.py        #   ブロック挿入・カード操作（Playwright）
 │   ├── schedule.py      #   投稿スケジュール管理・キュー平準化
 │   ├── workflows.py     #   リンク可否判定・記事検証
 │   ├── preflight.py     #   投稿前バリデーション（読み取り専用）
