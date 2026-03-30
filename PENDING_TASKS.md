@@ -82,7 +82,7 @@
 4. 中期: apply後の照合（Playwright→note.com再取得して検証）
 5. 中期: desired/applied/sync_status の追加
 
-**関連ファイル**: `note_gen.py`, `note_publish.py`, `note_manifest.json`, `note_schedule_mixer.py`, `full_schedule.json`
+**関連ファイル**: `note/gen.py`, `note/publish.py`, `note_manifest.json`, `note/schedule.py`, `full_schedule.json`（旧パス note_*.py は互換ラッパー経由で動作）
 
 ---
 

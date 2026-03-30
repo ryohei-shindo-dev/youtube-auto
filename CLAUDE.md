@@ -20,16 +20,31 @@
 ├── video_gen.py         # 4. 動画合成（FFmpeg）
 ├── thumbnail_gen.py     # 5. サムネイル生成（Pillow）
 ├── subtitle_gen.py      # 6. 字幕生成（SRT + JSON）
-├── note_gen.py          # 7. note 記事生成（Claude API）
-├── note_image_gen.py    #    note ヘッダー画像生成（Pillow）
-├── social_gen.py        # 8. SNS キャプション生成（テンプレート）
-├── auto_publish.py      # 9. 投稿スケジューラ（全プラットフォーム統括）
+├── social_gen.py        # 7. SNS キャプション生成（テンプレート）
+├── auto_publish.py      # 8. 投稿スケジューラ（全プラットフォーム統括）
+│
+├── note/                # note.com 記事の生成・投稿・管理パッケージ
+│   ├── browser.py       #   ブラウザ起動・終了（共通）
+│   ├── publish.py       #   manifest駆動の新規投稿・更新・リペア
+│   ├── publish_additional.py  # 追加記事投稿（ARTICLE_SPECS駆動）
+│   ├── cli.py           #   note操作の統一CLI（旧 note_tool.py）
+│   ├── ops.py           #   Playwright UI操作ライブラリ
+│   ├── article_updater.py  # 画像再生成・本文更新（レガシー、廃止予定）
+│   ├── schedule.py      #   投稿スケジュール管理・キュー平準化
+│   ├── workflows.py     #   リンク可否判定・記事検証
+│   ├── preflight.py     #   投稿前バリデーション（読み取り専用）
+│   ├── gen.py           #   note記事自動生成（Claude API）
+│   ├── image_gen.py     #   noteヘッダー画像生成（Pillow）
+│   ├── seo.py           #   タイトル・タグ変更
+│   ├── x_announce.py    #   X告知投稿
+│   ├── reaction.py      #   リアクション設定API
+│   └── analytics.py     #   アクセス数収集
+├── note_*.py            # 互換ラッパー（旧パスからのimport維持用）
 │
 ├── youtube_upload.py    # YouTube Data API v3
 ├── instagram_upload.py  # Instagram Graph API（catbox.moe 経由）
 ├── tiktok_upload.py     # TikTok Content Posting API v2
 ├── x_upload.py          # X API v2
-├── note_x_announce.py   # X スタンドアロン投稿
 │
 ├── analytics_collect.py # 毎日 22:00 — 再生数・エンゲージメント収集
 ├── analytics_analyze.py # 毎週月曜 23:00 — 週次分析 → insights 生成
@@ -63,7 +78,7 @@
 │   ├── queues/              # publish_queue.json, note_publish_queue.json
 │   ├── schedule/            # full_schedule.json, reschedule_diff_log.json
 │   └── state/               # note_body_update_state.json, note_image_photo_log.json
-├── archive/                 # 使い捨てスクリプトの退避先（.gitignore）
+├── archive/                 # 使い捨てスクリプト・旧ファイルの退避先（.gitignore）
 │
 └── scratch/                 # README.md のみ残存（棚卸し済み 2026-03-30）
 ```
