@@ -195,25 +195,25 @@ def _render_thumbnail(output_path: pathlib.Path):
     draw = ImageDraw.Draw(bg)
 
     thumb_font_w8 = "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc"
-    main_font = ImageFont.truetype(thumb_font_w8, 96)
-    sub_font = ImageFont.truetype(FONT_HEAVY, 40)
+    main_font = ImageFont.truetype(thumb_font_w8, 126)
+    sub_font = ImageFont.truetype(FONT_HEAVY, 62)
 
     main_lines = ["一括か積立か", "揺れる人へ"]
     sub_text = "決める前に分けておきたい不安"
 
     text_x = 60
-    y = 200
+    y = 140
     for line in main_lines:
         draw.text(
             (text_x, y), line, font=main_font, fill=(255, 210, 50),
-            stroke_width=6, stroke_fill=(0, 0, 0),
+            stroke_width=7, stroke_fill=(0, 0, 0),
         )
-        y += 110
+        y += 145
 
     sub_y = y + 15
     draw.text(
         (text_x, sub_y), sub_text, font=sub_font, fill=(255, 255, 255),
-        stroke_width=3, stroke_fill=(0, 0, 0),
+        stroke_width=4, stroke_fill=(0, 0, 0),
     )
 
     bg.save(str(output_path), "PNG", optimize=True)
