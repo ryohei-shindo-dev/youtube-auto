@@ -724,6 +724,10 @@ def _postprocess_script(
                         break
                 if not replaced:
                     print(f"  [警告] hookが弱い可能性:「{hook_text}」")
+            # hook の slide_text は Claude 生成に頼らず text から自動生成
+            # （Claude が省略しすぎて意味不明になるケース防止）
+            hook_for_slide = text.rstrip("。？！ ")
+            s["slide_text"] = _safe_truncate_slide_text(hook_for_slide, max_len=10)
             # ループ再生: hook修正後のワードでclosingを再更新
             new_hook = text.rstrip("。？！ ")
             if new_hook and new_hook != hook_word:
