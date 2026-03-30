@@ -25,7 +25,7 @@ from pathlib import Path
 
 from note.browser import _launch_browser, _close_browser
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
 IMAGE_DIR = SCRIPT_DIR / "note_images" / "reactions"
 
 # ── API エンドポイント ──

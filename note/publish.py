@@ -31,12 +31,11 @@ import time
 from datetime import datetime
 from html import escape as _html_escape
 
-from playwright.sync_api import sync_playwright, Page, BrowserContext
+from playwright.sync_api import Page
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent.parent
 ARTICLES_DIR = SCRIPT_DIR / "note_articles"
 IMAGES_DIR = SCRIPT_DIR / "note_images"
-# ブラウザ起動は note.browser で管理（USER_DATA_DIR, _BROWSER_PROFILE）
 MANIFEST_PATH = SCRIPT_DIR / "data" / "manifests" / "note_manifest.json"
 
 # note アカウント情報
@@ -165,7 +164,6 @@ def _resolve_magazine(meta: dict) -> str:
     return meta.get("magazine") or DEFAULT_MAGAZINE
 
 
-# ブラウザ起動・終了は note.browser に一元化
 from note.browser import _launch_browser, _close_browser  # noqa: F401
 
 

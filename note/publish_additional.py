@@ -16,8 +16,9 @@ import time
 
 from playwright.sync_api import Page
 
+from note.browser import _launch_browser, _close_browser
 from note.publish import (
-    _launch_browser, _close_browser, _markdown_to_note_html,
+    _markdown_to_note_html,
     _split_body_for_note, _split_body_into_blocks,
     _insert_body_with_cards, _insert_body_blocks,
     _URL_LINE_RE_PUBLISH as _URL_LINE_RE,
