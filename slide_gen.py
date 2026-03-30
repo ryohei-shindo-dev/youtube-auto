@@ -1241,6 +1241,19 @@ def _pick_thumbnail_photo(registry: list[dict]) -> pathlib.Path | None:
     if not all_photos:
         return None
 
+    # 縦型写真のみ使用（横型はクロップで被写体が切れるため）
+    portrait_photos = []
+    for p in all_photos:
+        try:
+            with Image.open(p) as img:
+                if img.height >= img.width:
+                    portrait_photos.append(p)
+        except Exception:
+            continue
+    if not portrait_photos:
+        return None
+    all_photos = portrait_photos
+
     # 直近N本で使った写真パスを集める
     recent_photos = set()
     for entry in registry[-_THUMBNAIL_NO_REUSE_WINDOW:]:

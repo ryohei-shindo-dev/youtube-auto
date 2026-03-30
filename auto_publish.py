@@ -95,6 +95,21 @@ def _read_hook_text(folder_name: str) -> str:
     return ""
 
 
+def _read_thumbnail_text(folder_name: str) -> str:
+    """done/{folder}/transcript.json から resolve の slide_text を取得する。"""
+    path = DONE_DIR / folder_name / "transcript.json"
+    if not path.exists():
+        return ""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for s in data.get("scenes", []):
+            if s.get("role") == "resolve":
+                return s.get("slide_text", "")
+    except (json.JSONDecodeError, OSError):
+        pass
+    return ""
+
+
 def extract_hook_stem(hook_text: str) -> str:
     """hook テキストから句読点を除去し、既知ステムに一致するものを返す。"""
     cleaned = hook_text.rstrip("。？！?! ")
@@ -119,6 +134,12 @@ def _build_recent_hook_context(rows: list, platforms: list | None) -> dict | Non
     recent_hooks = _get_recent_published_hooks(rows, platform=check_pf)
     if not recent_hooks:
         return None
+    # 直近公開済みのサムネテキスト（resolve slide_text）を収集
+    recent_thumb_texts = []
+    for h in recent_hooks[:_HOOK_TEXT_PROXIMITY]:
+        tt = _read_thumbnail_text(h["folder"])
+        if tt:
+            recent_thumb_texts.append(tt.rstrip("。？！?! "))
     return {
         "texts": [
             h["hook_text"].rstrip("。？！?! ")
@@ -129,23 +150,29 @@ def _build_recent_hook_context(rows: list, platforms: list | None) -> dict | Non
             h["hook_category"] for h in recent_hooks[:_CATEGORY_PROXIMITY]
             if h["hook_category"]
         ],
+        "thumb_texts": recent_thumb_texts,
     }
 
 
-def _check_hook_conflict(folder: str, ctx: dict) -> tuple[str, str, str, bool, bool, bool]:
-    """候補の hook を ctx と照合し、(cleaned, stem, category, text衝突, stem衝突, cat衝突) を返す。
+def _check_hook_conflict(folder: str, ctx: dict) -> tuple[str, str, str, bool, bool, bool, bool]:
+    """候補の hook を ctx と照合し、(cleaned, stem, category, text衝突, stem衝突, cat衝突, thumb衝突) を返す。
     hook が取得できなければ全て False（衝突なし扱い）。"""
     hook_text = _read_hook_text(folder)
     if not hook_text:
-        return "", "", "", False, False, False
+        return "", "", "", False, False, False, False
     cleaned = hook_text.rstrip("。？！?! ")
     stem = extract_hook_stem(hook_text)
     category = extract_hook_category(hook_text)
+    # サムネテキスト（resolve slide_text）の重複チェック
+    thumb_text = _read_thumbnail_text(folder)
+    thumb_cleaned = thumb_text.rstrip("。？！?! ") if thumb_text else ""
+    thumb_hit = bool(thumb_cleaned and thumb_cleaned in ctx.get("thumb_texts", []))
     return (
         cleaned, stem, category,
         cleaned in ctx["texts"],
         stem in ctx["stems"],
         bool(category and category in ctx["categories"]),
+        thumb_hit,
     )
 
 
@@ -454,7 +481,7 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
         ctx = _build_recent_hook_context(rows, platforms)
         if ctx:
             for candidate in partial:
-                cleaned, stem, _, text_hit, stem_hit, _ = _check_hook_conflict(candidate["folder"], ctx)
+                cleaned, stem, _, text_hit, stem_hit, _, _ = _check_hook_conflict(candidate["folder"], ctx)
                 if not text_hit and not stem_hit:
                     print(f"  [hook近接] ✓ partial「{cleaned}」は直近と被りなし")
                     return candidate
@@ -483,17 +510,22 @@ def get_next_publishable(rows: list | None = None, platforms: list | None = None
     best_fallback_recency = -1  # ステムの最終出現位置（大きいほど古い＝良い）
 
     for candidate in generated:
-        c_cleaned, c_stem, c_category, text_hit, stem_hit, cat_hit = _check_hook_conflict(
+        c_cleaned, c_stem, c_category, text_hit, stem_hit, cat_hit, thumb_hit = _check_hook_conflict(
             candidate["folder"], ctx)
         if not c_cleaned:
             return candidate
 
-        if not text_hit and not stem_hit and not cat_hit:
+        if not text_hit and not stem_hit and not cat_hit and not thumb_hit:
             print(f"  [hook近接] ✓ hook「{c_cleaned}」は直近と被りなし")
             return candidate
 
         if text_hit:
             print(f"  [hook近接] × hook「{c_cleaned}」が直近と一致 → スキップ")
+            continue
+
+        if thumb_hit:
+            thumb_t = _read_thumbnail_text(candidate["folder"]).rstrip("。？！?! ")
+            print(f"  [サムネ近接] × サムネ「{thumb_t}」が直近と一致 → スキップ")
             continue
 
         # フォールバック用: ステムの最終出現位置が最も古い候補を記録
