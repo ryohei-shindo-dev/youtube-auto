@@ -1,7 +1,7 @@
 # PENDING_TASKS - 残タスク一覧
 
-> 最終更新: 2026-03-26
-> Codex / Claude Code 共有。各タスクは「状態 → 次のアクション → 関連ファイル」だけ書く。
+> 最終更新: 2026-03-30
+> Claude Code 用。各タスクは「状態 → 次のアクション → 関連ファイル」だけ書く。
 
 ---
 
@@ -13,12 +13,22 @@
 
 ## 2. 5分動画（長尺）
 
-**状態**: 4本公開済み（4本目: 配当株インデックス比較）。再生数は低め。
+**状態**: 5本公開済み。比較テーマ（3〜4本目）が圧倒的に強い。
+
+**実績（3/30時点）**:
+| # | テーマ | 公開日 | 再生数 | 高評価 |
+|---|--------|--------|--------|--------|
+| 1 | 積み立て3年目がつらい理由 | 3/14 | 6 | 1 |
+| 2 | 含み損がつらい夜に聞く整理 | 3/14 | 7 | 1 |
+| 3 | オルカンvsS&P500 | 3/16 | 292 | 3 |
+| 4 | 高配当vsインデックス | 3/21 | 95 | 2 |
+| 5 | 一括vs積立投資 | 3/27 | 2 | 1 |
 
 **次のアクション**:
-1. 4本の反応を比較し、5本目以降の方針を判断（4月）
+1. 6本目テーマをChatGPTに相談中（3/30）
+2. 5本目の初動が弱い原因の仮説検証
 
-**関連ファイル**: `long_video_builder_04.py`, `long_video/`, `long_voice_gen.py`
+**関連ファイル**: `long_video_builder.py`, `long_video/`, `long_voice_gen.py`
 
 ---
 
@@ -47,7 +57,7 @@
 1. 19:00戻し後の回復を確認（3/27〜）
 2. プロンプトA/Bは引き続き観察
 
-**関連ファイル**: `script_gen.py`, `publish_queue.json`, `analytics_collect.py`
+**関連ファイル**: `script_gen.py`, `data/queues/publish_queue.json`, `analytics_collect.py`
 
 ---
 
@@ -62,18 +72,13 @@
    - 暴落系・売りたい系・含み損系・高配当系は増やさない
 3. Cランク在庫38本の破棄フラグ + 19本の再査定
 
-**関連ファイル**: `batch_gen.py`, `batch_api_gen.py`, `publish_queue.json`
+**関連ファイル**: `batch_gen.py`, `batch_api_gen.py`, `data/queues/publish_queue.json`
 
 ---
 
 ## 6. note 運用
 
 **状態**: 109本（manifest基準、2026-03-26時点）。有料記事2本含む。スケジュール管理を正本一本化済み（3/26）。
-
-**3/26実施**:
-- スケジュール正本一本化: `full_schedule.json` を唯一の正本に。`save_schedule()` で統一バリデーション
-- `reschedule_plan.json` → `reschedule_diff_log.json` に改名（ログ専用）
-- note記事同時公開障害（3/26 12:30）の修正+再発防止
 
 **次のアクション**:
 1. カバーできていないキーワードの新記事（新NISA含み損 / 何を買う / オルカンvsS&P500どっち / 月いくら / 暴落時どうする / iDeCo vs 新NISA）
@@ -82,7 +87,7 @@
 4. 中期: apply後の照合（Playwright→note.com再取得して検証）
 5. 中期: desired/applied/sync_status の追加
 
-**関連ファイル**: `note/gen.py`, `note/publish.py`, `note_manifest.json`, `note/schedule.py`, `full_schedule.json`（旧パス note_*.py は互換ラッパー経由で動作）
+**関連ファイル**: `note/gen.py`, `note/publish.py`, `data/manifests/note_manifest.json`, `note/schedule.py`, `data/schedule/full_schedule.json`
 
 ---
 
@@ -94,7 +99,7 @@
 1. ラベル解除を確認（警告画面消失・検索制限解消）
 2. 解除確認後、note告知の自動化を段階的に再開
 
-**関連ファイル**: `auto_publish.py`, `x_upload.py`, `x_auto_post.py`, `note_x_announce.py`
+**関連ファイル**: `auto_publish.py`, `x_upload.py`, `x_auto_post.py`, `note/x_announce.py`
 
 ---
 
@@ -106,7 +111,7 @@
 - 続ける: 数本でも伸びる型がある / 運用負荷が低い / botっぽさなし
 - やめる: 露出弱い / 同質化 / 他媒体より優先度低い
 
-**関連ファイル**: `threads_upload.py`, `threads_auto_post.py`, `threads_candidates.json`
+**関連ファイル**: `threads_upload.py`, `threads_auto_post.py`, `data/content/threads_candidates.json`
 
 ---
 
@@ -129,7 +134,23 @@
 
 ---
 
-## 自動実行ジョブ稼働状況（2026-03-25更新）
+## 10. リポジトリ整理（2026-03-30 完了）
+
+**状態**: 全4段階完了。
+
+**実施済み**:
+- scratch/ 棚卸し + data/ 集約 + long_video_builder 共通化
+- note/ パッケージ化（17ファイル）+ browser/convert/editor 切り出し + article_updater 廃止
+- script_gen.py 分割（1619→836行）: 定数を script_config.py に分離
+- slide_gen.py 分割（1714→1035行）: サムネ生成を slide_thumbnail.py に分離
+
+**残り（優先度低）**:
+- note/publish.py + publish_additional.py 統合 → 不要と判断済み
+- slide_gen.py のさらなる分割（写真処理327行の独立化）
+
+---
+
+## 自動実行ジョブ稼働状況（2026-03-30更新）
 
 | ジョブ | 時刻 | 状態 |
 |-------|------|------|
@@ -148,12 +169,11 @@
 
 | 優先度 | タスク | 状態 |
 |--------|--------|------|
-| 中 | 19:00戻し後の回復確認 | 3/26に12:10→19:00に戻し |
-| 低 | X偽装行為ラベル | 待ち（確認手段なし、こちらからやることなし） |
-| 中 | Shorts在庫補充（3/28以降） | キュー62本（31日分）。Cランク整理+補充12〜16本 |
-| 中 | note新記事+チャートテスト | 109本。比較整理系3〜5本でチャート埋め込みテスト |
-| 中 | note apply後照合 | スケジュール正本一本化済み。次は適用後検証 |
-| 中 | データ管理 第2段階 | SQLite移行（publish_queue + thumbnail_registry） |
+| 中 | 長尺6本目テーマ判断 | ChatGPT相談中（3/30） |
+| 中 | 19:00戻し後の回復確認 | 3/26に戻し、観察中 |
+| 低 | X偽装行為ラベル | 待ち（こちらからやることなし） |
+| 中 | Shorts在庫補充 | キュー62本（31日分）。補充12〜16本 |
+| 中 | note新記事+チャートテスト | 109本。比較整理系でテスト |
+| 中 | データ管理 第2段階 | SQLite移行 |
 | 低 | Threads判定（4/2） | テスト稼働中 |
-| 低 | 長尺動画 5本目判断 | 4本の反応比較（4月） |
 | 低 | 英語版チャンネル | 検討・準備済み |
