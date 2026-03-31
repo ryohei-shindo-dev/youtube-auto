@@ -267,8 +267,16 @@ def generate_all_slides(
             else:
                 path = _generate_slide(text, role, theme, output_path)
             paths.append(path)
+            # scene に slide_path を直接書き込む（暗黙契約の排除）
+            scene["slide_path"] = str(path)
             size_kb = path.stat().st_size // 1024
             print(f"    保存完了: {path.name}（{size_kb}KB）")
+
+            # hook 用テキストオーバーレイ（動画背景合成用）も生成
+            if role == "hook":
+                ovl_path = output_dir / f"slide_{idx:02d}_text.png"
+                generate_text_overlay(text, role, ovl_path)
+                scene["text_overlay_path"] = str(ovl_path)
         except Exception as e:
             print(f"    [エラー] スライド{idx}の生成に失敗: {e}")
 

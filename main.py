@@ -138,10 +138,7 @@ def main():
 
     # ── Step 3: スライド画像生成 ──
     print("\n[Step 3/9] スライド画像生成")
-    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
-    for i, scene in enumerate(scenes):
-        if i < len(slide_paths):
-            scene["slide_path"] = str(slide_paths[i])
+    slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
 
     # ── Step 4: サムネフレーム生成（動画先頭に埋め込む） ──
     print("\n[Step 4/9] サムネフレーム生成")

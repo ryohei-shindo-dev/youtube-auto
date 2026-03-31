@@ -261,6 +261,7 @@ def generate_one(
     batch_hook_texts: list = None,
     batch_resolve_texts: list = None,
     used_texts: list = None,
+    queue_registry=None,
 ) -> dict:
     """1本のShortsを生成する。成功時はファイル情報を返す。"""
     print(f"\n{'='*60}")
@@ -309,10 +310,7 @@ def generate_one(
 
     # Step 3: スライド画像生成
     print("  [3/7] スライド画像生成...")
-    slide_paths = slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
-    for i, scene in enumerate(scenes):
-        if i < len(slide_paths):
-            scene["slide_path"] = str(slide_paths[i])
+    slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
 
     # Step 4: サムネフレーム生成（動画先頭に埋め込む）
     print("  [4/7] サムネフレーム生成...")
@@ -328,6 +326,11 @@ def generate_one(
         script_data["thumbnail_photo"] = thumb_result["photo"]
         if used_texts is not None:
             used_texts.append(thumb_result["text"])
+
+    # Step 4.5: hook 動画背景（環境変数 VIDEO_HOOK=1 で有効化）
+    if os.environ.get("VIDEO_HOOK") == "1":
+        from video_bg_selector import assign_hook_video_bg
+        assign_hook_video_bg(scenes)
 
     # Step 5: 動画合成
     print("  [5/7] 動画合成...")
@@ -436,6 +439,7 @@ def main():
                 topic, theme, i, target,
                 batch_data_texts, batch_hook_texts, batch_resolve_texts,
                 used_texts=batch_thumb_texts,
+                queue_registry=queue_registry,
             )
 
             # アーカイブ（フォルダ名確定）

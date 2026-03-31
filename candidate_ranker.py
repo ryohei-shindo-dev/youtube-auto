@@ -129,8 +129,15 @@ def score_script(script_data: dict) -> dict:
     """
     insights = load_insights()
     title_rules = insights.get("title_rules", {})
-    strong_hooks_from_insights = insights.get("strong_hooks", [])
-    weak_hooks_from_insights = insights.get("weak_hooks", [])
+    # insights の hook は文字列リストまたは辞書リスト（{"text": ...}）の両方に対応
+    raw_strong = insights.get("strong_hooks", [])
+    raw_weak = insights.get("weak_hooks", [])
+    strong_hooks_from_insights = [
+        (h["text"] if isinstance(h, dict) else h) for h in raw_strong
+    ]
+    weak_hooks_from_insights = [
+        (h["text"] if isinstance(h, dict) else h) for h in raw_weak
+    ]
 
     title = script_data.get("title", "")
     scenes = script_data.get("scenes", [])
