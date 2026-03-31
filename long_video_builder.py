@@ -128,6 +128,32 @@ def _pick_landscape_photo(category: str) -> pathlib.Path:
     return random.choice(landscape)
 
 
+VIDEOS_DIR = BASE_DIR / "assets" / "videos" / "long_emotion"
+
+
+def _resolve_video_bg(role_video_bg: dict) -> dict[str, str]:
+    """build_config の role_video_bg を実パスに解決する。
+
+    値が "video:category" の場合、該当カテゴリからランダムに1本選択。
+    値が既存パスの場合はそのまま使用。
+    """
+    resolved = {}
+    for role, spec in role_video_bg.items():
+        if spec.startswith("video:"):
+            category = spec.split(":", 1)[1]
+            cat_dir = VIDEOS_DIR / category
+            if cat_dir.exists():
+                videos = list(cat_dir.glob("*.mp4"))
+                if videos:
+                    chosen = random.choice(videos)
+                    resolved[role] = str(chosen)
+                    continue
+            print(f"  [警告] 動画素材なし: {spec} → 写真背景にフォールバック")
+        elif pathlib.Path(spec).exists():
+            resolved[role] = spec
+    return resolved
+
+
 # ── メイン処理 ────────────────────────────────────────
 
 def main():
@@ -178,6 +204,9 @@ def main():
         overlay_paths.append(ov_path)
         print(f"  [{index:02d}] {card['role']:15s} {card['title']:15s} ({card['duration']:.1f}秒)")
 
+    # 動画背景の解決（role_video_bg の "video:category" を実パスに変換）
+    role_video_bg = _resolve_video_bg(config.get("role_video_bg", {}))
+
     # 動画合成
     print("\n動画合成中...")
     output_video = long_dir / "output.mp4"
@@ -185,6 +214,7 @@ def main():
         resolved, background_paths, overlay_paths,
         role_audio, role_zoom_dir, role_pan_dir,
         output_video, zoom_ratio,
+        role_video_bg=role_video_bg,
     )
 
     # メタデータ
@@ -471,6 +501,7 @@ def _compose_video(
     role_pan_dir: dict[str, str],
     output_video: pathlib.Path,
     zoom_ratio: float = DEFAULT_ZOOM_RATIO,
+    role_video_bg: dict[str, str] = None,
 ):
     groups = _group_by_role(storyboard, background_paths, overlay_paths)
 
@@ -498,10 +529,14 @@ def _compose_video(
             print(f"  ロール [{role}] {len(cards)}カード {total_dur:.1f}秒 （パン: {pan_dir}）...")
 
             role_video = tmp / f"role_{gi:02d}_{role}.mp4"
+            vbg = (role_video_bg or {}).get(role, "")
+            if vbg:
+                print(f"    動画背景: {pathlib.Path(vbg).name}")
             _make_role_clip(
                 group["bgs"][0], group["overlays"], cards, total_dur,
                 role_video, zoom_out=(zoom_dir == "out"), pan_dir=pan_dir,
                 zoom_ratio=zoom_ratio,
+                video_bg_path=vbg,
             )
             video_paths.append(role_video)
 
@@ -536,7 +571,10 @@ def _make_role_clip(
     zoom_out: bool = False,
     pan_dir: str = "center",
     zoom_ratio: float = DEFAULT_ZOOM_RATIO,
+    video_bg_path: str = "",
 ):
+    use_video_bg = bool(video_bg_path and pathlib.Path(video_bg_path).exists())
+
     up_w = int(VIDEO_WIDTH * UPSCALE)
     up_h = int(VIDEO_HEIGHT * UPSCALE)
     cx = (up_w - VIDEO_WIDTH) // 2
@@ -565,13 +603,23 @@ def _make_role_clip(
         x_expr = f"'{cx - abs(dx_factor)//2} + {dx_factor}*t/{total_dur}'"
         y_expr = f"'{cy - abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
 
-    crop_expr = (
-        f"scale={up_w}:{up_h},"
-        f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
-        f"x={x_expr}:y={y_expr}"
-    )
+    if use_video_bg:
+        # 動画背景: リサイズ+軽い暗め補正（Ken Burns不要、動画自体が動く）
+        crop_expr = (
+            f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
+            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},"
+            f"eq=brightness=-0.06:saturation=0.85"
+        )
+        inputs = ["-stream_loop", "-1", "-i", str(video_bg_path)]
+    else:
+        # 静止画背景: Ken Burns ズーム/パン
+        crop_expr = (
+            f"scale={up_w}:{up_h},"
+            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
+            f"x={x_expr}:y={y_expr}"
+        )
+        inputs = ["-loop", "1", "-i", str(background_path)]
 
-    inputs = ["-loop", "1", "-i", str(background_path)]
     for ov_path in overlay_paths:
         inputs += ["-loop", "1", "-i", str(ov_path)]
 
