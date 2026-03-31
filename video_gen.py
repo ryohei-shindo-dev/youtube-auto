@@ -234,36 +234,54 @@ def _make_video_bg_clip(
     duration: float,
     output_path: pathlib.Path,
 ) -> bool:
-    """動画背景 + スライド画像のテキスト部分 + 音声 でクリップを生成する。
+    """動画背景 + テキストオーバーレイ + 音声 でクリップを生成する。
 
-    方式: 動画背景を暗くリサイズ → 下半分にスライドのテキスト領域をブレンド合成。
-    スライド画像の下部60%（テキスト領域）を動画の上に半透明で重ねる。
+    方式:
+    1. slide_gen.generate_text_overlay でテキスト+グラデーションだけの透明PNGを生成
+    2. 動画背景を全画面リサイズ+やや暗く
+    3. テキストPNGを上に重ねる
     """
-    # filter_complex:
-    # [0] 動画BGをクロップ+暗く
-    # [1] スライド画像（テキスト入り）の下部をクロップして半透明で重ねる
-    vf_bg = (
-        f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:force_original_aspect_ratio=increase,"
-        f"crop={SHORTS_WIDTH}:{SHORTS_HEIGHT},"
-        f"eq=brightness=-0.18:saturation=0.7"
-    )
-    # スライドの下部55%（テキスト領域）をクロップ
-    text_h = int(SHORTS_HEIGHT * 0.55)
-    text_y = SHORTS_HEIGHT - text_h
+    import json as _json
 
+    # スライド画像からテキスト情報を取得するために transcript を探す
+    # slide_path の隣にある transcript.json からロールとテキストを取得
+    slide_p = pathlib.Path(slide_path)
+    text = ""
+    role = "hook"
+
+    # transcript.json から該当シーンのslide_textを探す
+    transcript_path = slide_p.parent / "transcript.json"
+    if transcript_path.exists():
+        try:
+            tdata = _json.loads(transcript_path.read_text(encoding="utf-8"))
+            for s in tdata.get("scenes", []):
+                if s.get("role") == "hook":
+                    text = s.get("slide_text", "")
+                    break
+        except Exception:
+            pass
+
+    if not text:
+        # フォールバック: スライド画像をそのまま使う
+        print("    [動画背景] テキスト情報なし。スライド画像で合成します。")
+        return _make_video_bg_clip_simple(video_bg, slide_path, audio_path, duration, output_path)
+
+    # テキストオーバーレイPNG生成
+    overlay_path = output_path.parent / f"_ovl_{output_path.stem}.png"
+    from slide_gen import generate_text_overlay
+    generate_text_overlay(text, role, overlay_path)
+
+    # FFmpeg: 動画背景 + テキストPNG(ループ) + 音声
     cmd = [
         "ffmpeg", "-y",
         "-i", str(video_bg),
-        "-loop", "1", "-i", str(slide_path),
+        "-loop", "1", "-i", str(overlay_path),
         "-i", str(audio_path),
         "-filter_complex",
-        # 動画背景を暗くリサイズ
-        f"[0:v]{vf_bg}[bg];"
-        # スライドの下部テキスト領域をクロップ+半透明化
-        f"[1:v]crop={SHORTS_WIDTH}:{text_h}:0:{text_y},"
-        f"format=rgba,colorchannelmixer=aa=0.85[txt];"
-        # 動画背景の下部にテキスト領域を重ねる
-        f"[bg][txt]overlay=0:{text_y}:shortest=1[out]",
+        f"[0:v]scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={SHORTS_WIDTH}:{SHORTS_HEIGHT},"
+        f"eq=brightness=-0.08:saturation=0.85[bg];"
+        f"[bg][1:v]overlay=0:0[out]",
         "-map", "[out]",
         "-map", "2:a",
         "-c:v", "libx264",
@@ -280,6 +298,9 @@ def _make_video_bg_clip(
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=120,
         )
+        # テンポラリオーバーレイ削除
+        if overlay_path.exists():
+            overlay_path.unlink()
         if result.returncode != 0:
             _save_debug(f"ffmpeg_videobg_error_{output_path.stem}.txt", result.stderr)
             return False
@@ -287,6 +308,46 @@ def _make_video_bg_clip(
     except subprocess.TimeoutExpired:
         print("    FFmpeg タイムアウト（120秒）")
         return False
+    except Exception as e:
+        print(f"    FFmpeg エラー: {e}")
+        return False
+
+
+def _make_video_bg_clip_simple(
+    video_bg: str,
+    slide_path: str,
+    audio_path: str,
+    duration: float,
+    output_path: pathlib.Path,
+) -> bool:
+    """フォールバック: スライド画像を半透明で動画に重ねる。"""
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_bg),
+        "-loop", "1", "-i", str(slide_path),
+        "-i", str(audio_path),
+        "-filter_complex",
+        f"[0:v]scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={SHORTS_WIDTH}:{SHORTS_HEIGHT},"
+        f"eq=brightness=-0.12:saturation=0.8[bg];"
+        f"[1:v]scale={SHORTS_WIDTH}:{SHORTS_HEIGHT},"
+        f"format=rgba,colorchannelmixer=aa=0.65[ovl];"
+        f"[bg][ovl]overlay=0:0:shortest=1[out]",
+        "-map", "[out]",
+        "-map", "2:a",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(duration),
+        "-movflags", "+faststart",
+        str(output_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            _save_debug(f"ffmpeg_videobg_error_{output_path.stem}.txt", result.stderr)
+            return False
+        return output_path.exists()
     except Exception as e:
         print(f"    FFmpeg エラー: {e}")
         return False

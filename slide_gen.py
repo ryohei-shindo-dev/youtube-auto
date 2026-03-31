@@ -449,6 +449,39 @@ def _generate_slide_v2_portrait(
     return output_path
 
 
+def generate_text_overlay(
+    text: str,
+    role: str,
+    output_path: pathlib.Path,
+) -> pathlib.Path:
+    """テキスト+下部グラデーションだけの透明PNGを生成する。
+
+    動画背景と合成する際に使用。写真なし、テキストと暗いグラデーションのみ。
+    """
+    canvas = Image.new("RGBA", (SHORTS_WIDTH, SHORTS_HEIGHT), (0, 0, 0, 0))
+
+    # 下部にグラデーション（透明→半透明暗色）
+    bg_color = V2_TEXT_BG.get(role, (40, 44, 62))
+    grad_start = int(SHORTS_HEIGHT * 0.45)
+    for y in range(grad_start, SHORTS_HEIGHT):
+        ratio = (y - grad_start) / (SHORTS_HEIGHT - grad_start)
+        alpha = int(220 * (ratio ** 1.3))
+        for x in range(SHORTS_WIDTH):
+            canvas.putpixel((x, y), (*bg_color, alpha))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # テキスト描画（v2と同じ配置）
+    text_color = ROLE_TEXT_COLOR.get(role, (255, 255, 255))
+    text_area_top = int(SHORTS_HEIGHT * 0.60)
+    text_area_bottom = SHORTS_HEIGHT - BOTTOM_SAFE_AREA
+    text_area_h = max(0, text_area_bottom - text_area_top)
+    _draw_text_in_area(draw, text, text_color, text_area_top, text_area_h, role=role)
+
+    canvas.save(str(output_path), "PNG")
+    return output_path
+
+
 def _generate_slide_v2_landscape(
     text: str,
     role: str,
