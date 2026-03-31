@@ -1,0 +1,105 @@
+{
+  "title": "取り崩しが怖い人へ｜出口戦略で先に整理しておきたい不安",
+  "description": "積み上げてきたお金を、取り崩す。\nその日のことを考えるだけで怖い。\n\nこの動画では、取り崩しの怖さがどこから来ているのかを静かに整理します。\n4%ルールの考え方や、退職初期の下落リスクを紹介しながら、\n「正解がわからないまま始める重さ」を言葉にしていきます。\n\n長期投資 / インデックス投資 / NISA / 出口戦略 を前提にした内容です。\n\n参考:\n・Bengen (1994) - 安全な引き出し率の研究\n・Trinity Study / Cooley et al. - 4%ルールの検証\n・Sequence of returns risk - 退職初期の下落リスク\n\n※投資助言ではありません\n※特定の金融商品の購入・売却を勧めるものではありません\n\n#出口戦略 #取り崩し #長期投資 #NISA #資産形成 #ガチホ",
+  "tags": ["出口戦略", "取り崩し", "4%ルール", "長期投資", "NISA", "資産形成", "インデックス投資", "ガチホのモチベ"],
+
+  "role_order": ["hook", "overview", "why_painful", "data", "interpret", "data2", "action", "closing"],
+
+  "role_audio": {
+    "hook": "01_hook.mp3",
+    "overview": "02_overview.mp3",
+    "why_painful": "03_why_painful.mp3",
+    "data": "04_data.mp3",
+    "interpret": "05_interpret.mp3",
+    "data2": "06_data2.mp3",
+    "action": "07_action.mp3",
+    "closing": "08_closing.mp3"
+  },
+
+  "role_bg": {
+    "hook": "random:anxiety",
+    "overview": "random:steady",
+    "why_painful": "random:anxiety",
+    "data": "random:data",
+    "interpret": "random:steady",
+    "data2": "random:data",
+    "action": "random:recovery",
+    "closing": "random:recovery"
+  },
+
+  "role_video_bg": {
+    "hook": "video:anxiety",
+    "why_painful": "video:anxiety",
+    "closing": "video:steady"
+  },
+
+  "role_bg_alt": {
+    "why_painful": ["random:anxiety", "random:comparison", "random:anxiety"],
+    "interpret": ["random:steady", "random:comparison"],
+    "data2": ["random:data", "random:steady"],
+    "action": ["random:steady", "random:recovery"],
+    "closing": ["random:recovery", "random:steady"]
+  },
+
+  "role_zoom_dir": {
+    "hook": "in", "overview": "in", "why_painful": "in", "data": "in",
+    "interpret": "out", "data2": "in", "action": "out", "closing": "out"
+  },
+
+  "role_pan_dir": {
+    "hook": "left_to_right", "overview": "center", "why_painful": "right_to_left",
+    "data": "bottom_to_top", "interpret": "center", "data2": "left_to_right",
+    "action": "top_to_bottom", "closing": "center"
+  },
+
+  "zoom_ratio": 0.07,
+
+  "thumbnail": {
+    "bg_photo": "random:anxiety",
+    "brightness": 0.75,
+    "blur": 1,
+    "overlay_alpha": 45,
+    "main_lines": ["取り崩しが", "怖い人へ"],
+    "sub_text": "出口戦略で先に整理しておきたい不安",
+    "main_font_size": 130,
+    "sub_font_size": 56,
+    "text_x": 60,
+    "text_y": 140,
+    "line_height": 148
+  },
+
+  "storyboard": [
+    {"role": "hook", "title": "積み上げたお金を\n取り崩す", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "hook", "title": "考えるだけで怖い", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "hook", "title": "怖さの正体を\n整理する", "body": "", "share": 1.0, "layout": "full"},
+
+    {"role": "overview", "title": "減るから\nだけじゃない", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "overview", "title": "不確実さと\n正解のなさ", "body": "", "share": 1.0, "layout": "full"},
+
+    {"role": "why_painful", "title": "毎月、減っていく\n画面を見る", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "why_painful", "title": "暴落中に\n取り崩す恐怖", "body": "", "share": 1.0, "layout": "full", "bg_idx": 0},
+    {"role": "why_painful", "title": "回復するための\n元本が減る", "body": "", "share": 0.8, "layout": "full", "bg_idx": 1},
+    {"role": "why_painful", "title": "いつまで持つか\nわからない", "body": "", "share": 1.0, "layout": "full", "bg_idx": 2},
+    {"role": "why_painful", "title": "答えが出ないまま\n毎月引き出す", "body": "", "share": 0.8, "layout": "full", "bg_idx": 2},
+
+    {"role": "data", "title": "4%ルール", "body": "よく使われる取り崩しの目安", "share": 1.0, "layout": "number"},
+    {"role": "data", "title": "30年以上持続した\nケースが多い", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "data", "title": "ただし万能の\n正解ではない", "body": "", "share": 1.0, "layout": "full"},
+
+    {"role": "interpret", "title": "前提が変われば\n結果も変わる", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "interpret", "title": "目安があっても\n安心にならない", "body": "", "share": 1.0, "layout": "full", "bg_idx": 0},
+    {"role": "interpret", "title": "正解かどうかは\n何年も後にわかる", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+
+    {"role": "data2", "title": "最初の数年が\n一番重い", "body": "退職初期の下落リスク", "share": 1.0, "layout": "number"},
+    {"role": "data2", "title": "下がる順番が\n先に来ると響く", "body": "", "share": 1.0, "layout": "full", "bg_idx": 0},
+    {"role": "data2", "title": "出口のタイミングは\n選びにくい", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+
+    {"role": "action", "title": "仮の数字を\n1つ置いてみる", "body": "", "share": 1.0, "layout": "full"},
+    {"role": "action", "title": "月いくら？\n何歳から？", "body": "正解じゃなくていい", "share": 1.0, "layout": "corner", "bg_idx": 0},
+    {"role": "action", "title": "輪郭が見えると\n少し楽になる", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1},
+
+    {"role": "closing", "title": "出口はまだ遠くても", "body": "", "share": 1.2, "layout": "full"},
+    {"role": "closing", "title": "怖さの整理は\n今できる", "body": "", "share": 0.8, "layout": "full", "bg_idx": 0},
+    {"role": "closing", "title": "ガチホのモチベ", "body": "", "share": 1.0, "layout": "full", "bg_idx": 1}
+  ]
+}

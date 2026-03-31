@@ -403,9 +403,13 @@ def _draw_corner_layout(draw: ImageDraw.Draw, card: dict):
         fill=(255, 255, 255), stroke_width=5, stroke_fill=(0, 0, 0),
     )
     if card.get("body"):
+        # title の実際の高さを計算して body の Y 位置を調整（重なり防止）
+        title_bbox = draw.multiline_textbbox(
+            (text_x, text_y), card["title"], font=title_font)
+        body_y = title_bbox[3] + 20  # title 下端 + 20px マージン
         wrapped_body = "\n".join(textwrap.wrap(card["body"], width=14, break_long_words=False))
         draw.multiline_text(
-            (text_x + 2, text_y + 130), wrapped_body, font=body_font,
+            (text_x + 2, body_y), wrapped_body, font=body_font,
             fill=(235, 240, 245), spacing=14,
             stroke_width=3, stroke_fill=(0, 0, 0),
         )
@@ -604,13 +608,22 @@ def _make_role_clip(
         y_expr = f"'{cy - abs(dy_factor)//2} + {dy_factor}*t/{total_dur}'"
 
     if use_video_bg:
-        # 動画背景: リサイズ+軽い暗め補正（Ken Burns不要、動画自体が動く）
+        # 動画背景: 強制リサイズ+暗め補正。ズーム/パンは入れない（動画自体が動く）
+        # setpts でスロー再生してセクション全体をカバー（ループ接合ノイズ回避）
+        import subprocess as _sp
+        probe = _sp.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "csv=p=0", video_bg_path],
+            capture_output=True, text=True)
+        src_dur = float(probe.stdout.strip() or "10")
+        slowdown = max(1.0, total_dur / src_dur)  # 1.0以上 = 同速 or スロー
         crop_expr = (
+            f"setpts={slowdown:.3f}*PTS,"
             f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
             f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},"
             f"eq=brightness=-0.06:saturation=0.85"
         )
-        inputs = ["-stream_loop", "-1", "-i", str(video_bg_path)]
+        inputs = ["-i", str(video_bg_path)]
     else:
         # 静止画背景: Ken Burns ズーム/パン
         crop_expr = (

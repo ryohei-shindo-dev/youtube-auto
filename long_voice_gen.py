@@ -917,6 +917,120 @@ SCRIPT_06_SCENES = [
 ]
 
 
+# ── 7本目: 取り崩しが怖い人へ ──────────────────────────
+SCRIPT_07_SCENES = [
+    {
+        "role": "hook",
+        "text": (
+            "積み上げてきたお金を、取り崩す。\n"
+            "その日が来ることは知っている。\n"
+            "でも、考えるだけで怖い。\n"
+            "\n"
+            "今日は、\n"
+            "取り崩しの怖さがどこから来ているのかを、\n"
+            "静かに整理します。"
+        ),
+    },
+    {
+        "role": "overview",
+        "text": (
+            "出口が怖いのは、お金が減るからだけではありません。\n"
+            "「いつまで持つかわからない」という不確実さ。\n"
+            "「正解がわからないまま始める」という重さ。\n"
+            "この2つが混ざるから、怖さが重くなりやすいです。"
+        ),
+    },
+    {
+        "role": "why_painful",
+        "text": (
+            "取り崩しが始まると、毎月、口座の数字が減っていきます。\n"
+            "積み立てのときは、増えていく画面を見ていた。\n"
+            "それが、減っていく画面に変わる。\n"
+            "この感覚は、想像以上に重いとされています。\n"
+            "\n"
+            "さらに、暴落が重なると、\n"
+            "含み損を見ながら引き出すことになる。\n"
+            "減ったところから取り崩すと、戻るための土台も小さくなる。\n"
+            "これが、出口を遠ざけたくなる理由の一つです。\n"
+            "\n"
+            "そして、一番重いのは、いつまで持つかわからないこと。\n"
+            "30年持つのか。25年で尽きるのか。\n"
+            "答えが出ないまま、毎月引き出す判断を続ける。\n"
+            "これが、取り崩しの本当の怖さです。"
+        ),
+    },
+    {
+        "role": "data",
+        "text": (
+            "出口を考えるとき、\n"
+            "よく参照される目安の一つに、4%ルールがあります。\n"
+            "これは、資産の4%を毎年取り崩しても、\n"
+            "多くのケースで30年以上持続した、\n"
+            "という研究に基づく考え方です。\n"
+            "\n"
+            "米国の長期データに基づくもので、\n"
+            "出口戦略の出発点として使われることがあります。\n"
+            "ただし、これはあくまで目安で、\n"
+            "万能の正解ではありません。"
+        ),
+    },
+    {
+        "role": "interpret",
+        "text": (
+            "4%ルールは、前提条件が変われば結果も変わります。\n"
+            "資産の配分。インフレ率。税金。為替。\n"
+            "条件を変えるたびに、結果が揺れる。\n"
+            "\n"
+            "だから、4%ルールを知っても、安心にはなりにくい。\n"
+            "目安があるのに、なぜまだ怖いのか。\n"
+            "それは、「正解を選んだ」と確信できないからです。\n"
+            "\n"
+            "積み立ての時期は、続けていれば間違いではなかった。\n"
+            "でも取り崩しは、\n"
+            "「正解だったかどうか」が何年もあとにならないとわからない。\n"
+            "この不確実さが、出口の怖さの本質です。"
+        ),
+    },
+    {
+        "role": "data2",
+        "text": (
+            "もう一つ、出口の怖さに関わる構造があります。\n"
+            "取り崩しを始めた最初の数年間に暴落が重なると、\n"
+            "その後の資産寿命に大きく響きやすい、というものです。\n"
+            "\n"
+            "同じ平均リターンでも、\n"
+            "下がる順番が先に来ると、取り崩しの影響が大きくなる。\n"
+            "つまり、出口のタイミングだけは、自分で選びにくい。\n"
+            "ここが怖さの正体の一つです。"
+        ),
+    },
+    {
+        "role": "action",
+        "text": (
+            "今のうちに、1つだけ仮の数字を置いてみてください。\n"
+            "\n"
+            "「月にいくら取り崩すか」でもいいし、\n"
+            "「何歳から始めるか」でもかまいません。\n"
+            "\n"
+            "正解を出す必要はありません。\n"
+            "数字を一つ置くだけで、怖さの輪郭が少し見えてきます。"
+        ),
+    },
+    {
+        "role": "closing",
+        "text": (
+            "出口はまだ遠いかもしれません。\n"
+            "でも、怖さの整理は今できます。\n"
+            "先に輪郭をつくっておくだけで、\n"
+            "そのときの判断は少し楽になります。\n"
+            "\n"
+            "ガチホのモチベでは、\n"
+            "こうした迷いを静かに整える動画を毎日投稿しています。"
+        ),
+    },
+]
+
+
 def generate_long_video_voice(
     scenes: list[dict],
     output_dir: pathlib.Path,
@@ -1115,9 +1229,44 @@ def main_06():
     print(f"\n結果を保存: {result_path}")
 
 
+def main_07():
+    """7本目「取り崩しが怖い人へ」の音声を生成する。"""
+    env_path = pathlib.Path(__file__).parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+    output_dir = pathlib.Path(__file__).parent / "long_video" / "07_torikuzushi" / "audio"
+    print(f"出力先: {output_dir}")
+    print(f"speed: {LONG_VIDEO_SPEED}（Shorts: 1.15 → 5分動画: {LONG_VIDEO_SPEED}）")
+    print()
+
+    scenes = generate_long_video_voice(SCRIPT_07_SCENES, output_dir)
+
+    result_path = output_dir.parent / "voice_result.json"
+    result_data = [
+        {
+            "role": s["role"],
+            "audio_path": s.get("audio_path"),
+            "duration_sec": s.get("actual_duration_sec", 0),
+        }
+        for s in scenes
+    ]
+    result_path.write_text(
+        json.dumps(result_data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"\n結果を保存: {result_path}")
+
+
 if __name__ == "__main__":
     import sys as _sys
-    if "--06" in _sys.argv:
+    if "--07" in _sys.argv:
+        main_07()
+    elif "--06" in _sys.argv:
         main_06()
     elif "--04" in _sys.argv:
         main_04()
