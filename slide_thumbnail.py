@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 from slide_gen import (
     SHORTS_WIDTH, SHORTS_HEIGHT, PHOTOS_DIR,
-    ROLE_PHOTO_CATEGORY,
+    ROLE_PHOTO_CATEGORY, FONT_PATH_HEAVY,
     _fit_photo_to_area, _blend_gradient, _load_font,
 )
 from thumbnail_gen import _auto_font_size
