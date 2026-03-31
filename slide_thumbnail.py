@@ -505,18 +505,14 @@ def _split_long_lines_for_thumb(
     """
     result = []
     for line in lines:
-        # 9文字以上の行は幅に収まっていても分割を試みる（フォント縮小防止）
-        needs_split = len(line) >= 9
+        # 12文字以上の行は幅に収まっていても分割を試みる（フォント縮小防止）
+        # 9→12に引き上げ: 行数が増えるとフォントが小さくなりIG grid で読めなくなるため
+        needs_split = len(line) >= 12
 
         if not needs_split:
-            sz = _auto_font_size(line, max_size=160, min_size=90)
-            font = _load_font(FONT_PATH_HEAVY, sz)
-            bbox = draw.textbbox((0, 0), line, font=font)
-            w = bbox[2] - bbox[0]
-            if w <= max_width:
-                result.append(line)
-                continue
-            needs_split = True
+            # 12文字未満は分割せず、generate_thumbnail_frame のフォント縮小ループに任せる
+            result.append(line)
+            continue
 
         if needs_split:
             # サムネ用: 最小文字数を緩和して分割（通常の禁則処理は厳しすぎる）
@@ -659,11 +655,11 @@ def generate_thumbnail_frame(
     fonts = []
     for i, line in enumerate(lines):
         if i == 0:
-            sz = _auto_font_size(line, max_size=160, min_size=90)
+            sz = _auto_font_size(line, max_size=160, min_size=110)
         else:
-            sz = _auto_font_size(line, max_size=120, min_size=70)
+            sz = _auto_font_size(line, max_size=130, min_size=90)
         # 改行で収まらなかった場合のフォールバック: フォントサイズ縮小
-        while sz > 40:
+        while sz > 80:
             font = _load_font(FONT_PATH_HEAVY, sz)
             bbox = draw.textbbox((0, 0), line, font=font)
             if (bbox[2] - bbox[0]) <= text_max_width:
