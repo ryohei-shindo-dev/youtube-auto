@@ -934,6 +934,11 @@ def _wrap_text_lines(text: str, width: int) -> list[str]:
     # 空行が生まれた場合は除去
     restored = [line for line in restored if line]
 
+    # 最終行が2文字以下なら前の行に吸収（「に」だけの行を防ぐ）
+    if len(restored) >= 2 and len(restored[-1]) <= 2:
+        restored[-2] += restored[-1]
+        restored.pop()
+
     return restored or [text]
 
 
