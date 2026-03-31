@@ -96,11 +96,16 @@ def compose_shorts_video(
                     print(f"  断言前の間（0.7秒）を音声に付加...")
 
             subtitle_text = scene.get("text", "")
-            print(f"  クリップ{idx}を生成中（{duration:.1f}秒）...")
+            video_bg = scene.get("video_bg", "")
+            if video_bg:
+                print(f"  クリップ{idx}を生成中（{duration:.1f}秒、動画背景）...")
+            else:
+                print(f"  クリップ{idx}を生成中（{duration:.1f}秒）...")
             success = _make_scene_clip(
                 slide_path, actual_audio, duration, clip_path,
                 subtitle_text=subtitle_text, tmp_dir=tmp,
                 use_photo=use_photo,
+                video_bg=video_bg,
             )
             if success:
                 clip_paths.append(clip_path)
@@ -168,8 +173,18 @@ def _make_scene_clip(
     subtitle_text: str = "",
     tmp_dir: pathlib.Path = None,
     use_photo: bool = False,
+    video_bg: str = "",
 ) -> bool:
-    """1シーンのクリップを生成する（静止画 + 音声 + 字幕焼き込み）。"""
+    """1シーンのクリップを生成する（静止画/動画背景 + 音声 + 字幕焼き込み）。
+
+    video_bg が指定されている場合、動画背景 + テキストオーバーレイ PNG を合成する。
+    """
+
+    # 動画背景モード: video_bg + overlay(slide_path) を合成
+    if video_bg and pathlib.Path(video_bg).exists():
+        return _make_video_bg_clip(
+            video_bg, slide_path, audio_path, duration, output_path,
+        )
 
     # 字幕テキストがあれば Pillow でスライド画像に焼き込む
     # v2（写真型）ではメインテキストが下部にあるため字幕は不要
@@ -206,6 +221,71 @@ def _make_scene_clip(
         return output_path.exists()
     except subprocess.TimeoutExpired:
         print("    FFmpeg タイムアウト（60秒）")
+        return False
+    except Exception as e:
+        print(f"    FFmpeg エラー: {e}")
+        return False
+
+
+def _make_video_bg_clip(
+    video_bg: str,
+    slide_path: str,
+    audio_path: str,
+    duration: float,
+    output_path: pathlib.Path,
+) -> bool:
+    """動画背景 + スライド画像のテキスト部分 + 音声 でクリップを生成する。
+
+    方式: 動画背景を暗くリサイズ → 下半分にスライドのテキスト領域をブレンド合成。
+    スライド画像の下部60%（テキスト領域）を動画の上に半透明で重ねる。
+    """
+    # filter_complex:
+    # [0] 動画BGをクロップ+暗く
+    # [1] スライド画像（テキスト入り）の下部をクロップして半透明で重ねる
+    vf_bg = (
+        f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={SHORTS_WIDTH}:{SHORTS_HEIGHT},"
+        f"eq=brightness=-0.18:saturation=0.7"
+    )
+    # スライドの下部55%（テキスト領域）をクロップ
+    text_h = int(SHORTS_HEIGHT * 0.55)
+    text_y = SHORTS_HEIGHT - text_h
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_bg),
+        "-loop", "1", "-i", str(slide_path),
+        "-i", str(audio_path),
+        "-filter_complex",
+        # 動画背景を暗くリサイズ
+        f"[0:v]{vf_bg}[bg];"
+        # スライドの下部テキスト領域をクロップ+半透明化
+        f"[1:v]crop={SHORTS_WIDTH}:{text_h}:0:{text_y},"
+        f"format=rgba,colorchannelmixer=aa=0.85[txt];"
+        # 動画背景の下部にテキスト領域を重ねる
+        f"[bg][txt]overlay=0:{text_y}:shortest=1[out]",
+        "-map", "[out]",
+        "-map", "2:a",
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(duration),
+        "-movflags", "+faststart",
+        str(output_path),
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode != 0:
+            _save_debug(f"ffmpeg_videobg_error_{output_path.stem}.txt", result.stderr)
+            return False
+        return output_path.exists()
+    except subprocess.TimeoutExpired:
+        print("    FFmpeg タイムアウト（120秒）")
         return False
     except Exception as e:
         print(f"    FFmpeg エラー: {e}")

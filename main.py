@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--topic", type=str, default=None, help="トピックを手動指定")
     parser.add_argument("--theme", type=str, default=None, help="テーマを手動指定（メリット/格言/あるある/歴史データ/ガチホモチベ）")
     parser.add_argument("--long", action="store_true", help="通常動画を生成（日曜用）")
+    parser.add_argument("--video-hook", action="store_true", help="hook シーンに動画背景を使用（A/Bテスト用）")
     args = parser.parse_args()
 
     if not _check_env():
@@ -156,6 +157,12 @@ def main():
         script_data["thumbnail_photo"] = thumb_result["photo"]
     else:
         print("  [警告] サムネフレーム生成失敗。サムネなしで動画生成します。")
+
+    # ── Step 4.5: hook 動画背景（--video-hook 指定時のみ） ──
+    if args.video_hook:
+        from video_bg_selector import assign_hook_video_bg
+        print("\n[Step 4.5] hook 動画背景を設定")
+        assign_hook_video_bg(scenes)
 
     # ── Step 5: 動画合成 ──
     print("\n[Step 5/9] 動画合成")

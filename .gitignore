@@ -34,8 +34,9 @@ long_video/**
 !long_video/CLAUDE.md
 archive/
 
-# 画像素材（大容量）
+# 画像・動画素材（大容量）
 assets/photos/
+assets/videos/
 assets/*.png
 
 # X投稿履歴
