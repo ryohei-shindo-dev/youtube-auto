@@ -268,7 +268,7 @@ def _make_video_bg_clip(
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k",
+        "-c:a", "aac", "-b:a", "128k", "-ac", "2",
         "-pix_fmt", "yuv420p",
         "-t", str(duration),
         "-movflags", "+faststart",
