@@ -1,6 +1,8 @@
 # ブラウザセッション
 .note_browser/
 .note_browser_*/
+.yt_studio_browser_*/
+yt_studio_logs/
 
 # 秘密情報・認証
 .env
