@@ -175,8 +175,20 @@ _RE_EMOJI = re.compile(r'[\U00010000-\U0010FFFF\u2600-\u27BF\uFE00-\uFE0F\u200D]
 
 
 def _clean_slide_text(text: str) -> str:
-    """slide_text から絵文字を除去し、末尾句読点を落とす。"""
-    return _strip_terminal_punctuation(_RE_EMOJI.sub('', text).strip())
+    """slide_text から絵文字を除去し、末尾句読点を落とす。
+    句読点の後に3文字以下の端数が残っている場合も除去する。
+    例: 「弱いわけじゃない。脳」→「弱いわけじゃない」
+    """
+    cleaned = _RE_EMOJI.sub('', text).strip()
+    # 句読点後の短い端数を除去（「…ない。脳」のような意味不明な残骸）
+    for sep in ("。", "！", "？"):
+        if sep in cleaned:
+            head, tail = cleaned.rsplit(sep, 1)
+            tail = tail.strip()
+            if 0 < len(tail) <= 3:
+                cleaned = head
+                break
+    return _strip_terminal_punctuation(cleaned)
 
 
 _SLIDE_CONNECTOR_PREFIXES = (
@@ -193,6 +205,15 @@ def _strip_slide_connector(text: str) -> str:
         if text.startswith(prefix):
             return text[len(prefix):].lstrip()
     return text
+
+
+def _is_kanji(ch: str) -> bool:
+    """文字がCJK漢字かどうかを判定する。"""
+    if not ch:
+        return False
+    cp = ord(ch[0])
+    return (0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF
+            or 0x20000 <= cp <= 0x2A6DF)
 
 
 # 日本語の危険な末尾パターン（意味が途中で切れてしまう語尾）
@@ -218,12 +239,26 @@ def _ends_dangling(text: str) -> bool:
     return any(text.endswith(e) for e in _DANGLING_ENDINGS)
 
 
+def _find_safe_break_backward(text: str, start: int, min_pos: int) -> str | None:
+    """text[min_pos..start] の範囲で安全な切れ目を後方から探す。
+
+    見つかればそこで切った文字列を返す。見つからなければ None。
+    """
+    for i in range(start, max(0, min_pos), -1):
+        if text[i] in _SAFE_BREAK_CHARS:
+            return text[:i + 1].rstrip("、，")
+        if i > 0 and text[i - 1] in _SAFE_BREAK_CHARS:
+            return text[:i]
+    return None
+
+
 def _safe_truncate_slide_text(text: str, max_len: int = 14, max_extra: int = 3) -> str:
     """日本語として不自然な途中切れを防ぐ安全な切り詰め。
 
     1. max_len で切る
     2. 数字の途中切れを保護
-    3. 危険な末尾パターンに該当する場合:
+    3. 漢字熟語の途中切れを保護
+    4. 危険な末尾パターンに該当する場合:
        a. まず +max_extra 文字まで延長して安全な切れ目を探す
        b. 見つからなければ手前の安全な切れ目まで戻す
     """
@@ -240,6 +275,19 @@ def _safe_truncate_slide_text(text: str, max_len: int = 14, max_extra: int = 3) 
             truncated += m.group(1)
             return truncated
 
+    # 漢字熟語の途中切れ保護: 切断点の前後が共に漢字なら熟語の途中
+    if rest and _is_kanji(truncated[-1]) and _is_kanji(rest[0]):
+        # 熟語を完結させるため延長を試みる
+        for i in range(1, min(max_extra + 1, len(rest) + 1)):
+            candidate = text[:max_len + i]
+            next_ch = text[max_len + i] if max_len + i < len(text) else ""
+            if not next_ch or not _is_kanji(next_ch):
+                return candidate
+        # max_extra では熟語が完結しない → 手前の安全な切れ目まで戻す
+        safe = _find_safe_break_backward(truncated, len(truncated) - 1, max_len - 6)
+        if safe:
+            return safe
+
     if not _ends_dangling(truncated):
         return truncated
 
@@ -250,11 +298,9 @@ def _safe_truncate_slide_text(text: str, max_len: int = 14, max_extra: int = 3) 
             return candidate
 
     # 戦略B: 手前の安全な切れ目まで戻す
-    for i in range(len(truncated) - 1, max(0, max_len - 6), -1):
-        if truncated[i] in _SAFE_BREAK_CHARS:
-            return truncated[:i + 1].rstrip("、，")
-        if i > 0 and truncated[i - 1] in _SAFE_BREAK_CHARS:
-            return truncated[:i]
+    safe = _find_safe_break_backward(truncated, len(truncated) - 1, max_len - 6)
+    if safe:
+        return safe
 
     # どちらも失敗 → 延長した結果をそのまま使う
     return text[:max_len + max_extra] if len(text) > max_len + max_extra else text
