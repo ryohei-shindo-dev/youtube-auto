@@ -921,6 +921,8 @@ def _wrap_text_lines(text: str, width: int) -> list[str]:
         if word not in no_break:
             no_break.append(word)
 
+    # 長い単語を先に置換（「未満」より「1%未満」を先に処理しないと部分一致で壊れる）
+    no_break.sort(key=len, reverse=True)
     for idx, word in enumerate(no_break):
         # Unicode PUA 1文字をプレースホルダに使う（折り返しで分断されない）
         token = chr(0xE000 + idx)
