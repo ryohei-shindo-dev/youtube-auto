@@ -44,6 +44,12 @@
 │   └── analytics.py     #   アクセス数収集
 ├── note_*.py            # 互換ラッパー（旧パスからのimport維持用）
 │
+├── yt_studio/           # YouTube Studio Playwright自動化
+│   ├── browser.py       #   ブラウザ起動・終了（Google Chrome永続プロファイル）
+│   ├── ops.py           #   UI操作: 関連動画設定 + コメントピン留め
+│   ├── cli.py           #   CLI: login / batch / pin / status
+│   └── selector.py      #   関連動画の自動選定ロジック
+│
 ├── youtube_upload.py    # YouTube Data API v3
 ├── instagram_upload.py  # Instagram Graph API（catbox.moe 経由）
 ├── tiktok_upload.py     # TikTok Content Posting API v2
