@@ -121,6 +121,79 @@ def set_related_video(page: Page, target_title: str) -> bool:
     return save(page)
 
 
+def pin_comment(page: Page, video_id: str) -> bool:
+    """動画のコメント欄で、チャンネルオーナーの最新コメントを固定する。
+
+    YouTube Studio ではなく通常の動画ページで操作する。
+    otona-renai/yt_studio/ops.py の実装を移植。
+    """
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+    time.sleep(5)
+
+    # コメント欄までスクロール
+    page.evaluate("window.scrollTo(0, 800)")
+    time.sleep(3)
+    page.evaluate("window.scrollTo(0, 1200)")
+    time.sleep(3)
+
+    # オーナーコメントのスレッドを探す
+    threads = page.locator("ytd-comment-thread-renderer")
+    if threads.count() == 0:
+        page.evaluate("window.scrollTo(0, 2000)")
+        time.sleep(3)
+        threads = page.locator("ytd-comment-thread-renderer")
+
+    # オーナーバッジ付きスレッドを特定
+    owner_thread = None
+    for i in range(threads.count()):
+        t = threads.nth(i)
+        if t.locator("#author-comment-badge").count() > 0:
+            owner_thread = t
+            break
+
+    if owner_thread is None:
+        print(f"  [エラー] オーナーコメントが見つかりません: {video_id}")
+        return False
+
+    # 既にピン留め済みか確認
+    pinned_badge = owner_thread.locator("#pinned-comment-badge")
+    if pinned_badge.count() > 0:
+        print(f"  [スキップ] 既にピン留め済み: {video_id}")
+        return True
+
+    # メニューボタンをクリック
+    menu_btn = owner_thread.locator("#action-menu yt-icon-button")
+    if menu_btn.count() == 0:
+        print(f"  [エラー] メニューボタンが見つかりません: {video_id}")
+        return False
+
+    menu_btn.first.click()
+    time.sleep(2)
+
+    # 「固定」メニューアイテムをクリック
+    nav_items = page.locator("ytd-menu-navigation-item-renderer")
+    for i in range(nav_items.count()):
+        item = nav_items.nth(i)
+        text = item.inner_text().strip()
+        if "固定" in text or "Pin" in text:
+            item.click()
+            time.sleep(2)
+            # 確認ダイアログ
+            confirm = page.locator(
+                "yt-confirm-dialog-renderer #confirm-button, "
+                "tp-yt-paper-dialog #confirm-button"
+            )
+            if confirm.count() > 0:
+                confirm.first.click()
+                time.sleep(2)
+            print(f"  コメント固定完了: {video_id}")
+            return True
+
+    print(f"  [エラー] 固定メニューが見つかりません: {video_id}")
+    return False
+
+
 def save(page: Page) -> bool:
     """保存ボタンを押す。"""
     save_btn = page.locator(SEL["save_button"])
@@ -154,15 +227,20 @@ def take_debug_snapshot(page: Page, label: str) -> str:
 
 # ── 状態管理 ──
 
-STATE_FILE = SCRIPT_DIR / "data" / "state" / "related_video_state.jsonl"
+RELATED_STATE_FILE = SCRIPT_DIR / "data" / "state" / "related_video_state.jsonl"
+PIN_STATE_FILE = SCRIPT_DIR / "data" / "state" / "pin_comment_state.jsonl"
+
+# 後方互換
+STATE_FILE = RELATED_STATE_FILE
 
 
-def load_processed_ids() -> set[str]:
+def load_processed_ids(state_file: pathlib.Path = None) -> set[str]:
     """処理済みvideo_idのセットを返す。"""
-    if not STATE_FILE.exists():
+    sf = state_file or RELATED_STATE_FILE
+    if not sf.exists():
         return set()
     ids = set()
-    for line in STATE_FILE.read_text(encoding="utf-8").splitlines():
+    for line in sf.read_text(encoding="utf-8").splitlines():
         try:
             d = json.loads(line)
             if d.get("result") == "success":
@@ -172,18 +250,21 @@ def load_processed_ids() -> set[str]:
     return ids
 
 
-def log_result(video_id: str, related_video_id: str, result: str,
-               channel: str = "gachiho", error: str = ""):
+def log_result(video_id: str, result: str, action: str = "related_video",
+               related_video_id: str = "", channel: str = "gachiho", error: str = ""):
     """処理結果をJSONLに追記する。"""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    sf = RELATED_STATE_FILE if action == "related_video" else PIN_STATE_FILE
+    sf.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "video_id": video_id,
-        "related_video_id": related_video_id,
+        "action": action,
         "result": result,
         "channel": channel,
         "timestamp": datetime.now().isoformat(),
     }
+    if related_video_id:
+        entry["related_video_id"] = related_video_id
     if error:
         entry["error"] = error
-    with open(STATE_FILE, "a", encoding="utf-8") as f:
+    with open(sf, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

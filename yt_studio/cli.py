@@ -3,17 +3,22 @@
 使い方:
     python -m yt_studio.cli login                    # 初回ログイン
     python -m yt_studio.cli inspect --video-id XXX   # セレクタ調査用HTML取得
-    python -m yt_studio.cli set --video-id XXX       # 1本だけ設定
-    python -m yt_studio.cli batch --limit 5          # バッチ処理
-    python -m yt_studio.cli batch --limit 5 --dry-run
+    python -m yt_studio.cli set --video-id XXX       # 1本だけ関連動画設定
+    python -m yt_studio.cli batch --limit 5          # 関連動画一括設定
+    python -m yt_studio.cli pin --limit 5            # コメント一括ピン留め
+    python -m yt_studio.cli pin --limit 5 --dry-run
     python -m yt_studio.cli status                   # 処理状況確認
 """
 from __future__ import annotations
 
 import argparse
 import os
+import pathlib
 import sys
 import time
+
+from dotenv import load_dotenv
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import yt_studio.browser as browser
 import yt_studio.ops as ops
@@ -73,12 +78,12 @@ def cmd_set(args):
         ops.open_video_details(page, args.video_id)
         ok = ops.set_related_video(page, related_title)
         result = "success" if ok else "failed"
-        ops.log_result(args.video_id, related_id, result)
+        ops.log_result(args.video_id, result, "related_video", related_id)
         print(f"結果: {result}")
     except Exception as e:
         print(f"[エラー] {e}")
         ops.take_debug_snapshot(page, f"set_{args.video_id}")
-        ops.log_result(args.video_id, related_id, "error", error=str(e))
+        ops.log_result(args.video_id, "error", "related_video", related_id, error=str(e))
     finally:
         browser.close(pw, context)
 
@@ -157,17 +162,93 @@ def cmd_batch(args):
                 ok = ops.set_related_video(page, t["related_title"])
                 if ok:
                     success += 1
-                    ops.log_result(t["video_id"], t["related_id"], "success")
+                    ops.log_result(t["video_id"], "success", "related_video", t["related_id"])
                     print(f"  ✅ 設定完了")
                 else:
                     fail += 1
-                    ops.log_result(t["video_id"], t["related_id"], "failed")
+                    ops.log_result(t["video_id"], "failed", "related_video", t["related_id"])
                     print(f"  ❌ 設定失敗")
             except Exception as e:
                 fail += 1
                 print(f"  [エラー] {e}")
                 ops.take_debug_snapshot(page, f"batch_{t['video_id']}")
-                ops.log_result(t["video_id"], t["related_id"], "error", error=str(e))
+                ops.log_result(t["video_id"], "error", "related_video", t["related_id"], error=str(e))
+                if args.fail_fast:
+                    print("--fail-fast: 停止")
+                    break
+            time.sleep(2)
+    finally:
+        browser.close(pw, context)
+
+    print(f"\n完了: 成功 {success}, 失敗 {fail}")
+
+
+def cmd_pin(args):
+    """未固定のコメントを一括ピン留めする。"""
+    sys.path.insert(0, str(ops.SCRIPT_DIR))
+    import sheets
+
+    sheet_id = os.getenv("YOUTUBE_SHEET_ID", "")
+    if not sheet_id:
+        print("YOUTUBE_SHEET_ID が設定されていません")
+        return
+
+    svc = sheets.get_service()
+    result = svc.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range="投稿管理!A:AC",
+    ).execute()
+    rows = result.get("values", [])
+
+    # ピン留め済みを除外
+    processed = ops.load_processed_ids(ops.PIN_STATE_FILE)
+
+    targets = []
+    for row in rows[1:]:
+        video_id = row[22] if len(row) > 22 else ""  # W列
+        title = row[7] if len(row) > 7 else ""        # H列
+        status = row[6] if len(row) > 6 else ""        # G列
+        youtube_url = row[10] if len(row) > 10 else ""  # K列
+
+        if not video_id or not youtube_url or status != "公開済み":
+            continue
+        if video_id in processed:
+            continue
+        targets.append({"video_id": video_id, "title": title[:40]})
+
+    if not targets:
+        print("ピン留め対象の動画がありません（全て処理済み）")
+        return
+
+    limit = args.limit or len(targets)
+    targets = targets[:limit]
+
+    print(f"コメント固定: {len(targets)}本（処理済み: {len(processed)}本）\n")
+    for i, t in enumerate(targets, 1):
+        print(f"  {i}. {t['video_id']}  {t['title']}")
+
+    if args.dry_run:
+        print("\n[dry-run] 固定をスキップ")
+        return
+
+    pw, context, page = browser.launch()
+    success = fail = 0
+    try:
+        for i, t in enumerate(targets, 1):
+            print(f"\n[{i}/{len(targets)}] {t['video_id']}  {t['title']}")
+            try:
+                ok = ops.pin_comment(page, t["video_id"])
+                if ok:
+                    success += 1
+                    ops.log_result(t["video_id"], "success", "pin_comment")
+                else:
+                    fail += 1
+                    ops.log_result(t["video_id"], "failed", "pin_comment")
+            except Exception as e:
+                fail += 1
+                print(f"  [エラー] {e}")
+                ops.take_debug_snapshot(page, f"pin_{t['video_id']}")
+                ops.log_result(t["video_id"], "error", "pin_comment", error=str(e))
                 if args.fail_fast:
                     print("--fail-fast: 停止")
                     break
@@ -180,15 +261,12 @@ def cmd_batch(args):
 
 def cmd_status(args):
     """処理状況を表示する。"""
-    processed = ops.load_processed_ids()
-    print(f"処理済み: {len(processed)}本")
+    related_done = ops.load_processed_ids(ops.RELATED_STATE_FILE)
+    pin_done = ops.load_processed_ids(ops.PIN_STATE_FILE)
 
-    if ops.STATE_FILE.exists():
-        import json
-        lines = ops.STATE_FILE.read_text(encoding="utf-8").splitlines()
-        success = sum(1 for l in lines if '"success"' in l)
-        failed = sum(1 for l in lines if '"failed"' in l or '"error"' in l)
-        print(f"  成功: {success}, 失敗: {failed}")
+    print(f"\n=== 処理状況 ===")
+    print(f"関連動画設定: {len(related_done)}本 完了")
+    print(f"コメント固定: {len(pin_done)}本 完了")
 
 
 def main():
@@ -212,6 +290,11 @@ def main():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--fail-fast", action="store_true")
 
+    p = sub.add_parser("pin", help="コメントを一括ピン留め")
+    p.add_argument("--limit", type=int, help="最大処理本数")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--fail-fast", action="store_true")
+
     sub.add_parser("status", help="処理状況確認")
 
     args = parser.parse_args()
@@ -224,6 +307,7 @@ def main():
         "inspect": cmd_inspect,
         "set": cmd_set,
         "batch": cmd_batch,
+        "pin": cmd_pin,
         "status": cmd_status,
     }
     cmds[args.command](args)
