@@ -334,7 +334,11 @@ def _closing_slide_from_text(text: str) -> str:
 
 
 def _trim_to_first_sentence(text: str, max_len: int) -> str:
-    """テキストを最初の文（句点区切り）で切り詰める。句点がなければmax_lenで切る。"""
+    """テキストを最初の文（句点区切り）で切り詰める。
+
+    句点・読点で区切れない場合は _safe_truncate_slide_text で
+    日本語として自然な切れ目を探す（語の途中切れを防止）。
+    """
     if len(text) <= max_len:
         return text
     parts = re.split(r"(?<=[。？！])", text)
@@ -353,7 +357,8 @@ def _trim_to_first_sentence(text: str, max_len: int) -> str:
                 break
         if built:
             return built.rstrip("、 ")
-    return text[:max_len]
+    # 句読点で区切れない → 安全な切れ目で切る（語の途中切れ防止）
+    return _safe_truncate_slide_text(text, max_len=max_len, max_extra=3)
 
 
 
