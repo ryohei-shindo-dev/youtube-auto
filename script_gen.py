@@ -843,6 +843,10 @@ def _postprocess_script(
                     trimmed = _trim_to_first_sentence(text, 10)
                     if len(trimmed) >= 4:
                         s["text"] = trimmed + "。"
+                        # slide_textもtext切り詰め後の内容で再生成
+                        s["slide_text"] = _safe_truncate_slide_text(
+                            trimmed, max_len=10,
+                        )
                         print(f"  [調整] empathy（語りかけなし）を切り詰めました")
                     else:
                         print(f"  [維持] empathy切り詰め結果が短すぎるため元テキストを維持")
