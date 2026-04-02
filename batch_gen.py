@@ -71,6 +71,52 @@ def _is_batch_data_duplicate(script_data: dict, batch_data_texts: list) -> bool:
     return _is_batch_duplicate(_get_data_text(script_data), batch_data_texts)
 
 
+# 短すぎるempathyの自動補完辞書
+# 体言止め → 述語を付加して完全文にする
+_EMPATHY_COMPLETIONS: dict[str, str] = {
+    "その気持ち": "その気持ち、よくわかります。",
+    "その後悔": "その後悔、あなただけじゃない。",
+    "その焦り": "その焦り、誰でも感じます。",
+    "その不安": "その不安、あなただけじゃない。",
+    "その矛盾": "その矛盾に揺れるのは普通です。",
+    "その迷い": "その迷い、誰でも通る道です。",
+    "その恐怖": "その恐怖、おかしくありません。",
+    "あの爆益": "あの爆益を見たら焦りますよね。",
+    "あの恐怖": "あの恐怖を感じたなら正常です。",
+    "あの羨望": "あの羨望、誰にでもあります。",
+}
+
+# 汎用の補完パターン（完全一致しない場合の fallback）
+_EMPATHY_SUFFIXES = [
+    "、よくわかります。",
+    "、あなただけじゃない。",
+    "、誰でも感じます。",
+    "、おかしくありません。",
+]
+
+
+def _auto_fix_short_empathy(candidate: dict) -> None:
+    """短すぎるempathyを定型補完で救済する（linter前に呼ぶ）。"""
+    for scene in candidate.get("scenes", []):
+        if scene.get("role") != "empathy":
+            continue
+        text = scene.get("text", "").rstrip("。？！ ")
+        if len(text) > 7:
+            return  # 十分な長さ
+        # 完全一致辞書から補完
+        if text in _EMPATHY_COMPLETIONS:
+            fixed = _EMPATHY_COMPLETIONS[text]
+            print(f"  [empathy補完] 「{text}」→「{fixed}」")
+            scene["text"] = fixed
+            return
+        # fallback: ランダムに述語を付加
+        import random
+        suffix = random.choice(_EMPATHY_SUFFIXES)
+        fixed = text + suffix
+        print(f"  [empathy補完] 「{text}」→「{fixed}」")
+        scene["text"] = fixed
+
+
 def _check_candidate(
     candidate: dict, topic: str,
     batch_data_texts: list, batch_hook_texts: list, batch_resolve_texts: list,
@@ -93,6 +139,9 @@ def _check_candidate(
         return {"ok": False, "reason_type": "style_error",
                 "reason": f"表記エラー: {style_errors[0]['found']}",
                 "score_result": {}, "candidate": candidate}
+
+    # ── empathy自動補完（linter前に短すぎる体言止めを救済） ──
+    _auto_fix_short_empathy(candidate)
 
     # ── シーン品質チェック（scene_linter） ──
     import scene_linter
