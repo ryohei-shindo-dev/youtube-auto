@@ -137,7 +137,7 @@ def compose_shorts_video(
             "-c:v", "libx264",
             "-preset", "medium",
             "-crf", "23",
-            "-c:a", "aac", "-b:a", "128k",  # 再エンコードで結合境界ノイズを解消
+            "-c:a", "aac", "-b:a", "128k", "-ac", "2",  # 再エンコード+ステレオ化で結合境界ノイズを解消
             "-movflags", "+faststart",
             str(concat_output),
         ]
@@ -209,6 +209,7 @@ def _make_scene_clip(
         "-tune", "stillimage",
         "-c:a", "aac",
         "-b:a", "128k",
+        "-ac", "2",
         "-pix_fmt", "yuv420p",
         "-vf", f"scale={SHORTS_WIDTH}:{SHORTS_HEIGHT}",
         "-shortest",
@@ -354,12 +355,13 @@ def _mix_bgm(
         "-i", str(BGM_PATH),
         "-filter_complex",
         f"[1:a]volume={BGM_VOLUME},afade=t=in:d=1,afade=t=out:st=999:d=2[bgm];"
-        f"[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]",
+        f"[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0,pan=stereo|c0=c0|c1=c0[aout]",
         "-map", "0:v",
         "-map", "[aout]",
         "-c:v", "copy",  # 映像は再エンコードなし
         "-c:a", "aac",
         "-b:a", "128k",
+        "-ac", "2",
         "-movflags", "+faststart",
         str(output_path),
     ]
