@@ -42,6 +42,8 @@ import anthropic
 
 import api_usage_log
 
+SCRIPT_DIR = pathlib.Path(__file__).parent
+
 from script_config import (  # noqa: F401 — 定数・テンプレート
     _MODEL_HAIKU, _MODEL_SONNET, SCRIPT_MODEL, _THEME_MODEL_MAP,
     INSIGHTS_FILE, CHANNEL_CONCEPT,
@@ -223,11 +225,14 @@ _DANGLING_ENDINGS = (
     "たくな", "でき", "まし", "ませ", "され", "して", "なけ",
     # 2文字
     "てい", "でい", "から", "かも", "だろ", "ない",
+    "平均", "前年",
     # 1文字: 促音・拗音
     "っ", "ッ", "ゃ", "ゅ", "ょ", "ャ", "ュ", "ョ",
     # 1文字: 活用語尾
     "し", "き", "ぎ", "み", "り", "ち", "び",
-    "な", "れ", "い", "て", "ま", "ら", "け",
+    "な", "れ", "い", "て", "ま", "ら", "け", "思",
+    # 1文字: 記号終わり
+    "+", "＋", "-", "−", "／", "/",
 )
 # 安全な切れ目になれる文字（助詞・句読点）
 # 「で」「に」は助詞としても活用語尾としても使われるため除外
@@ -361,6 +366,121 @@ def _trim_to_first_sentence(text: str, max_len: int) -> str:
     return _safe_truncate_slide_text(text, max_len=max_len, max_extra=3)
 
 
+def _normalize_empathy_sentence(text: str) -> str:
+    """共感文が助詞終わりの断片にならないよう補正する。"""
+    cleaned = text.strip().rstrip("。？！ ")
+    if not cleaned:
+        return cleaned
+
+    fixes = {
+        "は": "は多い",
+        "が": "が多い",
+        "を": "を感じる人も多い",
+        "に": "になる人も多い",
+        "で": "で止まる人も多い",
+        "と": "と思う人も多い",
+        "も": "も多い",
+    }
+    for suffix, replacement in fixes.items():
+        if cleaned.endswith(suffix):
+            return cleaned[:-len(suffix)] + replacement
+    return cleaned
+
+
+def _ends_with_dangling(text: str) -> bool:
+    cleaned = text.strip().rstrip("。？！ ")
+    dangling_phrases = ("じゃなく", "だけど", "けれど", "なのに", "気がする")
+    return any(cleaned.endswith(suffix) for suffix in _DANGLING_ENDINGS) or any(
+        cleaned.endswith(suffix) for suffix in dangling_phrases
+    )
+
+
+def _topic_aligned_hook_fallback(topic: str, current_text: str) -> str | None:
+    rules = [
+        (["わから", "普通"], "投資1年目、何もわからない。"),
+        (["やめない形"], "投資の知識、足りない気がする。"),
+        (["増やすより", "慣れる"], "投資1年目、全然増えない。"),
+    ]
+    for keywords, fallback in rules:
+        if all(keyword in topic for keyword in keywords):
+            return fallback
+    return None
+
+
+def _topic_aligned_empathy_fallback(topic: str) -> str | None:
+    rules = [
+        (["わから", "普通"], "最初はそれで普通です。"),
+        (["やめない形"], "そこで止まる人は多いです。"),
+        (["増やすより", "慣れる"], "これ、意味あるのかな。"),
+    ]
+    for keywords, fallback in rules:
+        if all(keyword in topic for keyword in keywords):
+            return fallback
+    return None
+
+
+def _empathy_slide_from_text(text: str) -> str:
+    cleaned = _strip_slide_connector(_clean_slide_text(text))
+    if "かな" in cleaned:
+        head = cleaned.split("かな", 1)[0] + "かな"
+        return _clean_slide_text(_safe_truncate_slide_text(head, 14))
+    return _single_sentence_slide_text(cleaned, max_len=14)
+
+
+def _data_slide_from_text(text: str) -> str:
+    """data の slide_text をナレーションから安全に再導出する。"""
+    cleaned = _strip_slide_connector(_clean_slide_text(text))
+    compact = cleaned
+    replacements = (
+        ("実は、", ""),
+        ("過去では、", ""),
+        ("データでは、", ""),
+        ("のリターン、", ""),
+        ("のリターン", ""),
+        ("リターン、", ""),
+        ("リターン", ""),
+    )
+    for old, new in replacements:
+        compact = compact.replace(old, new)
+    compact = compact.strip("、 ")
+
+    candidates = [compact]
+    if compact != cleaned:
+        candidates.append(cleaned)
+
+    for candidate in candidates:
+        slide = _single_sentence_slide_text(candidate, max_len=14)
+        if not _ends_dangling(slide):
+            return slide
+    return _single_sentence_slide_text(candidates[0], max_len=14)
+
+
+def _topic_aligned_resolve_fallback(topic: str, data_text: str) -> str | None:
+    rules = [
+        (
+            ["わから", "普通"],
+            [],
+            "わからないままでも、続けていい。",
+        ),
+        (
+            ["やめない形"],
+            [],
+            "先に整えるのは、勝ち方より続け方。",
+        ),
+        (
+            ["増やすより", "慣れる"],
+            [],
+            "増え方より、続け方が先でいい。",
+        ),
+    ]
+    for topic_keywords, data_keywords, fallback in rules:
+        if all(keyword in topic for keyword in topic_keywords) and (
+            not data_keywords or any(keyword in data_text for keyword in data_keywords)
+        ):
+            return fallback
+    return None
+
+
 
 def _load_resolve_history() -> list[dict]:
     """直近使用済みresolve履歴を読み込む。各要素は {"text": ..., "tag": ...}。
@@ -384,6 +504,70 @@ def _save_resolve_history(history: list[dict], new_text: str, new_tag: str) -> N
     history = history[-_RESOLVE_HISTORY_KEEP:]
     _RESOLVE_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     _RESOLVE_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2))
+
+
+_DATA_HISTORY_PATH = SCRIPT_DIR / "debug" / "data_history.json"
+_DATA_HISTORY_KEEP = 20
+
+
+def _load_data_history() -> list[str]:
+    try:
+        data = json.loads(_DATA_HISTORY_PATH.read_text())[-_DATA_HISTORY_KEEP:]
+        return [str(item) for item in data]
+    except Exception:
+        return []
+
+
+def _save_data_history(history: list[str], new_text: str) -> None:
+    history = [item for item in history if item != new_text]
+    history.append(new_text)
+    history = history[-_DATA_HISTORY_KEEP:]
+    _DATA_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _DATA_HISTORY_PATH.write_text(json.dumps(history, ensure_ascii=False, indent=2))
+
+
+def _choose_non_repeating_data(pool: list[str], preferred_text: str = "") -> str:
+    history = _load_data_history()
+    blocked = set(history)
+    candidates = [item for item in pool if item not in blocked]
+    if not candidates:
+        candidates = list(pool)
+
+    if preferred_text:
+        scored = []
+        for candidate in candidates:
+            score = sum(1 for token in re.findall(r"[\w一-龠ぁ-んァ-ヶ]+", preferred_text) if token and token in candidate)
+            scored.append((score, candidate))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        chosen = scored[0][1]
+    else:
+        chosen = candidates[0]
+
+    _save_data_history(history, chosen)
+    return chosen
+
+
+def _topic_aligned_data_fallback(topic: str, text: str) -> str:
+    custom_rules = [
+        (["わから", "普通"], "でも、最初は慣れる時期です。"),
+        (["やめない形"], "でも、先に効くのは続け方。"),
+        (["続かない"], "でも、崩れにくい形が先です。"),
+        (["増やすより", "慣れる"], "でも、最初は慣れる時期。"),
+        (["増えなく"], "でも、1年目は慣れる時期。"),
+        (["初心者"], "でも、最初は分からなくて普通。"),
+    ]
+    for keywords, fallback in custom_rules:
+        if all(keyword in topic for keyword in keywords):
+            return fallback
+
+    if any(keyword in topic for keyword in ["暴落", "下落"]):
+        return "でも、下落後に戻る年もある。"
+    if any(keyword in topic for keyword in ["比較", "SNS"]):
+        return "でも、SNSに出るのは一部だけ。"
+    if any(keyword in topic for keyword in ["不安", "怖", "焦"]):
+        return "でも、揺れやすい時期はあります。"
+
+    return ""
 
 
 def _select_conclusion_and_connector(data_text: str, theme_name: str = "") -> tuple:
@@ -482,11 +666,20 @@ def normalize_script_spelling(script_data: dict) -> dict:
     return script_data
 
 
-def _build_shorts_vars(theme: str) -> dict:
+def _should_disable_shorts_opening(topic: str, theme: str) -> bool:
+    topic_rules = [
+        ["わから", "普通"],
+        ["やめない形"],
+        ["増やすより", "慣れる"],
+    ]
+    return any(all(keyword in topic for keyword in keywords) for keywords in topic_rules)
+
+
+def _build_shorts_vars(theme: str, topic: str = "") -> dict:
     """Shorts生成用の固定変数（opening, conclusion, closing等）をセットアップする。"""
     theme_desc = SHORTS_THEMES.get(theme, SHORTS_THEMES["ガチホモチベ"])
     # 語りかけフレーズ: 約3本に1本だけ入れる（尺圧迫を避ける）
-    if random.random() < _SHORTS_OPENING_RATIO:
+    if not _should_disable_shorts_opening(topic, theme) and random.random() < _SHORTS_OPENING_RATIO:
         opening = random.choice(OPENING_PHRASES)
         print(f"  [語りかけ] この動画にフレーズを入れます:「{opening}」")
     else:
@@ -509,7 +702,7 @@ def generate_shorts_script(topic: str, theme: str = "ガチホモチベ") -> dic
         topic,
         SHORTS_TEMPLATE,
         expected_scenes=5,
-        extra_vars=_build_shorts_vars(theme),
+        extra_vars=_build_shorts_vars(theme, topic),
     )
 
 
@@ -531,7 +724,7 @@ def generate_shorts_candidates(
         topic,
         SHORTS_TEMPLATE,
         expected_scenes=5,
-        extra_vars=_build_shorts_vars(theme),
+        extra_vars=_build_shorts_vars(theme, topic),
         num_candidates=count,
         prohibited_hooks=prohibited_hooks,
     )
@@ -737,7 +930,7 @@ def _postprocess_script(
             else:
                 # 語りかけなし → ナレーションからslide_textを生成（絵文字防止）
                 raw = s.get("text", "").rstrip("。？！ ")
-                s["slide_text"] = _safe_truncate_slide_text(raw, max_len=10)
+                s["slide_text"] = _safe_truncate_slide_text(raw, max_len=12)
         elif role == "opening":
             # 通常動画用: openingのslide_textを固定
             s["slide_text"] = OPENING_PHRASE
@@ -745,7 +938,7 @@ def _postprocess_script(
             # resolveの整形は文字数制限ループ内で実施（data内容を見て結論を選択）
             pass
         elif role == "closing":
-            s["slide_text"] = _closing_slide_from_text(closing)
+            s["slide_text"] = closing_slide or _closing_slide_from_text(closing)
             s["text"] = closing
 
         if "slide_text" in s:
@@ -763,6 +956,12 @@ def _postprocess_script(
         if role == "hook":
             # hookの痛みワードチェック: 弱いhookを検出して警告
             hook_text = text.rstrip("。？！ ")
+            topic_hook = _topic_aligned_hook_fallback(topic, hook_text)
+            if topic_hook and (len(hook_text) > 14 or any(w in hook_text for w in WEAK_HOOKS)):
+                print(f"  [修正] topicに合わせてhook補正:「{hook_text}」→「{topic_hook}」")
+                s["text"] = topic_hook
+                text = topic_hook
+                hook_text = text.rstrip("。？！ ")
             if any(w in hook_text for w in WEAK_HOOKS) and not any(w in hook_text for w in STRONG_HOOKS):
                 replaced = False
                 for kw, replacement in _TOPIC_PAIN_MAP.items():
@@ -778,7 +977,7 @@ def _postprocess_script(
             # hook の slide_text は Claude 生成に頼らず text から自動生成
             # （Claude が省略しすぎて意味不明になるケース防止）
             new_hook = text.rstrip("。？！ ")
-            s["slide_text"] = _safe_truncate_slide_text(new_hook, max_len=10)
+            s["slide_text"] = _safe_truncate_slide_text(new_hook, max_len=15)
             # ループ再生: hook修正後のワードでclosingを再更新
             if new_hook and new_hook != hook_word:
                 hook_word = new_hook
@@ -798,27 +997,28 @@ def _postprocess_script(
                     break
 
         if role == "data" and len(text) > 22:
-            # dataが22文字超 → データプールからフォールバック選択
-            # まずトピックからカテゴリを特定
-            category = "長期"  # デフォルト
-            for kw, cat in _TOPIC_TO_CATEGORY.items():
-                if kw in topic:
-                    category = cat
-                    break
-            pool = DATA_POOL.get(category, DATA_POOL["長期"])
-            # Claudeの生成文とキーワードが重なるものを優先選択
-            best = pool[0]
-            best_score = 0
-            for candidate in pool:
-                score = sum(1 for w in candidate if w in text)
-                if score > best_score:
-                    best_score = score
-                    best = candidate
-            print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
+            # dataが長すぎる場合、まずトピック整合の高い短文へ縮約する
+            best = _topic_aligned_data_fallback(topic, text)
+
+            # topic整合の候補が弱い場合のみデータプールを使う
+            if not best or len(best) > 22:
+                category = "長期"
+                for kw, cat in _TOPIC_TO_CATEGORY.items():
+                    if kw in topic:
+                        category = cat
+                        break
+                pool = DATA_POOL.get(category, DATA_POOL["長期"])
+                best = _choose_non_repeating_data(pool, preferred_text=text)
+                print(f"  [修正] dataが{len(text)}文字で長すぎ → プールから選択:「{best}」")
+            else:
+                print(f"  [修正] dataが{len(text)}文字で長すぎ → 文脈優先で短文化:「{best}」")
             s["text"] = best
-            s["slide_text"] = _single_sentence_slide_text(best)
+            s["slide_text"] = _data_slide_from_text(best)
             text = best
             data_text = best  # resolve用に更新
+        elif role == "data":
+            # data の slide_text は Claude 生成に頼らず text から再導出する
+            s["slide_text"] = _data_slide_from_text(text)
 
         elif role in strict_limits:
             limit = strict_limits[role]
@@ -838,28 +1038,50 @@ def _postprocess_script(
             if opening and opening in text:
                 raw_ai_part = text.replace(opening, "").strip().rstrip("。、 ")
                 ai_part = _trim_to_first_sentence(raw_ai_part, 12)
+                ai_part = _normalize_empathy_sentence(ai_part)
+                if len(ai_part) < 8:
+                    fallback = _topic_aligned_empathy_fallback(topic)
+                    if fallback:
+                        ai_part = fallback.rstrip("。")
                 if ai_part != raw_ai_part:
                     print(f"  [調整] empathyのAI部分を切り詰めました")
                 s["text"] = (ai_part + "。" + opening) if ai_part else opening
             elif not opening:
-                # 語りかけなし → AI生成の共感テキストを10文字以内に制限
+                # 語りかけなし → AI生成の共感テキストを12文字以内に制限
                 # ただし最低4文字は確保（「あなたも。」等の短すぎ防止）
-                if len(text) > 10:
-                    trimmed = _trim_to_first_sentence(text, 10)
+                if len(text) > 12:
+                    trimmed = _trim_to_first_sentence(text, 12)
+                    trimmed = _normalize_empathy_sentence(trimmed)
                     if len(trimmed) >= 4:
                         s["text"] = trimmed + "。"
                         # slide_textもtext切り詰め後の内容で再生成
-                        s["slide_text"] = _safe_truncate_slide_text(
-                            trimmed, max_len=10,
-                        )
+                        s["slide_text"] = _empathy_slide_from_text(trimmed)
                         print(f"  [調整] empathy（語りかけなし）を切り詰めました")
                     else:
                         print(f"  [維持] empathy切り詰め結果が短すぎるため元テキストを維持")
+                if len(s.get("text", "").rstrip("。？！ ")) < 8:
+                    fallback = _topic_aligned_empathy_fallback(topic)
+                    if fallback:
+                        print(f"  [修正] topicに合わせてempathy補正:「{s.get('text', '')}」→「{fallback}」")
+                        s["text"] = fallback
+                        s["slide_text"] = _empathy_slide_from_text(fallback)
+                elif _ends_with_dangling(s.get("text", "")):
+                    fallback = _topic_aligned_empathy_fallback(topic)
+                    if fallback:
+                        print(f"  [修正] empathy末尾が不自然なため補正:「{s.get('text', '')}」→「{fallback}」")
+                        s["text"] = fallback
+                        s["slide_text"] = _empathy_slide_from_text(fallback)
+                s["slide_text"] = _empathy_slide_from_text(s.get("text", ""))
 
         elif role == "resolve":
             # dataの内容に最も合う結論フレーズと接続詞を一括選択
             theme_name = fmt_vars.get("theme_name", "")
             best_conclusion, connector, resolve_tag = _select_conclusion_and_connector(data_text, theme_name)
+            topic_resolve = _topic_aligned_resolve_fallback(topic, data_text)
+            if topic_resolve:
+                best_conclusion = topic_resolve
+                connector = ""
+                resolve_tag = ""
             if best_conclusion != conclusion:
                 print(f"  [修正] 結論フレーズを変更: 「{conclusion}」→「{best_conclusion}」")
                 conclusion = best_conclusion
@@ -881,7 +1103,7 @@ def _postprocess_script(
     for s in scenes:
         if s.get("role") == "closing":
             s["text"] = closing
-            s["slide_text"] = _clean_slide_text(_closing_slide_from_text(closing))
+            s["slide_text"] = _clean_slide_text(closing_slide or _closing_slide_from_text(closing))
             break
 
     # バリデーション

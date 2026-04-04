@@ -14,6 +14,7 @@ import time
 from datetime import datetime
 
 from note.browser import _launch_browser, _close_browser
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent.parent
 LOG_PATH = SCRIPT_DIR / "note_analytics_log.jsonl"
@@ -35,19 +36,96 @@ WATCH_LIST = [
 ]
 
 
+def _dismiss_blocking_dialogs(page) -> None:
+    """分析画面上で前面に出るモーダルを閉じる。"""
+    close_selectors = [
+        'div[role="dialog"] button[aria-label="閉じる"]',
+        'div[role="dialog"] button:has-text("閉じる")',
+        'button:has-text("あとで")',
+        '[role="dialog"] [aria-label="close"]',
+    ]
+    for sel in close_selectors:
+        try:
+            locator = page.locator(sel)
+            if locator.count() > 0 and locator.first.is_visible():
+                locator.first.click(force=True, timeout=2000)
+                time.sleep(0.5)
+        except Exception:
+            pass
+
+
+def _get_active_period(page) -> str:
+    """現在選択中の期間タブ名を返す。取得できなければ空文字。"""
+    selectors = [
+        'button[aria-selected="true"]',
+        'button[aria-pressed="true"]',
+        '[role="tab"][aria-selected="true"]',
+    ]
+    for sel in selectors:
+        try:
+            locator = page.locator(sel)
+            if locator.count() > 0:
+                text = locator.first.inner_text().strip()
+                if text in {"週", "月", "全期間"}:
+                    return text
+        except Exception:
+            pass
+    return ""
+
+
+def _select_period(page, period_name: str) -> str:
+    """期間タブを安全に切り替え、確認できた期間名を返す。"""
+    btn = page.locator(f'button:has-text("{period_name}")').first
+    if btn.count() == 0:
+        raise RuntimeError(f"period tab not found: {period_name}")
+
+    for _ in range(4):
+        _dismiss_blocking_dialogs(page)
+        try:
+            active = _get_active_period(page)
+            if active == period_name:
+                return active
+            if btn.get_attribute("disabled") is not None:
+                time.sleep(1)
+                continue
+            btn.scroll_into_view_if_needed(timeout=2000)
+            btn.click(timeout=5000)
+            time.sleep(1)
+            active = _get_active_period(page)
+            if active == period_name:
+                time.sleep(2)
+                return active
+        except PlaywrightTimeoutError:
+            _dismiss_blocking_dialogs(page)
+            time.sleep(1)
+        except Exception:
+            _dismiss_blocking_dialogs(page)
+            time.sleep(1)
+
+    _dismiss_blocking_dialogs(page)
+    btn.click(force=True, timeout=5000)
+    time.sleep(3)
+    active = _get_active_period(page)
+    if active != period_name:
+        raise RuntimeError(f"period mismatch: expected={period_name}, actual={active or 'unknown'}")
+    return active
+
+
 def collect_period(page, period_name: str) -> dict:
     """指定期間（週/月/全期間）のデータを取得"""
-    btn = page.locator(f'button:has-text("{period_name}")').first
-    if btn.count() > 0:
-        disabled = btn.get_attribute("disabled")
-        if disabled is None:
-            btn.click()
-            time.sleep(3)
+    confirmed_period = _select_period(page, period_name)
 
     body = page.inner_text("body")
     lines = [l.strip() for l in body.split('\n') if l.strip()]
 
-    result = {"period": period_name, "views": 0, "comments": 0, "likes": 0, "articles": []}
+    result = {
+        "period": period_name,
+        "confirmed_period": confirmed_period,
+        "views": 0,
+        "comments": 0,
+        "likes": 0,
+        "articles": [],
+    }
 
     # 全体数値を抽出
     for i, line in enumerate(lines):
@@ -92,6 +170,7 @@ def collect() -> dict:
         page.goto("https://note.com/sitesettings/stats")
         page.wait_for_load_state("networkidle")
         time.sleep(5)
+        _dismiss_blocking_dialogs(page)
 
         data = {
             "date": datetime.now().strftime("%Y-%m-%d"),
