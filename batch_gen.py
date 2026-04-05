@@ -361,16 +361,14 @@ def generate_one(
     print("  [3/7] スライド画像生成...")
     slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
 
-    # Step 4: サムネフレーム生成（動画先頭に埋め込む）
+    # Step 4: サムネフレーム生成
     print("  [4/7] サムネフレーム生成...")
-    thumb_frame_path = ""
     thumb_result = slide_gen.generate_thumbnail_frame(
         scenes, PENDING_DIR / "thumbnail_frame.png",
         title=script_data.get("title", ""),
         used_texts=used_texts,
     )
     if thumb_result:
-        thumb_frame_path = thumb_result["path"]
         script_data["thumbnail_text"] = thumb_result["text"]
         script_data["thumbnail_photo"] = thumb_result["photo"]
         if used_texts is not None:
@@ -386,7 +384,6 @@ def generate_one(
     video_path = video_gen.compose_shorts_video(
         scenes, PENDING_DIR / "output.mp4",
         use_photo=True,
-        thumbnail_frame_path=thumb_frame_path,
     )
     if not video_path:
         raise RuntimeError("動画合成に失敗")

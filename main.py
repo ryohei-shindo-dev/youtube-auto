@@ -140,7 +140,7 @@ def main():
     print("\n[Step 3/9] スライド画像生成")
     slide_gen.generate_all_slides(scenes, PENDING_DIR, theme=theme, use_photo=True)
 
-    # ── Step 4: サムネフレーム生成（動画先頭に埋め込む） ──
+    # ── Step 4: サムネフレーム生成 ──
     print("\n[Step 4/9] サムネフレーム生成")
     thumb_frame_path = ""
     thumb_result = slide_gen.generate_thumbnail_frame(
@@ -166,7 +166,6 @@ def main():
     video_path = video_gen.compose_shorts_video(
         scenes, PENDING_DIR / "output.mp4",
         use_photo=True,
-        thumbnail_frame_path=thumb_frame_path,
     )
     if not video_path:
         print("\n[失敗] 動画合成に失敗しました。終了します。")
@@ -195,7 +194,7 @@ def main():
     print(f"  タイトル:     {script_data['title']}")
     print(f"  動画:         {video_path}")
     if thumb_frame_path:
-        print(f"  サムネフレーム: {thumb_frame_path}（動画先頭0.5秒に埋め込み済み）")
+        print(f"  サムネフレーム: {thumb_frame_path}")
     print(f"  字幕(SRT):    {sub_files.get('srt_path', 'なし')}")
     if note_path:
         print(f"  note記事:     {note_path}")

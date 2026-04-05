@@ -378,15 +378,13 @@ def _run_video_pipeline(script_data: dict, theme: str) -> None:
         if i < len(slide_paths):
             scene["slide_path"] = str(slide_paths[i])
 
-    # サムネフレーム生成（動画先頭に埋め込む）
+    # サムネフレーム生成
     print("  [4/7] サムネフレーム生成...")
-    thumb_frame_path = ""
     thumb_result = slide_gen.generate_thumbnail_frame(
         scenes, PENDING_DIR / "thumbnail_frame.png",
         title=script_data.get("title", ""),
     )
     if thumb_result:
-        thumb_frame_path = thumb_result["path"]
         script_data["thumbnail_text"] = thumb_result["text"]
         script_data["thumbnail_photo"] = thumb_result["photo"]
 
@@ -395,7 +393,6 @@ def _run_video_pipeline(script_data: dict, theme: str) -> None:
     video_path = video_gen.compose_shorts_video(
         scenes, PENDING_DIR / "output.mp4",
         use_photo=True,
-        thumbnail_frame_path=thumb_frame_path,
     )
     if not video_path:
         raise RuntimeError("動画合成に失敗")

@@ -128,7 +128,6 @@ def main():
     video_path = video_gen.compose_shorts_video(
         scenes, PENDING_DIR / "output.mp4",
         use_photo=True,
-        thumbnail_frame_path=thumb_frame_path,
     )
     if not video_path:
         print("\n[失敗] 動画合成に失敗しました。")
