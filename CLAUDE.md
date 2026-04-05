@@ -4,6 +4,19 @@
 
 `AGENTS.md` を参照。コンテンツルール・表現規則・禁止表現はすべて `AGENTS.md` が一次資料。
 
+## 運用ステータス
+
+**判定待ち（縮小運用中）** — 2026-04-04〜、再判定 2026-05-02
+
+otona-renai 主力格上げに伴い、改善開発は停止。障害対応のみ最小限で対応する。
+詳細は `OPERATIONS_MEMO.md` の Current Operating Facts を参照。
+
+- Shorts: 1日1本（朝07:00のみ）
+- SNS: 朝1回に集約
+- note: 週3回（月水金）
+- ElevenLabs按分: 30:70（otona-renai寄り）
+- ストック: publish_queue 35本（2026-04-04時点、約35日分）
+
 ## ops-hub 管理下
 
 - スケジュール正本: `~/ops-hub/schedule/tasks.yaml`
