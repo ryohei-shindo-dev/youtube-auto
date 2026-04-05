@@ -209,10 +209,10 @@ def cmd_replace_images(args):
 def cmd_rewrite_body(args):
     """記事の本文を全文再投入する。"""
     md_path = pathlib.Path(args.file)
+    from note.convert import _split_body_into_blocks
     _, body = ops.load_article(md_path)
-    expected_cards = sum(
-        1 for line in body.splitlines() if ops.SEL["url_line"].match(line.strip())
-    )
+    blocks = _split_body_into_blocks(body)
+    expected_cards = sum(1 for b in blocks if b["type"] == "card")
     pw, context, page = ops.launch()
     try:
         ops.open_editor(page, args.note_id)

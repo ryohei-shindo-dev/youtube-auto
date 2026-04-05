@@ -142,14 +142,11 @@ def main():
 
     # ── Step 4: サムネフレーム生成 ──
     print("\n[Step 4/9] サムネフレーム生成")
-    thumb_frame_path = ""
     thumb_result = slide_gen.generate_thumbnail_frame(
         scenes, PENDING_DIR / "thumbnail_frame.png",
         title=script_data.get("title", ""),
     )
     if thumb_result:
-        thumb_frame_path = thumb_result["path"]
-        # transcript.json に保存するためにscript_dataに記録
         script_data["thumbnail_text"] = thumb_result["text"]
         script_data["thumbnail_photo"] = thumb_result["photo"]
     else:
@@ -193,8 +190,8 @@ def main():
     print(f"  タイプ:       {video_type}" + (f"（{theme}）" if not is_long else ""))
     print(f"  タイトル:     {script_data['title']}")
     print(f"  動画:         {video_path}")
-    if thumb_frame_path:
-        print(f"  サムネフレーム: {thumb_frame_path}")
+    if thumb_result:
+        print(f"  サムネフレーム: {thumb_result['path']}")
     print(f"  字幕(SRT):    {sub_files.get('srt_path', 'なし')}")
     if note_path:
         print(f"  note記事:     {note_path}")

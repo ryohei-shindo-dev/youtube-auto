@@ -111,9 +111,8 @@ def repair(dry_run: bool = False) -> None:
             print(f"  → スライド再生成完了")
 
             # 3. 動画再生成
-            for s in data["scenes"]:
-                audio_name = f"audio_{data['scenes'].index(s)+1:02d}.mp3"
-                audio_path = out_dir / audio_name
+            for i, s in enumerate(data["scenes"], 1):
+                audio_path = out_dir / f"audio_{i:02d}.mp3"
                 if audio_path.exists():
                     s["audio_path"] = str(audio_path)
             output_mp4 = out_dir / "output.mp4"
