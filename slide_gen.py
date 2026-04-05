@@ -56,6 +56,14 @@ ASSETS_DIR = pathlib.Path(__file__).parent / "assets"
 PHOTOS_DIR = ASSETS_DIR / "photos"
 PHOTO_HISTORY_PATH = pathlib.Path(__file__).parent / "debug" / "photo_history.json"
 PHOTO_HISTORY_KEEP = 30
+MANUAL_PHOTO_BLACKLIST = {
+    "anxiety": {
+        "anxiety10.jpg",
+    },
+    "comparison": {
+        "comparison63.jpg",
+    },
+}
 
 _PHOTO_SIZE_CACHE: dict[pathlib.Path, tuple[int, int]] = {}
 
@@ -562,6 +570,7 @@ def _get_photo(role: str) -> tuple[Image.Image | None, str]:
 
     history = _load_photo_history()
     blocked_names = set(history.get(category, [])[-PHOTO_HISTORY_KEEP:])
+    blocked_names.update(MANUAL_PHOTO_BLACKLIST.get(category, set()))
     if role == "hook":
         blocked_names.update(_get_recent_published_hook_photo_names(limit=6))
     candidates = [p for p in photos if p.name not in blocked_names] or photos
