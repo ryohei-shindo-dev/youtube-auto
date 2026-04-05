@@ -47,6 +47,7 @@ x_post_history.jsonl
 # ログ・自動更新データ
 logs/
 data/analytics/analytics_log.json
+outputs/
 
 # Claude Code ローカル設定
 .claude/settings.local.json
