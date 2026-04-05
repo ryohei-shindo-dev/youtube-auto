@@ -69,9 +69,10 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
             else:
                 parts.append(f"<ul><li>{text}</li></ul>")
             continue
-        # 空行
+        # 空行は段落区切りとして扱い、明示的な <p><br></p> は作らない。
+        # note 側の段落余白だけで十分で、ここで空段落を作ると
+        # 公開面で不自然な大きい空白になる。
         if not stripped:
-            parts.append("<p><br></p>")
             continue
         # 太字 → b タグ、通常行 → p
         escaped = _html_escape(line)
@@ -79,44 +80,41 @@ def _split_body_for_note(body: str) -> tuple[str, list[str]]:
         parts.append(f"<p>{text}</p>")
 
     html = "\n".join(parts)
-    # 連続する空段落を最大2個に制限
-    empty = "<p><br></p>"
-    while f"{empty}\n{empty}\n{empty}" in html:
-        html = html.replace(f"{empty}\n{empty}\n{empty}", f"{empty}\n{empty}")
     return html.strip(), url_lines
 
 
 def _split_body_into_blocks(body: str) -> list[dict]:
-    """本文を空行区切りの小ブロック列に分解する。
+    """本文を note 挿入用の小ブロック列に分解する。
 
-    URL単独行は {"type": "card", "url": "..."} に、
-    それ以外は段落単位で {"type": "html", "html": "..."} にする。
-    巨大htmlブロックを避け、insertHTML後のカーソル位置ズレを防ぐ。
+    URL行が見出しや本文と同じ空行ブロックに混在していても、
+    順序を保ったまま html / card に分割する。
     """
     blocks: list[dict] = []
-    raw_blocks = re.split(r"\n\s*\n", body.strip())
+    text_buffer: list[str] = []
 
-    for raw in raw_blocks:
-        text = raw.strip()
-        if not text:
-            continue
-
-        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-
-        # URL単独行はcard
-        if len(lines) == 1 and _URL_LINE_RE_PUBLISH.match(lines[0]):
-            blocks.append({"type": "card", "url": lines[0]})
-            continue
-
-        # 複数行のURL連続（あわせて読みたいの2本等）を個別cardに分解
-        if all(_URL_LINE_RE_PUBLISH.match(ln) for ln in lines):
-            for ln in lines:
-                blocks.append({"type": "card", "url": ln})
-            continue
-
-        # 通常テキスト → HTML変換
-        html, _ = _split_body_for_note(text)
+    def flush_text() -> None:
+        if not text_buffer:
+            return
+        html, _ = _split_body_for_note("\n".join(text_buffer).strip())
         if html.strip():
             blocks.append({"type": "html", "html": html})
+        text_buffer.clear()
 
+    for raw_line in body.splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if _URL_LINE_RE_PUBLISH.match(stripped):
+            flush_text()
+            blocks.append({"type": "card", "url": stripped})
+            continue
+
+        if not stripped:
+            if text_buffer:
+                text_buffer.append("")
+            continue
+
+        text_buffer.append(line)
+
+    flush_text()
     return blocks

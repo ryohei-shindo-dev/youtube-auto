@@ -23,6 +23,8 @@ from typing import Optional
 from playwright.sync_api import Page, BrowserContext
 
 from note.browser import _launch_browser, _close_browser
+from note.convert import _split_body_into_blocks
+from note.editor import _insert_body_blocks
 
 # ops_note: note ProseMirror 危険操作の共通ライブラリ（ops-hub 管理）
 from ops_note import (
@@ -329,7 +331,7 @@ def fill_editor(page: Page, title: str, body_text: str) -> int:
     return _input_body_text(page, body_text)
 
 
-def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
+def rewrite_body(page: Page, md_path: pathlib.Path, *, skip_if_cards_existing: bool = True) -> bool:
     """記事の本文を全文再投入する。
 
     末尾だけの部分削除は本文全消し事故の原因になるため、
@@ -346,7 +348,7 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
     # 破壊操作前にバックアップ
     _backup_before_rewrite(md_path, original_text)
 
-    if count_embed_cards(page) >= expected_urls > 0:
+    if skip_if_cards_existing and count_embed_cards(page) >= expected_urls > 0:
         print(f"    [スキップ] カード既存")
         return True
 
@@ -356,8 +358,12 @@ def rewrite_body(page: Page, md_path: pathlib.Path) -> bool:
     page.keyboard.press("Backspace")
     time.sleep(0.5)
 
-    # 本文のみ再入力（タイトルは既存のまま。fill_editorを使うとタイトル二重入力になる）
-    card_count = _input_body_text(page, body)
+    # 本文のみ再入力（タイトルは既存のまま）。
+    # markdown記法をそのまま打鍵すると `##` が公開面に残るため、
+    # note向けブロックへ変換してから挿入する。
+    blocks = _split_body_into_blocks(body)
+    _insert_body_blocks(page, blocks)
+    card_count = sum(1 for block in blocks if block["type"] == "card")
 
     new_len = len(body_el.inner_text().strip())
     if new_len < MIN_BODY_LENGTH:

@@ -209,11 +209,15 @@ def cmd_replace_images(args):
 def cmd_rewrite_body(args):
     """記事の本文を全文再投入する。"""
     md_path = pathlib.Path(args.file)
+    _, body = ops.load_article(md_path)
+    expected_cards = sum(
+        1 for line in body.splitlines() if ops.SEL["url_line"].match(line.strip())
+    )
     pw, context, page = ops.launch()
     try:
         ops.open_editor(page, args.note_id)
-        if ops.rewrite_body(page, md_path):
-            state = ops.verify_article_state(page)
+        if ops.rewrite_body(page, md_path, skip_if_cards_existing=False):
+            state = ops.verify_article_state(page, expected_cards=expected_cards)
             if state["ok"]:
                 if ops.save_article(page):
                     print("保存完了")
