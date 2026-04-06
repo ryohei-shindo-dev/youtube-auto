@@ -17,11 +17,10 @@ cron設定例（毎週月曜23:00に実行）:
 from __future__ import annotations
 
 import json
-import math
 import pathlib
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
@@ -146,7 +145,7 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
             "views_24h": views_24h.get(v["video_id"], v["views"]),
         })
 
-    # 長尺動画を除外（Shortsのみ分析）
+    # 再生数0の動画を除外
     shorts = [v for v in videos if v["views"] > 0]
     if not shorts:
         print("  再生数0の動画しかありません。")
@@ -276,7 +275,12 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
         for v in vids_with_subs:
             if v["views"] >= 50:
                 rate = v["subscribers_gained"] / v["views"] * 100
-                sub_efficiency.append({**v, "sub_rate_pct": round(rate, 3)})
+                sub_efficiency.append({
+                    "title": v["title"], "views": v["views"],
+                    "hook_part": v.get("hook_part", ""),
+                    "subscribers_gained": v["subscribers_gained"],
+                    "sub_rate_pct": round(rate, 3),
+                })
         sub_efficiency.sort(key=lambda v: v["sub_rate_pct"], reverse=True)
 
     # --- engaged_view_rate / share_rate 算出 ---
@@ -304,7 +308,6 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
         hooks = [v["hook_part"] for v in group if v.get("hook_part")]
         if not hooks:
             return []
-        from collections import Counter
         return [h for h, _ in Counter(hooks).most_common(3)]
 
     # --- prompt_guidance 生成（群比較ベース） ---

@@ -113,9 +113,9 @@ def _get_analytics_data(video_ids: list) -> dict:
     """YouTube Analytics API で動画ごとの詳細指標を取得する。
 
     Returns:
-        {video_id: {avg_view_pct, avg_view_duration_sec, impressions,
-                    ctr_pct, subscribers_gained, subscribers_lost, shares,
-                    estimated_minutes_watched}} の辞書
+        {video_id: {avg_view_pct, avg_view_duration_sec,
+                    subscribers_gained, subscribers_lost, shares,
+                    estimated_minutes_watched, engaged_views}} の辞書
     """
     try:
         yta = sheets.get_youtube_analytics_service()
@@ -127,6 +127,7 @@ def _get_analytics_data(video_ids: list) -> dict:
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = "2026-01-01"
 
+    video_id_set = set(video_ids)
     result = {}
 
     # Query 1: エンゲージメント指標
@@ -145,7 +146,7 @@ def _get_analytics_data(video_ids: list) -> dict:
 
         for row in res.get("rows", []):
             vid = row[0]
-            if vid in video_ids:
+            if vid in video_id_set:
                 result[vid] = {
                     "avg_view_pct": round(row[2], 1),
                     "avg_view_duration_sec": round(row[3], 1),
@@ -163,7 +164,7 @@ def _get_analytics_data(video_ids: list) -> dict:
 
     # Query 2: engagedViews（最初の数秒を超えて視聴された回数）
     try:
-        res3 = yta.reports().query(
+        res2 = yta.reports().query(
             ids="channel==MINE",
             startDate=start_date,
             endDate=end_date,
@@ -173,9 +174,9 @@ def _get_analytics_data(video_ids: list) -> dict:
             maxResults=200,
         ).execute()
 
-        for row in res3.get("rows", []):
+        for row in res2.get("rows", []):
             vid = row[0]
-            if vid in video_ids:
+            if vid in video_id_set:
                 if vid not in result:
                     result[vid] = {}
                 result[vid]["engaged_views"] = int(row[2])
