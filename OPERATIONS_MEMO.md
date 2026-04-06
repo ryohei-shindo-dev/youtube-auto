@@ -6,11 +6,13 @@
 
 ## Current Operating Facts
 - **ステータス: 判定待ち（2026-05-02 再判定）**。otona-renai 主力格上げに伴い縮小運用へ移行（2026-04-04）。
-- 現在の投稿頻度は `Shorts 1日1本`（朝07:00のみ）。12:10・19:00は停止。
+- **Shorts投稿: 停止中**（2026-04-07〜）。ディスク削減で done/ 内メディアファイル（mp4, png, mp3）を全277フォルダから削除。publish_queue.json は空配列 `[]` にリセット済み。
+- publish-youtube-0700 は無効化済み（tasks.yaml enabled: false、plist unload済み）。
 - SNS は朝1回に集約（X 07:30、Instagram 12:00 のみ。夜の X・Instagram は停止）。
 - note は `週3回`（月水金 13:00）。夜の note-body-update・note-x-announce（21:30/21:50）は停止。
-- 動画ストック: 生成済み68本のうち、publish_queue（品質選定済み）は **35本**（2026-04-04時点）。1日1本で約35日分（5月10日頃まで）。キュー外33本は低スコアで予備扱い。
-- 5/2再判定時の残り見込み: 約7本。判定結果次第で新規生成の要否を検討。
+- done/ 配下にはテキスト系ファイル（transcript.json, social_captions.json, subtitles.srt, note_article.md）のみ残存。
+- assets/photos/（6カテゴリ）、assets/videos/（shorts_hook, long_emotion）も全削除済み。assets/_raw, playlist_thumbnails, トップレベル png は残存。
+- 有効な自動タスクは2件のみ: analytics-collect（22:20）、analytics-analyze（月曜 23:20）。
 - 自動投稿の実行主体は `launchd + auto_publish.py`（plist は `~/Library/LaunchAgents/com.youtube-auto.publish-*.plist`）。
 - **改善開発は停止**。障害対応のみ最小限で対応。
 - 縮小判断の根拠: Shorts維持率が最高82.5%で目標90%未達。otona-renaiは上位5本すべて100%超え（リピート再生）。テーマ特性として投資系は情報処理型でリピートされにくい。

@@ -11,11 +11,12 @@
 otona-renai 主力格上げに伴い、改善開発は停止。障害対応のみ最小限で対応する。
 詳細は `OPERATIONS_MEMO.md` の Current Operating Facts を参照。
 
-- Shorts: 1日1本（朝07:00のみ）
+- Shorts: **投稿停止中**（2026-04-07〜）。ディスク削減で done/ 内メディア全削除、publish_queue リセット済み
 - SNS: 朝1回に集約
 - note: 週3回（月水金）
 - ElevenLabs按分: 30:70（otona-renai寄り）
-- ストック: publish_queue 35本（2026-04-04時点、約35日分）
+- 有効タスク: analytics-collect（22:20）、analytics-analyze（月曜 23:20）のみ
+- assets/photos・assets/videos も全削除済み
 
 ## ops-hub 管理下
 
