@@ -162,10 +162,31 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     avg_like_rate = total_likes / max(total_views, 1) * 100
     avg_comment_rate = total_comments / max(total_views, 1) * 100
 
+    # --- Analytics API 指標（維持率・CTR・インプレッション等） ---
+    vids_with_retention = [v for v in shorts if v.get("avg_view_pct") is not None]
+    vids_with_subs = [v for v in shorts if v.get("subscribers_gained") is not None]
+
+    avg_retention = None
+    avg_view_duration = None
+    total_subs_gained = 0
+    total_subs_lost = 0
+
+    if vids_with_retention:
+        avg_retention = sum(v["avg_view_pct"] for v in vids_with_retention) / len(vids_with_retention)
+        avg_view_duration = sum(v["avg_view_duration_sec"] for v in vids_with_retention) / len(vids_with_retention)
+    if vids_with_subs:
+        total_subs_gained = sum(v["subscribers_gained"] for v in vids_with_subs)
+        total_subs_lost = sum(v["subscribers_lost"] for v in vids_with_subs)
+
     print(f"  平均再生数: {avg_views:.0f}")
     print(f"  平均24h再生数: {avg_views_24h:.0f}")
     print(f"  いいね率: {avg_like_rate:.2f}%")
     print(f"  コメント率: {avg_comment_rate:.3f}%")
+    if avg_retention is not None:
+        print(f"  平均維持率: {avg_retention:.1f}%")
+        print(f"  平均視聴時間: {avg_view_duration:.1f}秒")
+    if vids_with_subs:
+        print(f"  登録者: +{total_subs_gained} / -{total_subs_lost}（純増{total_subs_gained - total_subs_lost}）")
 
     # --- タイトル数字分析 ---
     numeric_titles = [v for v in shorts if v["has_number"]]
@@ -232,7 +253,61 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     else:
         confidence = "very_low"
 
-    # --- prompt_guidance 生成 ---
+    # --- 高密度視聴指標: 3帯分類 ---
+    # Shorts の averageViewPercentage はループ含みの「視聴密度」であり、
+    # 通常動画の retention とは異なる。100%超えは高密度視聴を示す。
+    retention_high = []   # 100%超: 高密度視聴群
+    retention_mid = []    # 70〜100%: 完走寄り
+    retention_low = []    # 70%未満: 入口離脱の可能性
+    if vids_with_retention:
+        for v in vids_with_retention:
+            pct = v["avg_view_pct"]
+            if pct > 100:
+                retention_high.append(v)
+            elif pct >= 70:
+                retention_mid.append(v)
+            else:
+                retention_low.append(v)
+        print(f"  視聴密度: 高密度{len(retention_high)}本 / 完走{len(retention_mid)}本 / 離脱{len(retention_low)}本")
+
+    # --- 登録者獲得効率（登録/再生比） ---
+    sub_efficiency = []
+    if vids_with_subs:
+        for v in vids_with_subs:
+            if v["views"] >= 50:
+                rate = v["subscribers_gained"] / v["views"] * 100
+                sub_efficiency.append({**v, "sub_rate_pct": round(rate, 3)})
+        sub_efficiency.sort(key=lambda v: v["sub_rate_pct"], reverse=True)
+
+    # --- engaged_view_rate / share_rate 算出 ---
+    for v in shorts:
+        ev = v.get("engaged_views")
+        v["engaged_view_rate"] = ev / v["views"] if ev is not None and v["views"] > 0 else None
+        sh = v.get("shares", 0)
+        v["share_rate"] = sh / v["views"] * 100 if v["views"] > 0 else 0
+
+    # --- 上位群 / 下位群の共通特徴抽出（パーセンタイル方式） ---
+    def _percentile_split(vids, key, top_pct=20, min_views=50):
+        """指定キーで上位/下位パーセンタイルに分割する。"""
+        eligible = [v for v in vids if v.get(key) is not None and v["views"] >= min_views]
+        if len(eligible) < 5:
+            return [], []
+        eligible.sort(key=lambda v: v[key], reverse=True)
+        n = max(1, len(eligible) * top_pct // 100)
+        return eligible[:n], eligible[-n:]
+
+    density_top, density_bottom = _percentile_split(shorts, "avg_view_pct")
+    share_top, _ = _percentile_split(shorts, "share_rate")
+
+    def _extract_common_hooks(group):
+        """群内の共通 hook パターンを抽出する。"""
+        hooks = [v["hook_part"] for v in group if v.get("hook_part")]
+        if not hooks:
+            return []
+        from collections import Counter
+        return [h for h, _ in Counter(hooks).most_common(3)]
+
+    # --- prompt_guidance 生成（群比較ベース） ---
     guidance = []
     if title_rules.get("prefer_numeric_titles"):
         guidance.append(
@@ -257,21 +332,46 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
     if high_engagement:
         eng_str = "、".join(v["title"][:20] for v in high_engagement[:2])
         guidance.append(f"エンゲージメント高い動画: {eng_str}")
+    # 高密度視聴群の共通特徴（1位模倣ではなく群比較）
+    if density_top:
+        top_hooks = _extract_common_hooks(density_top)
+        if top_hooks:
+            guidance.append(f"高密度視聴群に多いhook型: {', '.join(top_hooks[:3])}")
+        top_avg = sum(v["avg_view_pct"] for v in density_top) / len(density_top)
+        guidance.append(f"高密度視聴群（上位20%）の平均視聴密度: {top_avg:.0f}%。この群のテーマ・構成を参考にせよ。")
+    if density_bottom:
+        bottom_hooks = _extract_common_hooks(density_bottom)
+        if bottom_hooks:
+            guidance.append(f"離脱が多い群のhook型: {', '.join(bottom_hooks[:3])}。冒頭の訴求力を改善。")
+    # 登録者ガイダンス
+    if vids_with_subs and sub_efficiency:
+        best = sub_efficiency[0]
+        guidance.append(f"登録者獲得効率1位「{best['title'][:20]}」({best['sub_rate_pct']:.2f}%)。共感・動機づけ系が登録に繋がりやすい傾向。")
     # トーン維持の注意
     guidance.append("数字を入れても煽りトーンにしない。落ち着いたトーンを維持。")
 
     # --- insights辞書の組み立て ---
+    meta = {
+        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+09:00"),
+        "sample_size": sample_size,
+        "confidence": confidence,
+        "mode": mode,
+        "avg_views": round(avg_views),
+        "avg_views_24h": round(avg_views_24h),
+        "avg_like_rate_pct": round(avg_like_rate, 2),
+        "avg_comment_rate_pct": round(avg_comment_rate, 3),
+    }
+    if avg_retention is not None:
+        meta["avg_retention_pct"] = round(avg_retention, 1)
+        meta["avg_view_duration_sec"] = round(avg_view_duration, 1)
+    # NOTE: インプレッション/CTR は Shorts では API 非対応（2026-04時点）
+    if vids_with_subs:
+        meta["total_subscribers_gained"] = total_subs_gained
+        meta["total_subscribers_lost"] = total_subs_lost
+        meta["net_subscribers"] = total_subs_gained - total_subs_lost
+
     insights = {
-        "meta": {
-            "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+09:00"),
-            "sample_size": sample_size,
-            "confidence": confidence,
-            "mode": mode,
-            "avg_views": round(avg_views),
-            "avg_views_24h": round(avg_views_24h),
-            "avg_like_rate_pct": round(avg_like_rate, 2),
-            "avg_comment_rate_pct": round(avg_comment_rate, 3),
-        },
+        "meta": meta,
         "title_rules": title_rules,
         "strong_hooks": strong_hooks[:5],
         "weak_hooks": weak_hooks[:5],
@@ -291,6 +391,39 @@ def analyze(history: dict, mode: str = "weekly") -> dict:
         ],
         "prompt_guidance": guidance,
     }
+
+    # Analytics API 由来の追加データ（群比較ベース）
+    def _vid_summary(v):
+        """動画の要約辞書を返す。"""
+        d = {"title": v["title"], "views": v["views"]}
+        if v.get("avg_view_pct") is not None:
+            d["avg_view_pct"] = v["avg_view_pct"]
+        if v.get("avg_view_duration_sec") is not None:
+            d["avg_view_duration_sec"] = v["avg_view_duration_sec"]
+        if v.get("engaged_view_rate") is not None:
+            d["engaged_view_rate"] = round(v["engaged_view_rate"], 3)
+        if v.get("share_rate"):
+            d["share_rate_pct"] = round(v["share_rate"], 3)
+        return d
+
+    # 視聴密度3帯の分布
+    if vids_with_retention:
+        insights["density_bands"] = {
+            "high_count": len(retention_high),
+            "mid_count": len(retention_mid),
+            "low_count": len(retention_low),
+        }
+    if density_top:
+        insights["density_top"] = [_vid_summary(v) for v in density_top[:5]]
+    if density_bottom:
+        insights["density_bottom"] = [_vid_summary(v) for v in density_bottom[:5]]
+    if sub_efficiency[:3]:
+        insights["sub_efficiency_top"] = [
+            {"title": v["title"], "views": v["views"],
+             "subscribers_gained": v["subscribers_gained"],
+             "sub_rate_pct": v["sub_rate_pct"]}
+            for v in sub_efficiency[:3]
+        ]
 
     return insights
 

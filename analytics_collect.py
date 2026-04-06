@@ -32,8 +32,21 @@ def collect_analytics():
         print("チャンネルに動画がありません。")
         return []
 
-    # 統計を取得
+    # Data API で基本統計を取得
     stats = _get_video_stats(youtube, video_ids)
+
+    # Analytics API で詳細指標を取得（維持率・CTR・インプレッション等）
+    analytics_data = _get_analytics_data(video_ids)
+    if analytics_data:
+        # video_id をキーにマージ
+        for s in stats:
+            extra = analytics_data.get(s["video_id"], {})
+            s.update(extra)
+        has_keys = set()
+        for v in analytics_data.values():
+            has_keys.update(v.keys())
+        print(f"  Analytics API: {len(analytics_data)}本の詳細指標を取得（{', '.join(sorted(has_keys))}）")
+
     return stats
 
 
@@ -94,6 +107,82 @@ def _get_video_stats(youtube, video_ids: list) -> list:
     # 公開日順にソート
     stats.sort(key=lambda x: x["published_at"])
     return stats
+
+
+def _get_analytics_data(video_ids: list) -> dict:
+    """YouTube Analytics API で動画ごとの詳細指標を取得する。
+
+    Returns:
+        {video_id: {avg_view_pct, avg_view_duration_sec, impressions,
+                    ctr_pct, subscribers_gained, subscribers_lost, shares,
+                    estimated_minutes_watched}} の辞書
+    """
+    try:
+        yta = sheets.get_youtube_analytics_service()
+    except Exception as e:
+        print(f"  [警告] Analytics API サービス取得失敗: {e}")
+        return {}
+
+    # 日付範囲: チャンネル開始〜今日
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = "2026-01-01"
+
+    result = {}
+
+    # Query 1: エンゲージメント指標
+    try:
+        res = yta.reports().query(
+            ids="channel==MINE",
+            startDate=start_date,
+            endDate=end_date,
+            metrics="views,averageViewPercentage,averageViewDuration,"
+                    "subscribersGained,subscribersLost,shares,"
+                    "estimatedMinutesWatched",
+            dimensions="video",
+            sort="-views",
+            maxResults=200,
+        ).execute()
+
+        for row in res.get("rows", []):
+            vid = row[0]
+            if vid in video_ids:
+                result[vid] = {
+                    "avg_view_pct": round(row[2], 1),
+                    "avg_view_duration_sec": round(row[3], 1),
+                    "subscribers_gained": int(row[4]),
+                    "subscribers_lost": int(row[5]),
+                    "shares": int(row[6]),
+                    "estimated_minutes_watched": round(row[7], 1),
+                }
+    except Exception as e:
+        print(f"  [警告] Analytics API エンゲージメント取得失敗: {e}")
+
+    # NOTE: インプレッション/CTR は Shorts では API 非対応（2026-04時点）
+    # impressions, impressionClickThroughRate, videoThumbnailImpressions
+    # いずれも dimensions=video との組み合わせで badRequest になる
+
+    # Query 2: engagedViews（最初の数秒を超えて視聴された回数）
+    try:
+        res3 = yta.reports().query(
+            ids="channel==MINE",
+            startDate=start_date,
+            endDate=end_date,
+            metrics="views,engagedViews",
+            dimensions="video",
+            sort="-views",
+            maxResults=200,
+        ).execute()
+
+        for row in res3.get("rows", []):
+            vid = row[0]
+            if vid in video_ids:
+                if vid not in result:
+                    result[vid] = {}
+                result[vid]["engaged_views"] = int(row[2])
+    except Exception as e:
+        print(f"  [情報] Analytics API engagedViews 取得スキップ: {e}")
+
+    return result
 
 
 def save_analytics(stats: list):

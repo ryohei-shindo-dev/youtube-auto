@@ -1,13 +1,18 @@
 {
   "meta": {
-    "generated_at": "2026-03-30T23:20:00+09:00",
-    "sample_size": 60,
+    "generated_at": "2026-04-06T09:48:25+09:00",
+    "sample_size": 73,
     "confidence": "high",
     "mode": "weekly",
-    "avg_views": 911,
-    "avg_views_24h": 836,
-    "avg_like_rate_pct": 0.31,
-    "avg_comment_rate_pct": 0.102
+    "avg_views": 850,
+    "avg_views_24h": 784,
+    "avg_like_rate_pct": 0.33,
+    "avg_comment_rate_pct": 0.111,
+    "avg_retention_pct": 92.8,
+    "avg_view_duration_sec": 24.1,
+    "total_subscribers_gained": 7,
+    "total_subscribers_lost": 1,
+    "net_subscribers": 6
   },
   "title_rules": {
     "prefer_specific_timeframes": true,
@@ -16,7 +21,7 @@
   "strong_hooks": [
     {
       "text": "増えない人へ",
-      "score": 1.6,
+      "score": 1.7,
       "sample_size": 3,
       "avg_views": 1462
     }
@@ -38,16 +43,16 @@
   ],
   "bottom_videos": [
     {
-      "title": "含み損がつらい夜に聞く、静かな整理",
-      "views": 7
-    },
-    {
-      "title": "積み立て3年目が一番つらい理由｜増えない時期に何が起きているか",
+      "title": "一括投資か積立投資かで揺れる人へ｜決める前に分けておきたい不安",
       "views": 6
     },
     {
-      "title": "一括投資か積立投資かで揺れる人へ｜決める前に分けておきたい不安",
-      "views": 2
+      "title": "暴落で売ると何を失うのか｜戻れなくなる前に整理したいこと",
+      "views": 6
+    },
+    {
+      "title": "取り崩しが怖い人へ｜出口戦略で先に整理しておきたい不安",
+      "views": 5
     }
   ],
   "high_engagement": [
@@ -59,15 +64,15 @@
     },
     {
       "title": "高配当株とインデックスで揺れる人へ｜最初に整理したいちがい",
-      "views": 95,
-      "like_rate_pct": 2.11,
-      "comment_rate_pct": 1.053
+      "views": 96,
+      "like_rate_pct": 2.08,
+      "comment_rate_pct": 1.042
     },
     {
       "title": "レバナスで2倍になった人を見て、焦るあなたへ｜積立投資 #Shorts",
-      "views": 123,
-      "like_rate_pct": 1.63,
-      "comment_rate_pct": 0.813
+      "views": 129,
+      "like_rate_pct": 1.55,
+      "comment_rate_pct": 0.775
     }
   ],
   "prompt_guidance": [
@@ -76,6 +81,110 @@
     "最近強いhook語: 増えない人へ",
     "いいね率0.3%はやや低め。共感・感情に寄せたhookを増やす。",
     "エンゲージメント高い動画: SNSの成功報告、全部信じてませんか｜積、高配当株とインデックスで揺れる人へ｜最初",
+    "高密度視聴群に多いhook型: 今日も積立した。それだけで, 増えない人へ, 20年間",
+    "高密度視聴群（上位20%）の平均視聴密度: 226%。この群のテーマ・構成を参考にせよ。",
+    "離脱が多い群のhook型: 100円がつらい人へ, 月5000円でいい。65歳までに3000万は無理じゃない, 25年。それが。冒頭の訴求力を改善。",
+    "登録者獲得効率1位「勉強するほどブレる人へ｜10年持てば勝率」(0.35%)。共感・動機づけ系が登録に繋がりやすい傾向。",
     "数字を入れても煽りトーンにしない。落ち着いたトーンを維持。"
+  ],
+  "density_bands": {
+    "high_count": 10,
+    "mid_count": 27,
+    "low_count": 34
+  },
+  "density_top": [
+    {
+      "title": "今日も積立した。それだけで、20年後の自分に感謝される｜長期投資 #Shorts",
+      "views": 583,
+      "avg_view_pct": 1422.4,
+      "avg_view_duration_sec": 213,
+      "engaged_view_rate": 0.118
+    },
+    {
+      "title": "増えない人へ｜積立投資 #Shorts",
+      "views": 619,
+      "avg_view_pct": 230.1,
+      "avg_view_duration_sec": 29,
+      "engaged_view_rate": 0.118
+    },
+    {
+      "title": "20年間、NISA枠を使い切らなかった人へ｜ガチホの真実 #Shorts",
+      "views": 553,
+      "avg_view_pct": 202.5,
+      "avg_view_duration_sec": 32,
+      "engaged_view_rate": 0.15
+    },
+    {
+      "title": "積み立て3年でやめた人の、その後を知ってますか｜インデックス投資 #Shorts",
+      "views": 1281,
+      "avg_view_pct": 142.1,
+      "avg_view_duration_sec": 31,
+      "engaged_view_rate": 0.247,
+      "share_rate_pct": 0.078
+    },
+    {
+      "title": "レバナスで2倍になった人を見て、焦るあなたへ｜積立投資 #Shorts",
+      "views": 129,
+      "avg_view_pct": 137.6,
+      "avg_view_duration_sec": 26,
+      "engaged_view_rate": 0.109
+    }
+  ],
+  "density_bottom": [
+    {
+      "title": "100円がつらい人へ｜長期投資の真実 #Shorts",
+      "views": 508,
+      "avg_view_pct": 57.6,
+      "avg_view_duration_sec": 12,
+      "engaged_view_rate": 0.114
+    },
+    {
+      "title": "月5000円でいい。65歳までに3000万は無理じゃない｜NISA #Shorts",
+      "views": 243,
+      "avg_view_pct": 53.0,
+      "avg_view_duration_sec": 12,
+      "engaged_view_rate": 0.177
+    },
+    {
+      "title": "25年。それが、億を掴んだ人の答えだった｜長期投資 #Shorts",
+      "views": 935,
+      "avg_view_pct": 52.8,
+      "avg_view_duration_sec": 10,
+      "engaged_view_rate": 0.099
+    },
+    {
+      "title": "売った人、後悔してないですか。5年の話｜インデックス投資 #Shorts",
+      "views": 419,
+      "avg_view_pct": 52.4,
+      "avg_view_duration_sec": 9,
+      "engaged_view_rate": 0.098
+    },
+    {
+      "title": "積み立て3年目、まだ増えない。ガチホできる人の違い｜NISA #Shorts",
+      "views": 511,
+      "avg_view_pct": 51.5,
+      "avg_view_duration_sec": 8,
+      "engaged_view_rate": 0.127
+    }
+  ],
+  "sub_efficiency_top": [
+    {
+      "title": "勉強するほどブレる人へ｜10年持てば勝率95%｜インデックス投資 #Shorts",
+      "views": 284,
+      "subscribers_gained": 1,
+      "sub_rate_pct": 0.352
+    },
+    {
+      "title": "100円がつらい人へ｜長期投資の真実 #Shorts",
+      "views": 508,
+      "subscribers_gained": 1,
+      "sub_rate_pct": 0.197
+    },
+    {
+      "title": "積み立て3年でやめた人の、その後を知ってますか｜インデックス投資 #Shorts",
+      "views": 1281,
+      "subscribers_gained": 1,
+      "sub_rate_pct": 0.078
+    }
   ]
 }

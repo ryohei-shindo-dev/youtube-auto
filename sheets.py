@@ -51,6 +51,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
 
 SHEET_NAME = "投稿管理"
@@ -119,6 +120,11 @@ def get_service():
 def get_youtube_service():
     """YouTube Data API v3 サービスを取得する。"""
     return _get_cached_service("youtube", "v3")
+
+
+def get_youtube_analytics_service():
+    """YouTube Analytics API v2 サービスを取得する。"""
+    return _get_cached_service("youtubeAnalytics", "v2")
 
 
 def get_next_topic(
