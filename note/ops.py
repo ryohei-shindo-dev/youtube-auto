@@ -162,28 +162,63 @@ def go_to_detail_settings(page: Page):
         pass
 
 
-def finalize(page: Page) -> bool:
-    """「予約投稿」or「更新する」ボタンを押して保存を確定する。"""
+def finalize(page: Page, *, allow_from_draft: bool = False) -> bool:
+    """「予約投稿」or「更新する」ボタンを押して保存を確定する。
+
+    ボタン文言が「投稿する」「公開」の場合は下書きからの新規公開を意味する。
+    allow_from_draft=True を明示しない限り例外で中断する。
+    """
+    DRAFT_PUBLISH_LABELS = {"投稿する", "公開"}
     try:
         final = page.locator(SEL["btn_finalize"])
-        if final.count() > 0:
-            final.first.click()
-            time.sleep(5)
-            return True
+        if final.count() == 0:
+            return False
+        label = final.first.inner_text().strip()
+
+        if label in DRAFT_PUBLISH_LABELS and not allow_from_draft:
+            raise RuntimeError(
+                f"公開ボタン '{label}' が検出されました。"
+                "下書きからの新規公開には allow_from_draft=True を明示してください。"
+            )
+
+        final.first.click()
+        time.sleep(5)
+        return True
+    except RuntimeError:
+        raise
+    except Exception:
         return False
+
+
+def publish_or_update(page: Page, *, allow_from_draft: bool = False) -> bool:
+    """公開設定画面へ進み、公開/予約投稿/更新を実行する。
+
+    これは保存ではなく **公開系の操作** です。
+    下書きの保存には save_draft() を使ってください。
+
+    Args:
+        allow_from_draft: True にしないと、確定ボタンが「投稿する」「公開」
+            の場合（＝下書きからの新規公開）は例外で中断します。
+    """
+    try:
+        go_to_publish(page)
+        return finalize(page, allow_from_draft=allow_from_draft)
+    except RuntimeError:
+        raise
     except Exception:
         return False
 
 
 def save_article(page: Page) -> bool:
-    """記事を保存する完全フロー: 公開に進む → 予約投稿/更新する。
-    下書き保存は使わない（下書きが残る原因になるため）。
+    """⛔ 廃止 (2026-04-09): publish_or_update() を使ってください。
+
+    この関数は後方互換のために残していますが、常に例外を投げます。
     """
-    try:
-        go_to_publish(page)
-        return finalize(page)
-    except Exception:
-        return False
+    raise RuntimeError(
+        "save_article() は廃止されました。"
+        "公開済み記事の更新には publish_or_update(page) を、"
+        "下書き保存には save_draft(page) を使ってください。"
+    )
 
 
 # ════════════════════════════════════════════════════

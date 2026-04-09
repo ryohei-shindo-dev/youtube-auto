@@ -196,7 +196,7 @@ def cmd_replace_images(args):
         if not state["ok"]:
             print(f"    [検証失敗] {state['errors']}")
             return False
-        return ops.save_article(page)
+        return ops.publish_or_update(page)
 
     pw, context, page = ops.launch()
     try:
@@ -219,7 +219,7 @@ def cmd_rewrite_body(args):
         if ops.rewrite_body(page, md_path, skip_if_cards_existing=False):
             state = ops.verify_article_state(page, expected_cards=expected_cards)
             if state["ok"]:
-                if ops.save_article(page):
+                if ops.publish_or_update(page):
                     print("保存完了")
                     ops.log_result(args.note_id, "rewrite-body", ops.RESULT_SUCCESS)
                 else:
@@ -251,7 +251,7 @@ def cmd_fix_link_cards(args):
             return False
         if not ops.rewrite_body(page, md_path):
             return False
-        return ops.save_article(page)
+        return ops.publish_or_update(page)
 
     pw, context, page = ops.launch()
     try:
@@ -402,7 +402,7 @@ def cmd_discard_draft(args):
     pw, context, page = ops.launch()
     try:
         ops.open_editor(page, args.note_id)
-        if ops.save_article(page):
+        if ops.publish_or_update(page):
             print("下書き破棄+保存完了")
             ops.log_result(args.note_id, "discard-draft", ops.RESULT_SUCCESS)
         else:
