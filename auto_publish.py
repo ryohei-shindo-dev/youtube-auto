@@ -712,7 +712,7 @@ def publish_entry(
     if "tiktok" in platforms:
         try:
             print("\n  [TikTok] 投稿中...")
-            import tiktok_upload
+            from platforms.tiktok import tiktok_upload
             tt_tags = ["長期投資", "積立投資", "NISA", "資産形成", "ガチホ", "投資初心者", "お金の勉強"]
             publish_id = tiktok_upload.upload_video(
                 video_path=str(video_path),
@@ -736,7 +736,7 @@ def publish_entry(
     if "instagram" in platforms:
         try:
             print("\n  [Instagram] 投稿中...")
-            import instagram_upload
+            from platforms.instagram import instagram_upload
             # カバー画像: thumbnail_frame.png（縦長1080x1920）のみ使用
             # 横長 thumbnail.png はInstagramでクロップされて文字が切れるため使わない
             ig_cover = None
@@ -768,7 +768,7 @@ def publish_entry(
     if "x" in platforms:
         try:
             print("\n  [X] 投稿中...")
-            import x_upload
+            from platforms.x import x_upload
 
             # social_captions.json からXポストテキストを読み込み
             social_path = folder / "social_captions.json"

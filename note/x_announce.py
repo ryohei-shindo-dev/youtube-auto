@@ -219,7 +219,7 @@ def _update_cells(sheet_row: int, note_url: str | None = None, remark: str | Non
 
 def _post_x(article_no: int, note_url: str) -> str | None:
     """Xに告知ポストを投稿する。"""
-    import x_upload
+    from platforms.x import x_upload
     text = _build_x_text(article_no, note_url)
     print(f"\n--- X告知テキスト ---")
     print(text)

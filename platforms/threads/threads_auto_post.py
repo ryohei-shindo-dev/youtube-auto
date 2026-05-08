@@ -166,7 +166,7 @@ def main():
         return
 
     # 投稿
-    from threads_upload import post_text
+    from .threads_upload import post_text
     result = post_text(text)
 
     if result:

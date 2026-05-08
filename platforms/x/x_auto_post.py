@@ -239,7 +239,7 @@ def main():
         _random_delay(args.max_delay)
 
     # 投稿
-    from x_upload import post_tweet
+    from .x_upload import post_tweet
     tweet_id = post_tweet(selected)
     if tweet_id:
         print(f"  投稿成功: tweet_id={tweet_id}")
