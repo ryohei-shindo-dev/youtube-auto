@@ -680,8 +680,9 @@ def _get_credentials():
                 backup_path = f"{TOKEN_FILE}.bak_invalid_{ts}"
                 try:
                     os.rename(TOKEN_FILE, backup_path)
-                except OSError:
-                    backup_path = "(rename failed)"
+                except OSError as rename_exc:
+                    # 退避失敗時は revoke 済 token が残ったまま = 次回も同じ失敗を繰り返す
+                    backup_path = f"(rename failed: {rename_exc})"
                 hint = (
                     f"\n[OAuth Error] refresh_token が revoke されています。"
                     f"\n  token 退避先: {backup_path}"
