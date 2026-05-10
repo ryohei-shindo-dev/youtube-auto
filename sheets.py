@@ -648,7 +648,22 @@ def _create_note_sheet(spreadsheet_id: str):
 
 
 def _get_credentials():
-    """Google 認証情報を取得する。"""
+    """Google 認証情報を取得する。
+
+    5/10 incident (3 度目の OAuth invalid_grant 再発、4/27 → 5/5 → 5/10):
+    refresh_token が revoke されている場合 `creds.refresh()` が
+    `RefreshError: invalid_grant` で失敗する。launchd 経由ではブラウザを
+    開けないので、フォールバックの run_local_server() は実用上不可。
+
+    対応:
+    - `creds.refresh()` を try/except で wrap
+    - 失敗時は token を `.bak_invalid_<ts>` にリネームして退避
+    - 明確なエラーメッセージで `RefreshError` を再 raise
+      (run_with_notify.sh の error_notify が ops-triage に Gmail 通知)
+    - ユーザーへの hint: `python3 scripts/reauth.py` を実行
+    """
+    from google.auth.exceptions import RefreshError
+
     creds = None
 
     if os.path.exists(TOKEN_FILE):
@@ -656,7 +671,27 @@ def _get_credentials():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except RefreshError as exc:
+                # refresh_token が revoke されている → token を退避してエラー伝搬
+                import datetime
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = f"{TOKEN_FILE}.bak_invalid_{ts}"
+                try:
+                    os.rename(TOKEN_FILE, backup_path)
+                except OSError:
+                    backup_path = "(rename failed)"
+                hint = (
+                    f"\n[OAuth Error] refresh_token が revoke されています。"
+                    f"\n  token 退避先: {backup_path}"
+                    f"\n  復旧コマンド: python3 {pathlib.Path(__file__).parent}/scripts/reauth.py"
+                    f"\n  詳細: docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md"
+                )
+                print(hint, file=__import__("sys").stderr)
+                raise RefreshError(
+                    f"{exc.args[0]} (token は {backup_path} に退避済、reauth.py で再認証してください)"
+                ) from exc
         else:
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)

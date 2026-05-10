@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.youtube-auto.health-check-oauth</string>
+
+    <!--
+        OAuth token ヘルスチェック (5/10 incident A1)
+        投稿ジョブ発火 1 時間前に実行し、token revoke を早期検出する
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/shindoryohei/youtube-auto/run_with_notify.sh</string>
+        <string>health_check_oauth</string>
+        <string>venv/bin/python</string>
+        <string>scripts/health_check_oauth.py</string>
+    </array>
+
+    <!-- 朝枠 06:00 (07:00 ジョブの 1 時間前) と 夕枠 18:00 (19:00 ジョブの 1 時間前) -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>6</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>18</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/shindoryohei/youtube-auto</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/shindoryohei/youtube-auto/logs/health-check-oauth.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/shindoryohei/youtube-auto/logs/health-check-oauth.err.log</string>
+</dict>
+</plist>
