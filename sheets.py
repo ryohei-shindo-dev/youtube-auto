@@ -659,7 +659,7 @@ def _get_credentials():
     - `creds.refresh()` を try/except で wrap
     - 失敗時は token を `.bak_invalid_<ts>` にリネームして退避
     - 明確なエラーメッセージで `RefreshError` を再 raise
-      (run_with_notify.sh の error_notify が ops-triage に Gmail 通知)
+      (run_with_notify.sh の job_run_end → ops-hub/failure-triage が ops-triage Gmail 通知)
     - ユーザーへの hint: `python3 scripts/reauth.py` を実行
     """
     from google.auth.exceptions import RefreshError

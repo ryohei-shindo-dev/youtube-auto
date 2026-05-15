@@ -123,7 +123,7 @@ Shorts とは別系統で、以下のスクリプトを使用：
 | 毎日 22:00 | analytics_collect.py | 再生数・エンゲージメント収集 |
 | 毎週月曜 23:00 | analytics_analyze.py | 週次分析レポート生成 |
 
-すべて `~/Library/LaunchAgents/com.youtube-auto.*.plist` で登録。`run_with_notify.sh` 経由で実行され、失敗時は `error_notify.py` が Gmail で通知。
+すべて `~/Library/LaunchAgents/com.youtube-auto.*.plist` で登録。`run_with_notify.sh` 経由で実行され、`job_runs.db` に記録されたエラーは `ops-hub/runtime/failure-triage.py` が `[ops-triage]` 件名で Gmail 通知。
 
 ## 外部サービス依存
 
