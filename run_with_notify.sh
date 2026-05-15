@@ -1,5 +1,5 @@
 #!/bin/bash
-# 定期実行ラッパー: コマンド実行 → 日別ログ追記 → エラー時にメール通知
+# 定期実行ラッパー: コマンド実行 → 日別ログ追記（エラー通知は ops-hub/failure-triage に委譲）
 #
 # Usage:
 #   ./run_with_notify.sh <コマンド名> <実行コマンド...>
@@ -50,10 +50,6 @@ fi
 # 実行終了を記録
 if [ -n "$_JOB_LOG_FILE" ]; then
   job_run_end $EXIT_CODE
-fi
-
-if [ $EXIT_CODE -ne 0 ]; then
-  venv/bin/python error_notify.py "$CMD_NAME" "$TMPLOG" 2>/dev/null || true
 fi
 
 rm -f "$TMPLOG"
