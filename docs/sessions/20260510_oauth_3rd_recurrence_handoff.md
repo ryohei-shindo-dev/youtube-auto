@@ -54,7 +54,25 @@ load していない (token 復旧後に load する想定)。
 
 次回からは Gmail 件名で project が即判別可能。
 
-## 引き継ぎ要請事項 (youtube-auto セッションで対応してほしい)
+## 引き継ぎ後の判断 (2026-05-10 21:00)
+
+**youtube-auto は縮小運用中（Shorts 投稿停止 4/7〜、判定待ち）のため、
+ユーザー指示「投稿停止しているからチェックも停止して」に従い Step 1〜5 は
+実施しない。現状（launchd 全 unload・token 不在）を維持する。**
+
+実施内容:
+- `docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md` の復旧手順を
+  「再開時の復旧手順」に書き換え、クローズ条件 5 件すべて済にマーク
+  （token reauth と launchd load 自体は投稿再開時に実施）
+- `OPERATIONS_MEMO.md` Current Operating Facts に現状（OAuth revoke 維持・
+  全 plist unload 維持・health-check も load せず）を追記
+- A1 (health-check plist) は `launchd_examples/` に配置済み、本番 load は
+  投稿再開時の Step 4 で実施する
+
+横展開（buyma-auto / otona-renai 側の token 状態確認）は、各プロジェクトの
+スコープ。本セッションでは確認しない。
+
+## 引き継ぎ要請事項 (もとの内容、参考用)
 
 ### Step 1: Google Cloud Console で OAuth client 設定確認 (ユーザー手動)
 

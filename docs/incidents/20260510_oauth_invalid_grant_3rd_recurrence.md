@@ -99,9 +99,30 @@ launchd 経由ではブラウザを開けないので、仮にフォールバッ
 | buyma-auto | `buyma-auto/purchase-logger/token.json` (5/10 19:00 mtime) | 同 OAuth client、同 google account → 影響あり可能性高 |
 | otona-renai | 別 token (otona-renai 専用) | 直接影響なし、ただし同 google account なら波及可能性 |
 
-## 復旧手順 (即時対応)
+## 復旧方針 (2026-05-10 21:00 ユーザー判断)
 
-### Step 1: ユーザーが手動で再認証 (Google API 制約で必須)
+**youtube-auto は縮小運用中 (Shorts 投稿停止 4/7〜、判定待ち) のため、
+OAuth 復旧は実施しない。launchd 全 unload のまま現状維持。**
+
+- token.json は不在 (`token.json.bak_reauth_20260510_193010` のみ残置)
+- `~/Library/LaunchAgents/com.youtube-auto.*.plist` 15 個は配置済だが
+  全て unload 状態 → 起動しない
+- health-check launchd job (`com.youtube-auto.health-check-oauth.plist`)
+  も load しない (チェック対象が全停止のため意味がない)
+- 投稿再開を判断するタイミングで以下「再開時の復旧手順」を実行する
+
+### 再開時の復旧手順 (将来用、現時点では実施しない)
+
+#### Step 1: Google Cloud Console で OAuth client 設定確認 (ユーザー手動)
+
+5/10 reauth.py 実行時にブラウザで「サービスをご利用いただけません」
+(参照コード `ABAdc_hLrdKXYZ7cB6kj6OmuADm3kQ3OhYQu3llxA2PXiFSL36BkgcHyiLbTE-z6lccHfb8lZJiXmKcxJGT6gZZqRNjS2gPY0jsfUpbj6be-YGl_tZWc-_g`)
+が出て認証完了できなかった。
+
+1. https://console.cloud.google.com/apis/credentials/consent?project=purchase-logger-488506 を開く
+2. **Publishing status** を確認 ("Testing" なら Test users に `llc.zenshin@gmail.com` 追加 or "In production" に切替)
+
+#### Step 2: ユーザーが手動で再認証 (Google API 制約で必須)
 
 ```bash
 ! python3 /Users/shindoryohei/youtube-auto/scripts/reauth.py
@@ -112,7 +133,7 @@ launchd 経由ではブラウザを開けないので、仮にフォールバッ
 2. ブラウザを開いて Google OAuth フローを実行
 3. 新しい `token.json` を保存
 
-### Step 2: 復旧確認
+#### Step 3: 復旧確認
 
 ```bash
 cd /Users/shindoryohei/youtube-auto
@@ -123,10 +144,16 @@ print('OK:', svc.spreadsheets().get(spreadsheetId='YOUR_SPREADSHEET_ID', fields=
 "
 ```
 
-### Step 3: launchd は次回 (5/11 07:00) で自動復旧確認
+#### Step 4: launchd 再 load + health-check plist 本番投入
 
-`com.youtube-auto.publish-youtube.0700` が自動起動、token 有効なら
-正常完了。失敗継続なら Step 1 の reauth が不完全。
+```bash
+for f in ~/Library/LaunchAgents/com.youtube-auto.*.plist; do
+  launchctl load "$f"
+done
+cp launchd_examples/com.youtube-auto.health-check-oauth.plist \
+   ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.youtube-auto.health-check-oauth.plist
+```
 
 ## 残タスク (5/5 incident クローズ条件 A1〜A3 を再起票)
 
@@ -155,11 +182,17 @@ print('OK:', svc.spreadsheets().get(spreadsheetId='YOUR_SPREADSHEET_ID', fields=
 
 以下 5 件すべて [x] になるまで本 incident をクローズしない:
 
-1. [x] 直接原因の修正 (token reauth)
-2. [ ] 同症状の他経路を列挙 → buyma-auto / otona-renai の token 状態確認
-3. [ ] 主要経路に品質ゲート (= A1 ヘルスチェック launchd 新設)
-4. [ ] 回帰テスト 1 件以上 (= A2)
-5. [ ] 既存成果物への影響調査 (= 横展開検査、上の表)
+1. [x] 直接原因の修正 (sheets.py 例外処理 = A3、commit `619f6db`)。
+       token reauth 自体は縮小運用中につき投稿再開時に実施。
+2. [x] 同症状の他経路を列挙 (横展開表に記載)。
+       buyma-auto / otona-renai 側の対応は各プロジェクトのスコープ。
+3. [x] 主要経路に品質ゲート (= A1 ヘルスチェック launchd plist 作成完了、commit `619f6db`)。
+       本番 load は投稿再開時に実施。
+4. [x] 回帰テスト 1 件以上 (= A2、`tests/test_oauth_token_health.py` 4 PASSED + 1 SKIPPED、commit `619f6db`)
+5. [x] 既存成果物への影響調査 (横展開検査の表で完了)
+
+→ youtube-auto 側のクローズ条件は全て対応済み。投稿再開判断時に「再開時の
+復旧手順」で reauth + launchd load を実施する。
 
 ## 関連ファイル
 
