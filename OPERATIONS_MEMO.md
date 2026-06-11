@@ -14,6 +14,7 @@
 - assets/photos/（6カテゴリ）、assets/videos/（shorts_hook, long_emotion）も全削除済み。assets/_raw, playlist_thumbnails, トップレベル png は残存。
 - 有効な自動タスクは2件のみ: analytics-collect（22:20）、analytics-analyze（月曜 23:20）。
 - 自動投稿の実行主体は `launchd + auto_publish.py`（plist は `~/Library/LaunchAgents/com.youtube-auto.publish-*.plist`）。
+- **2026-05-10**: OAuth invalid_grant 3度目再発（4/27→5/5→5/10）。投稿停止中につき token 復旧スキップ、`launchctl unload ~/Library/LaunchAgents/com.youtube-auto.*.plist` で 15 plist 全 unload 維持。token.json 不在（`token.json.bak_reauth_20260510_193010` のみ）。health-check plist も load せず。投稿再開時に `docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md` の「再開時の復旧手順」を実行する。
 - **改善開発は停止**。障害対応のみ最小限で対応。
 - 縮小判断の根拠: Shorts維持率が最高82.5%で目標90%未達。otona-renaiは上位5本すべて100%超え（リピート再生）。テーマ特性として投資系は情報処理型でリピートされにくい。
 - ElevenLabs 按分: 30:70（otona-renai 寄り）。

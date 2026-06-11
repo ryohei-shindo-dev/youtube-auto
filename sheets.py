@@ -687,7 +687,7 @@ def _get_credentials():
                     f"\n[OAuth Error] refresh_token が revoke されています。"
                     f"\n  token 退避先: {backup_path}"
                     f"\n  復旧コマンド: python3 {pathlib.Path(__file__).parent}/scripts/reauth.py"
-                    f"\n  詳細: docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md"
+                    f"\n  詳細: docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md"
                 )
                 print(hint, file=__import__("sys").stderr)
                 raise RefreshError(

@@ -30,7 +30,7 @@
   - 06:00 (07:00 ジョブの 1h 前) と 18:00 (19:00 ジョブの 1h 前) で発火
 - `tests/test_oauth_token_health.py` 新規 (A2、4/4 PASSED + 1 SKIPPED)
 - `scripts/reauth.py` 新規 (otona-renai 版を参考)
-- `docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md` 障害報告書
+- `docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md` 障害報告書
 
 ### 連鎖通知停止
 
@@ -61,7 +61,7 @@ load していない (token 復旧後に load する想定)。
 実施しない。現状（launchd 全 unload・token 不在）を維持する。**
 
 実施内容:
-- `docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md` の復旧手順を
+- `docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md` の復旧手順を
   「再開時の復旧手順」に書き換え、クローズ条件 5 件すべて済にマーク
   （token reauth と launchd load 自体は投稿再開時に実施）
 - `OPERATIONS_MEMO.md` Current Operating Facts に現状（OAuth revoke 維持・
@@ -130,7 +130,7 @@ launchctl load ~/Library/LaunchAgents/com.youtube-auto.health-check-oauth.plist
 
 ## 残タスク (本 incident クローズ条件)
 
-`docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md` のクローズ条件:
+`docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md` のクローズ条件:
 
 - [x] 直接原因の修正 (sheets.py 例外処理 = A3)
 - [ ] 同症状の他経路を列挙
@@ -155,7 +155,7 @@ youtube-auto/credentials.json -> buyma-auto/purchase-logger/credentials.json
 
 ### youtube-auto 側 (本リポジトリ)
 
-- `docs/incidents/20260510_oauth_invalid_grant_3rd_recurrence.md` (本障害)
+- `docs/incidents/incident-20260510-oauth-invalid-grant-3rd-recurrence.md` (本障害)
 - `scripts/reauth.py` (5/10 起源、復旧スクリプト)
 - `scripts/health_check_oauth.py` (5/10 起源、A1)
 - `launchd_examples/com.youtube-auto.health-check-oauth.plist` (5/10 起源、A1)
