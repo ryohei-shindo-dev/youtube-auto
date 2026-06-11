@@ -196,8 +196,8 @@ launchctl load ~/Library/LaunchAgents/com.youtube-auto.health-check-oauth.plist
 
 ## 関連ファイル
 
-- `docs/incidents/20260427_oauth_token_revoked.md` (1 度目、otona-renai 側)
-- `docs/incidents/20260505_oauth_invalid_grant_recurrence.md` (2 度目、otona-renai 側)
+- `otona-renai/docs/incidents/incident-20260427-oauth-token-revoked.md` (1 度目、otona-renai 側)
+- `otona-renai/docs/incidents/incident-20260505-oauth-invalid-grant-recurrence.md` (2 度目、otona-renai 側)
 - `docs/sessions/20260505_oauth_recurrence_remaining.md` (5/5 残タスク)
 - `~/otona-renai/scripts/reauth.py` (otona-renai 側 reauth 実装、参考)
 - `~/Library/LaunchAgents/com.youtube-auto.publish-youtube.1900.plist`
